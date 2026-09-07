@@ -36,10 +36,10 @@ body {
 }
 
 .table-wrap {
-  @apply card overflow-hidden;
+  @apply card overflow-x-auto;
 }
 table.app-table {
-  @apply w-full text-sm;
+  @apply w-full text-sm min-w-[560px];
 }
 table.app-table thead th {
   @apply bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 px-4 py-3 border-b border-gray-200;
