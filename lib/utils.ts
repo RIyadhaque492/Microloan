@@ -55,12 +55,10 @@ export function generateSchedule(
 ): ScheduleResult {
   const count = Math.trunc(Number(tenure));
 
-  let yearFraction: number;
-  if (frequency === 'daily') yearFraction = count / 365;
-  else if (frequency === 'weekly') yearFraction = count / 52;
-  else yearFraction = count / 12;
-
-  const interestAmount = principal * (ratePercent / 100) * yearFraction;
+  // Flat interest applies once to the full loan amount, for the whole loan
+  // term — it is NOT prorated by how long the loan runs. A "20% flat" loan
+  // means interest = 20% of principal, whether it's paid off in 2 months or 12.
+  const interestAmount = principal * (ratePercent / 100);
   const totalPayable = Math.round((principal + interestAmount) * 100) / 100;
   const installmentAmount = Math.round((totalPayable / count) * 100) / 100;
 

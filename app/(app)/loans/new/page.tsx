@@ -23,7 +23,7 @@ export default async function NewLoanPage({ searchParams }: { searchParams: { bo
 
         <div className="grid md:grid-cols-3 gap-4">
           <div><label className="label">Loan Amount (৳) *</label><input name="loan_amount" type="number" step="0.01" required className="input" /></div>
-          <div><label className="label">Interest Rate (% p.a.) *</label><input name="interest_rate" type="number" step="0.01" defaultValue={10} required className="input" /></div>
+          <div><label className="label">Interest Rate (% flat) *</label><input name="interest_rate" type="number" step="0.01" defaultValue={10} required className="input" /><p className="text-xs text-gray-400 mt-1">Applied once to the whole loan — not per year.</p></div>
           <div>
             <label className="label">Interest Type</label>
             <select name="interest_type" className="input">

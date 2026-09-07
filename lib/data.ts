@@ -225,6 +225,30 @@ export async function getLoanForCollection(loanId: number) {
 }
 
 /**
+ * Every borrower's FULL history (not just totals) — used by the "All Users Report"
+ * so it shows each borrower's actual loans and payments, not just summary numbers.
+ */
+export async function getAllUsersFullHistory(search?: string) {
+  const summary = await getCreditSummary(search);
+  const results = [];
+  for (const r of summary as any[]) {
+    const loans = await sql`SELECT * FROM loans WHERE borrower_id = ${r.id} ORDER BY created_at DESC`;
+    const payments = await sql`
+      SELECT c.*, l.loan_code FROM collections c JOIN loans l ON l.id = c.loan_id
+      WHERE c.borrower_id = ${r.id} ORDER BY c.payment_date DESC
+    `;
+    results.push({ ...r, loans, payments });
+  }
+  return results;
+}
+
+export async function getPaymentsForBorrower(borrowerId: number) {
+  return sql`
+    SELECT c.*, l.loan_code FROM collections c JOIN loans l ON l.id = c.loan_id
+    WHERE c.borrower_id = ${borrowerId} ORDER BY c.payment_date DESC
+  `;
+}
+/**
  * Every borrower's credit/debt summary. Only loans that were actually disbursed
  * (active, completed, defaulted) count toward "borrowed" — 'approved' hasn't been
  * disbursed yet, and 'defaulted' must still count as debt (this mirrors a real bug

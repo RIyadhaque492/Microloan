@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { getCreditSummary, getLoansForBorrower } from '@/lib/data';
-import { money, buildSingleUserShareText, buildAllUsersShareText } from '@/lib/utils';
-import ShareButtons from './ShareButtons';
+import { getCreditSummary, getLoansForBorrower, getPaymentsForBorrower, getAllUsersFullHistory } from '@/lib/data';
+import { money, buildSingleUserShareText, buildAllUsersShareText, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
+import ExportButtons from './ExportButtons';
 
 export default async function ReportsPage({
   searchParams,
@@ -15,6 +15,7 @@ export default async function ReportsPage({
     const allRows = await getCreditSummary();
     const selected = borrowerId ? allRows.find((r: any) => r.id === borrowerId) : null;
     const loans = selected ? ((await getLoansForBorrower(selected.id)) as any[]) : [];
+    const payments = selected ? ((await getPaymentsForBorrower(selected.id)) as any[]) : [];
     const shareText = selected ? buildSingleUserShareText(selected, loans) : '';
 
     return (
@@ -42,7 +43,7 @@ export default async function ReportsPage({
                 <h2 className="font-bold text-navy text-lg">{selected.full_name}</h2>
                 <p className="text-sm text-gray-500">{selected.borrower_code} · {selected.phone}</p>
               </div>
-              <ShareButtons text={shareText} title={`Credit report — ${selected.full_name}`} />
+              <ExportButtons mode="single" borrower={selected} loans={loans} payments={payments} shareText={shareText} />
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-5">
@@ -52,12 +53,23 @@ export default async function ReportsPage({
             </div>
 
             <h3 className="font-semibold text-sm mb-2">Loans</h3>
-            <table className="app-table">
+            <table className="app-table mb-5">
               <thead><tr><th>Loan Code</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
                 {loans.length === 0 && <tr><td colSpan={3} className="text-center text-gray-400 py-4">No loans.</td></tr>}
                 {loans.map((l) => (
                   <tr key={l.id}><td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td><td>৳{money(l.loan_amount)}</td><td>{l.status}</td></tr>
+                ))}
+              </tbody>
+            </table>
+
+            <h3 className="font-semibold text-sm mb-2">Payment History</h3>
+            <table className="app-table">
+              <thead><tr><th>Receipt No.</th><th>Loan Code</th><th>Date</th><th>Amount</th></tr></thead>
+              <tbody>
+                {payments.length === 0 && <tr><td colSpan={4} className="text-center text-gray-400 py-4">No payments.</td></tr>}
+                {payments.map((p) => (
+                  <tr key={p.id}><td>{p.receipt_no}</td><td>{p.loan_code}</td><td>{new Date(p.payment_date).toLocaleDateString()}</td><td>৳{money(p.amount_paid)}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -67,8 +79,8 @@ export default async function ReportsPage({
     );
   }
 
-  // All-users mode
-  const rows = await getCreditSummary(searchParams.q);
+  // All-users mode — full history per borrower
+  const rows = await getAllUsersFullHistory(searchParams.q);
   const shareText = buildAllUsersShareText(rows);
   const totals = rows.reduce(
     (acc: any, r: any) => ({
@@ -89,7 +101,7 @@ export default async function ReportsPage({
           <input name="q" defaultValue={searchParams.q} placeholder="Search borrower..." className="input max-w-xs" />
           <button className="btn btn-outline">Search</button>
         </form>
-        <ShareButtons text={shareText} title="MicroLoan - All Borrowers Summary" />
+        <ExportButtons mode="all" rows={rows} shareText={shareText} />
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-4">
@@ -98,24 +110,53 @@ export default async function ReportsPage({
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(totals.outstanding)}</div><div className="text-xs text-gray-500">Total Outstanding</div></div>
       </div>
 
-      <div className="table-wrap">
-        <table className="app-table">
-          <thead><tr><th>Code</th><th>Name</th><th>Phone</th><th>Borrowed</th><th>Paid</th><th>Outstanding</th><th>Status</th></tr></thead>
-          <tbody>
-            {rows.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-8">No borrowers found.</td></tr>}
-            {rows.map((r: any) => (
-              <tr key={r.id}>
-                <td>{r.borrower_code}</td>
-                <td><Link href={`/reports?mode=single&borrower=${r.id}`} className="text-teal">{r.full_name}</Link></td>
-                <td>{r.phone}</td>
-                <td>৳{money(r.total_borrowed)}</td>
-                <td>৳{money(r.total_paid)}</td>
-                <td>৳{money(r.outstanding_balance)}</td>
-                <td><span className="badge bg-gray-100 text-gray-700">{r.credit_status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <p className="text-xs text-gray-400 mb-3">Tap a borrower to expand their full loan and payment history.</p>
+
+      {rows.length === 0 && <div className="card p-8 text-center text-gray-400">No borrowers found.</div>}
+
+      <div className="space-y-2">
+        {rows.map((r: any) => (
+          <details key={r.id} className="card overflow-hidden group">
+            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden p-4 flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{r.full_name}</span>
+              <span className="text-xs text-gray-400">{r.borrower_code} · {r.phone}</span>
+              <span className={`badge ${r.credit_status === 'Overdue' ? 'bg-red-100 text-red-700' : r.credit_status === 'Active Debt' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{r.credit_status}</span>
+              <span className="ml-auto text-sm text-gray-500">Outstanding: ৳{money(r.outstanding_balance)}</span>
+            </summary>
+
+            <div className="border-t border-gray-100 p-4">
+              <h4 className="text-xs font-bold uppercase text-gray-500 mb-2">Loan History</h4>
+              <table className="app-table mb-4">
+                <thead><tr><th>Loan Code</th><th>Amount</th><th>Tenure</th><th>Total Payable</th><th>Status</th></tr></thead>
+                <tbody>
+                  {r.loans.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-3">No loans on record.</td></tr>}
+                  {r.loans.map((l: any) => (
+                    <tr key={l.id}>
+                      <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
+                      <td>৳{money(l.loan_amount)}</td>
+                      <td>{l.tenure} {frequencyShortLabel(l.repayment_frequency)}</td>
+                      <td>৳{money(l.total_payable)}</td>
+                      <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <h4 className="text-xs font-bold uppercase text-gray-500 mb-2">Payment History</h4>
+              <table className="app-table">
+                <thead><tr><th>Receipt No.</th><th>Loan Code</th><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
+                <tbody>
+                  {r.payments.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
+                  {r.payments.map((p: any) => (
+                    <tr key={p.id}>
+                      <td>{p.receipt_no}</td><td>{p.loan_code}</td><td>{new Date(p.payment_date).toLocaleDateString()}</td><td>৳{money(p.amount_paid)}</td><td>{p.payment_method}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ))}
       </div>
     </div>
   );
