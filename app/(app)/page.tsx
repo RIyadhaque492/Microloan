@@ -1,11 +1,19 @@
 import Link from 'next/link';
 import { getDashboardStats, generateDueNotifications } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
+import PageHeader from './PageHeader';
 
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+const COLORS = {
+  teal: 'bg-teal-100 text-teal-700',
+  navy: 'bg-sky-100 text-sky-700',
+  gold: 'bg-amber-100 text-amber-700',
+  red: 'bg-red-100 text-red-700',
+} as const;
+
+function StatCard({ icon, label, value, color = 'teal' }: { icon: string; label: string; value: string; color?: keyof typeof COLORS }) {
   return (
     <div className="card p-4 flex items-center gap-3">
-      <div className="w-11 h-11 rounded-lg bg-tealight flex items-center justify-center text-xl">{icon}</div>
+      <div className={`w-11 h-11 rounded-lg flex items-center justify-center text-xl ${COLORS[color]}`}>{icon}</div>
       <div>
         <div className="text-xl font-bold text-navy">{value}</div>
         <div className="text-xs text-gray-500">{label}</div>
@@ -20,18 +28,18 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-navy mb-4">Dashboard</h1>
+      <PageHeader title="Dashboard" showBack={false} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <StatCard icon="👥" label="Total Borrowers" value={String(stats.totalBorrowers)} />
-        <StatCard icon="📄" label="Active Loans" value={String(stats.activeLoans)} />
-        <StatCard icon="💵" label="Total Collected" value={`৳${money(stats.totalCollected)}`} />
-        <StatCard icon="⚠️" label="Overdue Installments" value={String(stats.overdueCount)} />
+        <StatCard icon="👥" label="Total Borrowers" value={String(stats.totalBorrowers)} color="teal" />
+        <StatCard icon="📄" label="Active Loans" value={String(stats.activeLoans)} color="navy" />
+        <StatCard icon="💵" label="Total Collected" value={`৳${money(stats.totalCollected)}`} color="gold" />
+        <StatCard icon="⚠️" label="Overdue Installments" value={String(stats.overdueCount)} color="red" />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard icon="📈" label="Total Disbursed" value={`৳${money(stats.totalDisbursed)}`} />
-        <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} />
-        <StatCard icon="🕒" label="Pending Approval" value={String(stats.pendingLoans)} />
+        <StatCard icon="📈" label="Total Disbursed" value={`৳${money(stats.totalDisbursed)}`} color="teal" />
+        <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="gold" />
+        <StatCard icon="🕒" label="Pending Approval" value={String(stats.pendingLoans)} color="navy" />
         <Link href="/loans/new" className="card p-4 flex items-center justify-center bg-teal text-white font-semibold">
           ➕ New Loan
         </Link>

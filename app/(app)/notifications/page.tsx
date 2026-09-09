@@ -1,6 +1,7 @@
 import { getNotifications, generateDueNotifications } from '@/lib/data';
 import { markNotificationReadAction, markAllNotificationsReadAction } from '@/lib/actions';
 import Link from 'next/link';
+import PageHeader from '../PageHeader';
 
 const ICONS: Record<string, string> = {
   due_soon: '⏰',
@@ -14,16 +15,20 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <div className="flex gap-2 flex-wrap">
-          <Link href="/notifications" className={`btn ${!searchParams.type ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>All</Link>
-          <Link href="/notifications?type=due_soon" className={`btn ${searchParams.type === 'due_soon' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Due Soon</Link>
-          <Link href="/notifications?type=overdue" className={`btn ${searchParams.type === 'overdue' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Overdue</Link>
-          <Link href="/notifications?type=payment_received" className={`btn ${searchParams.type === 'payment_received' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Payments</Link>
-        </div>
-        <form action={markAllNotificationsReadAction}>
-          <button className="btn btn-outline !py-1.5 !px-3 text-xs">✔ Mark all read</button>
-        </form>
+      <PageHeader
+        title="Notifications"
+        action={
+          <form action={markAllNotificationsReadAction}>
+            <button className="btn btn-outline !py-1.5 !px-3 text-xs">✔ Mark all read</button>
+          </form>
+        }
+      />
+
+      <div className="flex gap-2 flex-wrap mb-4">
+        <Link href="/notifications" className={`btn ${!searchParams.type ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>All</Link>
+        <Link href="/notifications?type=due_soon" className={`btn ${searchParams.type === 'due_soon' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Due Soon</Link>
+        <Link href="/notifications?type=overdue" className={`btn ${searchParams.type === 'overdue' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Overdue</Link>
+        <Link href="/notifications?type=payment_received" className={`btn ${searchParams.type === 'payment_received' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Payments</Link>
       </div>
 
       <div className="table-wrap">

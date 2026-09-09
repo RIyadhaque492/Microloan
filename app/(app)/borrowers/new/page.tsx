@@ -1,9 +1,10 @@
 import { createBorrowerAction } from '@/lib/actions';
+import PageHeader from '../../PageHeader';
 
 export default function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
   return (
     <div>
-      <h1 className="text-xl font-bold text-navy mb-4">Add Borrower</h1>
+      <PageHeader title="Add Borrower" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
       <form action={createBorrowerAction} className="card p-6 max-w-3xl space-y-5">

@@ -178,6 +178,64 @@ export async function deleteLoanAction(id: number) {
 
 // ---------- Collections ----------
 
+/**
+ * Applies a payment amount across a loan's unpaid installments, cascading
+ * overflow into the next one(s). Shared by collectPaymentAction (new payments)
+ * and updateCollectionAction (which replays a loan's whole payment history
+ * after an edit, to keep installment states correct).
+ */
+async function applyPaymentToInstallments(
+  loanId: number,
+  amount: number,
+  startInstallmentId: number | null,
+  paymentDate: string
+): Promise<{ appliedAmount: number; firstInstallmentId: number | null }> {
+  const installments = (await sql`
+    SELECT * FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid' ORDER BY installment_no ASC
+  `) as any[];
+
+  const ordered = startInstallmentId
+    ? [...installments.filter((i) => i.id === startInstallmentId), ...installments.filter((i) => i.id !== startInstallmentId)]
+    : installments;
+
+  let remaining = amount;
+  let firstInstallmentId: number | null = null;
+
+  for (const inst of ordered) {
+    if (remaining <= 0) break;
+    const due = Number(inst.amount) - Number(inst.paid_amount);
+    const payNow = Math.min(remaining, due);
+    if (payNow <= 0) continue;
+    if (firstInstallmentId === null) firstInstallmentId = inst.id;
+
+    const newPaid = Number(inst.paid_amount) + payNow;
+    const newStatus = newPaid >= Number(inst.amount) ? 'paid' : 'partial';
+    const paidDate = newStatus === 'paid' ? paymentDate : null;
+
+    await sql`
+      UPDATE loan_installments SET paid_amount = ${newPaid}, status = ${newStatus}, paid_date = ${paidDate}
+      WHERE id = ${inst.id}
+    `;
+
+    remaining -= payNow;
+  }
+
+  return { appliedAmount: Math.round((amount - Math.max(remaining, 0)) * 100) / 100, firstInstallmentId };
+}
+
+async function recomputeLoanCompletionStatus(loanId: number) {
+  const [{ c: remainingUnpaid }] = await sql`
+    SELECT COUNT(*)::int AS c FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid'
+  `;
+  const [loanRow] = await sql`SELECT status FROM loans WHERE id = ${loanId}`;
+  if (remainingUnpaid === 0 && loanRow.status !== 'completed') {
+    await sql`UPDATE loans SET status = 'completed' WHERE id = ${loanId}`;
+  } else if (remainingUnpaid > 0 && loanRow.status === 'completed') {
+    // Editing a payment down can un-complete a loan — put it back to active.
+    await sql`UPDATE loans SET status = 'active' WHERE id = ${loanId}`;
+  }
+}
+
 export async function collectPaymentAction(formData: FormData) {
   const admin = await requireAdmin();
 
@@ -195,58 +253,70 @@ export async function collectPaymentAction(formData: FormData) {
   const [loan] = await sql`SELECT * FROM loans WHERE id = ${loanId}`;
   if (!loan) redirect('/collections?error=' + encodeURIComponent('Loan not found.'));
 
-  const installments = (await sql`
-    SELECT * FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid' ORDER BY installment_no ASC
-  `) as any[];
+  const { appliedAmount, firstInstallmentId } = await applyPaymentToInstallments(loanId, amount, startInstallmentId || null, paymentDate);
 
-  // Reorder so the chosen starting installment (if any) is applied first, then the rest in order.
-  const ordered = startInstallmentId
-    ? [...installments.filter((i) => i.id === startInstallmentId), ...installments.filter((i) => i.id !== startInstallmentId)]
-    : installments;
-
-  let remaining = amount;
-  for (const inst of ordered) {
-    if (remaining <= 0) break;
-    const due = Number(inst.amount) - Number(inst.paid_amount);
-    const payNow = Math.min(remaining, due);
-    if (payNow <= 0) continue;
-
-    const newPaid = Number(inst.paid_amount) + payNow;
-    const newStatus = newPaid >= Number(inst.amount) ? 'paid' : 'partial';
-    const paidDate = newStatus === 'paid' ? paymentDate : null;
-
-    await sql`
-      UPDATE loan_installments SET paid_amount = ${newPaid}, status = ${newStatus}, paid_date = ${paidDate}
-      WHERE id = ${inst.id}
-    `;
-
-    remaining -= payNow;
-  }
-
-  const applied = Math.round((amount - Math.max(remaining, 0)) * 100) / 100;
   const receiptNo = generateCode('RCPT');
 
   const [collection] = await sql`
-    INSERT INTO collections (receipt_no, loan_id, borrower_id, amount_paid, payment_method, payment_date, notes, collected_by)
-    VALUES (${receiptNo}, ${loanId}, ${loan.borrower_id}, ${applied}, ${method}, ${paymentDate}, ${notes}, ${admin.adminId})
+    INSERT INTO collections (receipt_no, loan_id, installment_id, borrower_id, amount_paid, payment_method, payment_date, notes, collected_by)
+    VALUES (${receiptNo}, ${loanId}, ${firstInstallmentId}, ${loan.borrower_id}, ${appliedAmount}, ${method}, ${paymentDate}, ${notes}, ${admin.adminId})
     RETURNING id
   `;
 
-  const [{ c: remainingUnpaid }] = await sql`
-    SELECT COUNT(*)::int AS c FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid'
-  `;
-  if (remainingUnpaid === 0) {
-    await sql`UPDATE loans SET status = 'completed' WHERE id = ${loanId}`;
-  }
+  await recomputeLoanCompletionStatus(loanId);
 
   await sql`
     INSERT INTO notifications (loan_id, borrower_id, title, message, type)
-    VALUES (${loanId}, ${loan.borrower_id}, 'Payment received', ${`Received ${applied.toFixed(2)} for loan ${loan.loan_code}.`}, 'payment_received')
+    VALUES (${loanId}, ${loan.borrower_id}, 'Payment received', ${`Received ${appliedAmount.toFixed(2)} for loan ${loan.loan_code}.`}, 'payment_received')
   `;
 
   revalidatePath('/collections');
   revalidatePath(`/loans/${loanId}`);
   redirect(`/collections/receipt/${collection.id}`);
+}
+
+export async function updateCollectionAction(id: number, formData: FormData) {
+  await requireAdmin();
+
+  const [collection] = await sql`SELECT * FROM collections WHERE id = ${id}`;
+  if (!collection) redirect('/collections?error=' + encodeURIComponent('Payment record not found.'));
+
+  const newAmount = Number(formData.get('amount_paid'));
+  const newMethod = String(formData.get('payment_method') || 'cash');
+  const newDate = String(formData.get('payment_date') || collection.payment_date);
+  const newNotes = String(formData.get('notes') || '');
+
+  if (newAmount <= 0) {
+    redirect(`/collections/edit/${id}?error=` + encodeURIComponent('Amount must be greater than zero.'));
+  }
+
+  const loanId = collection.loan_id;
+
+  await sql`
+    UPDATE collections SET amount_paid = ${newAmount}, payment_method = ${newMethod}, payment_date = ${newDate}, notes = ${newNotes}
+    WHERE id = ${id}
+  `;
+
+  // Rebuild every installment on this loan from scratch, then replay every
+  // payment for this loan in date order (using the edited amount for this
+  // one) — this is what makes editing a past payment safe and correct,
+  // rather than trying to patch the old effect in place.
+  await sql`UPDATE loan_installments SET paid_amount = 0, status = 'pending', paid_date = NULL WHERE loan_id = ${loanId}`;
+
+  const allCollections = (await sql`
+    SELECT * FROM collections WHERE loan_id = ${loanId} ORDER BY payment_date ASC, id ASC
+  `) as any[];
+
+  for (const c of allCollections) {
+    await applyPaymentToInstallments(loanId, Number(c.amount_paid), c.installment_id, c.payment_date);
+  }
+
+  await sql`UPDATE loan_installments SET status = 'overdue' WHERE status = 'pending' AND due_date < CURRENT_DATE`;
+  await recomputeLoanCompletionStatus(loanId);
+
+  revalidatePath('/collections');
+  revalidatePath(`/loans/${loanId}`);
+  redirect(`/loans/${loanId}`);
 }
 
 // ---------- Notifications ----------

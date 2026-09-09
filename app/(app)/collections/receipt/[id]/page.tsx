@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { money } from '@/lib/utils';
 import ShareButtons from '../../../reports/ShareButtons';
+import PageHeader from '../../../PageHeader';
 
 export default async function ReceiptPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
@@ -27,6 +28,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
 
   return (
     <div className="max-w-md mx-auto">
+      <PageHeader title="Payment Receipt" />
       <div className="card p-6 text-center">
         <div className="text-3xl mb-1">💰</div>
         <h2 className="font-bold text-navy">MicroLoan Admin</h2>

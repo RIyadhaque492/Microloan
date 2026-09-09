@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import PageHeader from '../PageHeader';
 import { getCreditSummary, getLoansForBorrower, getPaymentsForBorrower, getAllUsersFullHistory } from '@/lib/data';
 import { money, buildSingleUserShareText, buildAllUsersShareText, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
@@ -20,6 +21,7 @@ export default async function ReportsPage({
 
     return (
       <div>
+        <PageHeader title="Reports" />
         <ModeSwitch mode={mode} />
 
         <form className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
@@ -93,7 +95,8 @@ export default async function ReportsPage({
 
   return (
     <div>
-      <ModeSwitch mode={mode} />
+      <PageHeader title="Reports" />
+        <ModeSwitch mode={mode} />
 
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <form className="flex gap-2">

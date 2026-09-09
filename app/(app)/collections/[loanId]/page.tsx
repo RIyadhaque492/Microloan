@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getLoanForCollection } from '@/lib/data';
 import { money } from '@/lib/utils';
 import CollectForm from './CollectForm';
+import PageHeader from '../../PageHeader';
 
 export default async function CollectPage({
   params,
@@ -20,7 +21,9 @@ export default async function CollectPage({
   const preselectId = Number(searchParams.installment_id) || installmentsArr[0]?.id || 0;
 
   return (
-    <div className="grid lg:grid-cols-2 gap-4 max-w-4xl">
+    <div>
+      <PageHeader title="Collect Payment" />
+      <div className="grid lg:grid-cols-2 gap-4 max-w-4xl">
       <div className="card p-5 h-fit">
         <h2 className="font-bold text-navy mb-1">{loan.full_name}</h2>
         <p className="text-sm text-gray-500 mb-1">{loan.phone}</p>
@@ -39,6 +42,7 @@ export default async function CollectPage({
       ) : (
         <CollectForm loanId={loanId} installments={installmentsArr as any} preselectId={preselectId} />
       )}
+      </div>
     </div>
   );
 }

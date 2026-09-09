@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS collections (
     id SERIAL PRIMARY KEY,
     receipt_no VARCHAR(40) NOT NULL UNIQUE,
     loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    installment_id INTEGER REFERENCES loan_installments(id) ON DELETE SET NULL,
     borrower_id INTEGER NOT NULL REFERENCES borrowers(id) ON DELETE CASCADE,
     amount_paid NUMERIC(12,2) NOT NULL,
     payment_method VARCHAR(20) NOT NULL DEFAULT 'cash',

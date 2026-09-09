@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getActiveLoansWithBalance, getRecentPayments, refreshOverdueInstallments } from '@/lib/data';
 import { money } from '@/lib/utils';
+import PageHeader from '../PageHeader';
 
 export default async function CollectionsPage({ searchParams }: { searchParams: { q?: string; error?: string } }) {
   await refreshOverdueInstallments();
@@ -9,6 +10,8 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
 
   return (
     <div>
+      <PageHeader title="Loan Collection" />
+
       <form className="flex gap-2 mb-4 max-w-sm">
         <input name="q" defaultValue={searchParams.q} placeholder="Search borrower or loan code..." className="input" />
         <button className="btn btn-outline">Search</button>
@@ -39,14 +42,15 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         <div className="table-wrap h-fit">
           <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Recent Payments</div>
           <table className="app-table">
-            <thead><tr><th>Receipt</th><th>Borrower</th><th>Amount</th></tr></thead>
+            <thead><tr><th>Receipt</th><th>Borrower</th><th>Amount</th><th></th></tr></thead>
             <tbody>
-              {recent.length === 0 && <tr><td colSpan={3} className="text-center text-gray-400 py-8">No payments yet.</td></tr>}
+              {recent.length === 0 && <tr><td colSpan={4} className="text-center text-gray-400 py-8">No payments yet.</td></tr>}
               {recent.map((p) => (
                 <tr key={p.id}>
                   <td><Link href={`/collections/receipt/${p.id}`} className="text-teal">{p.receipt_no}</Link></td>
                   <td>{p.full_name}</td>
                   <td>৳{money(p.amount_paid)}</td>
+                  <td><Link href={`/collections/edit/${p.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Edit</Link></td>
                 </tr>
               ))}
             </tbody>

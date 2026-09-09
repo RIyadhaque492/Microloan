@@ -2,12 +2,28 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { logoutAction } from '@/lib/actions';
-
-const navLink = 'flex items-center gap-2.5 px-5 py-2 text-sm text-gray-200 hover:bg-white/10 hover:text-white rounded-lg mx-2';
 
 export default function Sidebar({ name, role, unread }: { name?: string; role?: string; unread: number }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  function linkClass(active: boolean, extra = '') {
+    const base = 'flex items-center gap-2.5 px-5 py-2 text-sm rounded-r-lg mx-0 pl-4 border-l-[3px]';
+    return active
+      ? `${base} border-teal bg-teal-600/25 text-white font-semibold ${extra}`
+      : `${base} border-transparent text-gray-200 hover:bg-white/10 hover:text-white ${extra}`;
+  }
+
+  const isDashboard = pathname === '/';
+  const isBorrowersList = pathname.startsWith('/borrowers') && pathname !== '/borrowers/new';
+  const isBorrowersNew = pathname === '/borrowers/new';
+  const isLoansList = pathname.startsWith('/loans') && pathname !== '/loans/new';
+  const isLoansNew = pathname === '/loans/new';
+  const isCollections = pathname.startsWith('/collections');
+  const isReports = pathname.startsWith('/reports');
+  const isNotifications = pathname.startsWith('/notifications');
 
   return (
     <>
@@ -23,7 +39,6 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
         </Link>
       </div>
 
-      {/* Dim background behind the sidebar when open on mobile */}
       {open && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setOpen(false)} />}
 
       <aside
@@ -37,19 +52,24 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
         </div>
 
         <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto" onClick={() => setOpen(false)}>
-          <Link href="/" className={navLink}>📊 Dashboard</Link>
+          <Link href="/" className={linkClass(isDashboard)}>📊 Dashboard</Link>
+
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Borrowers</div>
-          <Link href="/borrowers" className={navLink}>👥 All Borrowers</Link>
-          <Link href="/borrowers/new" className={navLink}>➕ Add Borrower</Link>
+          <Link href="/borrowers" className={linkClass(isBorrowersList)}>👥 All Borrowers</Link>
+          <Link href="/borrowers/new" className={linkClass(isBorrowersNew)}>➕ Add Borrower</Link>
+
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Loans</div>
-          <Link href="/loans" className={navLink}>📄 All Loans</Link>
-          <Link href="/loans/new" className={navLink}>🆕 Loan Registration</Link>
+          <Link href="/loans" className={linkClass(isLoansList)}>📄 All Loans</Link>
+          <Link href="/loans/new" className={linkClass(isLoansNew)}>🆕 Loan Registration</Link>
+
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Collections</div>
-          <Link href="/collections" className={navLink}>💵 Loan Collection</Link>
+          <Link href="/collections" className={linkClass(isCollections)}>💵 Loan Collection</Link>
+
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Reports</div>
-          <Link href="/reports" className={navLink}>📑 Credit Reports</Link>
+          <Link href="/reports" className={linkClass(isReports)}>📑 Credit Reports</Link>
+
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Alerts</div>
-          <Link href="/notifications" className={`${navLink} justify-between`}>
+          <Link href="/notifications" className={linkClass(isNotifications, 'justify-between')}>
             <span>🔔 Notifications</span>
             {unread > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{unread}</span>}
           </Link>
