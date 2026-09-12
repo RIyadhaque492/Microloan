@@ -123,8 +123,14 @@ export async function getBorrower(id: number) {
 }
 
 export async function getSiteSettings() {
-  const [row] = await sql`SELECT * FROM site_settings WHERE id = 1`;
-  return row || null;
+  try {
+    const [row] = await sql`SELECT * FROM site_settings WHERE id = 1`;
+    return row || null;
+  } catch {
+    // Table doesn't exist yet (migration not run) or another transient DB issue —
+    // fail gracefully so the public homepage shows sensible defaults instead of crashing.
+    return null;
+  }
 }
 
 export async function getBorrowerDocuments(borrowerId: number) {
