@@ -257,11 +257,28 @@ export async function collectPaymentAction(formData: FormData) {
 
   const receiptNo = generateCode('RCPT');
 
-  const [collection] = await sql`
-    INSERT INTO collections (receipt_no, loan_id, installment_id, borrower_id, amount_paid, payment_method, payment_date, notes, collected_by)
-    VALUES (${receiptNo}, ${loanId}, ${firstInstallmentId}, ${loan.borrower_id}, ${appliedAmount}, ${method}, ${paymentDate}, ${notes}, ${admin.adminId})
-    RETURNING id
-  `;
+  let collection: any;
+  try {
+    [collection] = await sql`
+      INSERT INTO collections (receipt_no, loan_id, installment_id, borrower_id, amount_paid, payment_method, payment_date, notes, collected_by)
+      VALUES (${receiptNo}, ${loanId}, ${firstInstallmentId}, ${loan.borrower_id}, ${appliedAmount}, ${method}, ${paymentDate}, ${notes}, ${admin.adminId})
+      RETURNING id
+    `;
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.includes('installment_id') && msg.includes('does not exist')) {
+      // migration_add_installment_tracking.sql hasn't been run on this database yet.
+      // Fall back so recording a payment still works — the Edit Payment feature's
+      // exact replay-ordering just won't be as precise until the migration runs.
+      [collection] = await sql`
+        INSERT INTO collections (receipt_no, loan_id, borrower_id, amount_paid, payment_method, payment_date, notes, collected_by)
+        VALUES (${receiptNo}, ${loanId}, ${loan.borrower_id}, ${appliedAmount}, ${method}, ${paymentDate}, ${notes}, ${admin.adminId})
+        RETURNING id
+      `;
+    } else {
+      throw err;
+    }
+  }
 
   await recomputeLoanCompletionStatus(loanId);
 
@@ -311,7 +328,12 @@ export async function updateCollectionAction(id: number, formData: FormData) {
     await applyPaymentToInstallments(loanId, Number(c.amount_paid), c.installment_id, c.payment_date);
   }
 
-  await sql`UPDATE loan_installments SET status = 'overdue' WHERE status = 'pending' AND due_date < CURRENT_DATE`;
+  await sql`
+    UPDATE loan_installments li SET status = 'overdue'
+    FROM loans l
+    WHERE li.loan_id = l.id AND li.loan_id = ${loanId} AND li.status = 'pending' AND li.due_date < CURRENT_DATE
+      AND l.status IN ('active', 'defaulted')
+  `;
   await recomputeLoanCompletionStatus(loanId);
 
   revalidatePath('/collections');
