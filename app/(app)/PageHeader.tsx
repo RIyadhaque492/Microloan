@@ -15,13 +15,13 @@ export default function PageHeader({
 
   return (
     <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         {showBack && (
           <button
             onClick={() => router.back()}
             aria-label="Go back"
             type="button"
-            className="text-gray-400 hover:text-navy text-xl leading-none px-1 flex-shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-navy text-lg leading-none flex-shrink-0 shadow-sm hover:bg-gray-50 active:scale-95 transition"
           >
             ←
           </button>

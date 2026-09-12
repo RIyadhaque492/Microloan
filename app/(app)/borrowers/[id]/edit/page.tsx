@@ -3,6 +3,8 @@ import { getBorrower } from '@/lib/data';
 import { updateBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../../PageHeader';
 
+export const metadata = { title: 'Edit Borrower - MicroLoan Admin' };
+
 export default async function EditBorrowerPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
   const borrower = await getBorrower(id);

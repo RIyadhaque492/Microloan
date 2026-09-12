@@ -5,6 +5,8 @@ import { money, statusBadgeClass } from '@/lib/utils';
 import { updateLoanStatusAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 
+export const metadata = { title: 'Loan Details - MicroLoan Admin' };
+
 export default async function LoanViewPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
   await refreshOverdueInstallments();

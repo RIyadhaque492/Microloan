@@ -1,6 +1,8 @@
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
+export const metadata = { title: 'Add Borrower - MicroLoan Admin' };
+
 export default function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
   return (
     <div>

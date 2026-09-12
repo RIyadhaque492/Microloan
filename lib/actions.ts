@@ -32,7 +32,7 @@ export async function loginAction(formData: FormData) {
   }
 
   await createSession({ adminId: admin.id, name: admin.full_name, email: admin.email, role: admin.role });
-  redirect('/');
+  redirect('/dashboard');
 }
 
 export async function logoutAction() {
@@ -317,6 +317,74 @@ export async function updateCollectionAction(id: number, formData: FormData) {
   revalidatePath('/collections');
   revalidatePath(`/loans/${loanId}`);
   redirect(`/loans/${loanId}`);
+}
+
+// ---------- Site Settings ----------
+
+export async function updateSiteSettingsAction(formData: FormData) {
+  await requireAdmin();
+
+  await sql`
+    UPDATE site_settings SET
+      site_name = ${String(formData.get('site_name') || 'MicroLoan')},
+      tagline = ${String(formData.get('tagline') || '')},
+      banner_heading = ${String(formData.get('banner_heading') || '')},
+      banner_subtext = ${String(formData.get('banner_subtext') || '')},
+      about_text = ${String(formData.get('about_text') || '')},
+      contact_phone = ${String(formData.get('contact_phone') || '')},
+      contact_email = ${String(formData.get('contact_email') || '')},
+      contact_address = ${String(formData.get('contact_address') || '')},
+      updated_at = now()
+    WHERE id = 1
+  `;
+
+  revalidatePath('/settings');
+  revalidatePath('/');
+  redirect('/settings?saved=1');
+}
+
+// ---------- Documents ----------
+
+const MAX_DOC_SIZE = 3 * 1024 * 1024; // 3MB — stays safely under Vercel's request size limits once base64-encoded
+const ALLOWED_DOC_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+export async function uploadDocumentAction(borrowerId: number, formData: FormData) {
+  const admin = await requireAdmin();
+
+  const file = formData.get('file') as File | null;
+  const docTitle = String(formData.get('doc_title') || '').trim();
+  const docType = String(formData.get('doc_type') || 'other');
+
+  if (!file || file.size === 0) {
+    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('Please choose a file to upload.'));
+  }
+  if (!docTitle) {
+    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('Please give the document a title.'));
+  }
+  if (file.size > MAX_DOC_SIZE) {
+    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('File is too large. Max size is 3MB — try a smaller photo or a compressed PDF.'));
+  }
+  if (!ALLOWED_DOC_TYPES.includes(file.type)) {
+    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('Only JPG, PNG, WEBP, or PDF files are allowed.'));
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const base64 = buffer.toString('base64');
+
+  await sql`
+    INSERT INTO borrower_documents (borrower_id, doc_title, doc_type, file_name, mime_type, file_size, file_data, uploaded_by)
+    VALUES (${borrowerId}, ${docTitle}, ${docType}, ${file.name}, ${file.type}, ${file.size}, ${base64}, ${admin.adminId})
+  `;
+
+  revalidatePath(`/borrowers/${borrowerId}`);
+  redirect(`/borrowers/${borrowerId}#documents`);
+}
+
+export async function deleteDocumentAction(borrowerId: number, docId: number) {
+  await requireAdmin();
+  await sql`DELETE FROM borrower_documents WHERE id = ${docId} AND borrower_id = ${borrowerId}`;
+  revalidatePath(`/borrowers/${borrowerId}`);
+  redirect(`/borrowers/${borrowerId}#documents`);
 }
 
 // ---------- Notifications ----------

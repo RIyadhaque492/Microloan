@@ -4,6 +4,8 @@ import { money } from '@/lib/utils';
 import CollectForm from './CollectForm';
 import PageHeader from '../../PageHeader';
 
+export const metadata = { title: 'Collect Payment - MicroLoan Admin' };
+
 export default async function CollectPage({
   params,
   searchParams,

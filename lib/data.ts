@@ -122,6 +122,18 @@ export async function getBorrower(id: number) {
   return borrower || null;
 }
 
+export async function getSiteSettings() {
+  const [row] = await sql`SELECT * FROM site_settings WHERE id = 1`;
+  return row || null;
+}
+
+export async function getBorrowerDocuments(borrowerId: number) {
+  return sql`
+    SELECT id, borrower_id, doc_title, doc_type, file_name, mime_type, file_size, uploaded_at
+    FROM borrower_documents WHERE borrower_id = ${borrowerId} ORDER BY uploaded_at DESC
+  `;
+}
+
 export async function getLoansForBorrower(borrowerId: number) {
   return sql`SELECT * FROM loans WHERE borrower_id = ${borrowerId} ORDER BY created_at DESC`;
 }

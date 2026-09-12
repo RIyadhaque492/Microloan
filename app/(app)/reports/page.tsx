@@ -4,6 +4,8 @@ import { getCreditSummary, getLoansForBorrower, getPaymentsForBorrower, getAllUs
 import { money, buildSingleUserShareText, buildAllUsersShareText, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
 
+export const metadata = { title: 'Reports - MicroLoan Admin' };
+
 export default async function ReportsPage({
   searchParams,
 }: {

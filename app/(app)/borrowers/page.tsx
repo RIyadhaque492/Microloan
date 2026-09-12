@@ -3,6 +3,8 @@ import { getBorrowers } from '@/lib/data';
 import { statusBadgeClass } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
+export const metadata = { title: 'All Borrowers - MicroLoan Admin' };
+
 export default async function BorrowersPage({ searchParams }: { searchParams: { q?: string; error?: string } }) {
   const borrowers = (await getBorrowers(searchParams.q)) as any[];
 

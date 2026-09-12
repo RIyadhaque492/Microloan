@@ -3,6 +3,8 @@ import { getLoans } from '@/lib/data';
 import { money, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
+export const metadata = { title: 'All Loans - MicroLoan Admin' };
+
 const STATUSES = ['pending', 'approved', 'active', 'completed', 'rejected', 'defaulted'];
 
 export default async function LoansPage({ searchParams }: { searchParams: { q?: string; status?: string; error?: string } }) {

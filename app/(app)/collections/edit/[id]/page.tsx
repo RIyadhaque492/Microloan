@@ -3,6 +3,8 @@ import { sql } from '@/lib/db';
 import { updateCollectionAction } from '@/lib/actions';
 import PageHeader from '../../../PageHeader';
 
+export const metadata = { title: 'Edit Payment - MicroLoan Admin' };
+
 export default async function EditCollectionPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
   const [collection] = await sql`

@@ -3,6 +3,8 @@ import { markNotificationReadAction, markAllNotificationsReadAction } from '@/li
 import Link from 'next/link';
 import PageHeader from '../PageHeader';
 
+export const metadata = { title: 'Notifications - MicroLoan Admin' };
+
 const ICONS: Record<string, string> = {
   due_soon: '⏰',
   overdue: '⚠️',

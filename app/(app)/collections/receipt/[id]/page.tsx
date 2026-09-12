@@ -5,6 +5,8 @@ import { money } from '@/lib/utils';
 import ShareButtons from '../../../reports/ShareButtons';
 import PageHeader from '../../../PageHeader';
 
+export const metadata = { title: 'Payment Receipt - MicroLoan Admin' };
+
 export default async function ReceiptPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
   const [p] = await sql`

@@ -2,6 +2,8 @@ import { sql } from '@/lib/db';
 import { createLoanAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
+export const metadata = { title: 'Loan Registration - MicroLoan Admin' };
+
 export default async function NewLoanPage({ searchParams }: { searchParams: { borrower_id?: string; error?: string } }) {
   const borrowers = await sql`SELECT id, full_name, borrower_code, phone FROM borrowers WHERE status = 'active' ORDER BY full_name`;
   const today = new Date().toISOString().slice(0, 10);
@@ -47,6 +49,13 @@ export default async function NewLoanPage({ searchParams }: { searchParams: { bo
 
         <div className="text-sm bg-sky-50 text-sky-800 rounded-lg px-3 py-2">
           ℹ️ The installment schedule is generated automatically. The loan starts as <strong>Pending</strong> until approved.
+        </div>
+
+        <div className="text-sm bg-amber-50 text-amber-800 rounded-lg px-3 py-2">
+          📎 Make sure the borrower's and guarantor's ID documents are uploaded before approving this loan.
+          {searchParams.borrower_id && (
+            <> <a href={`/borrowers/${searchParams.borrower_id}#documents`} className="underline font-semibold" target="_blank" rel="noopener noreferrer">Check/upload documents</a></>
+          )}
         </div>
 
         <button type="submit" className="btn btn-primary">Register Loan</button>

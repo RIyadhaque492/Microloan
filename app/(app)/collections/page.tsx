@@ -3,6 +3,8 @@ import { getActiveLoansWithBalance, getRecentPayments, refreshOverdueInstallment
 import { money } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
+export const metadata = { title: 'Loan Collection - MicroLoan Admin' };
+
 export default async function CollectionsPage({ searchParams }: { searchParams: { q?: string; error?: string } }) {
   await refreshOverdueInstallments();
   const loans = await getActiveLoansWithBalance(searchParams.q);
