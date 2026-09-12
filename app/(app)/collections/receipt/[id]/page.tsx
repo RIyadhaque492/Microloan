@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { money } from '@/lib/utils';
-import ShareButtons from '../../../reports/ShareButtons';
+import ReceiptExportButtons from './ReceiptExportButtons';
 import PageHeader from '../../../PageHeader';
 
 export const metadata = { title: 'Payment Receipt - MicroLoan Admin' };
@@ -52,7 +52,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         </div>
 
         <div className="flex flex-col gap-2">
-          <ShareButtons text={shareText} title="Payment Receipt" />
+          <ReceiptExportButtons receipt={p} shareText={shareText} />
           <Link href={`/loans/${p.loan_id}`} className="btn btn-outline w-full mt-2">Back to Loan</Link>
         </div>
       </div>

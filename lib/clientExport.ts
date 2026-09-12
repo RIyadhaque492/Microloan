@@ -157,6 +157,72 @@ export async function buildSingleUserExcelBlob(borrower: any, loans: any[], paym
   return new Blob([out], { type: 'application/octet-stream' });
 }
 
+export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.text('MicroLoan Admin', 105, 20, { align: 'center' });
+  doc.setFontSize(11);
+  doc.text('Payment Receipt', 105, 27, { align: 'center' });
+  doc.setLineWidth(0.2);
+  doc.line(20, 32, 190, 32);
+
+  const rows = [
+    ['Receipt No.', receipt.receipt_no],
+    ['Date', new Date(receipt.payment_date).toLocaleDateString()],
+    ['Borrower', `${receipt.full_name} (${receipt.borrower_code})`],
+    ['Phone', receipt.phone || '-'],
+    ['Loan Code', receipt.loan_code],
+    ['Payment Method', receipt.payment_method.replace('_', ' ')],
+  ];
+  if (receipt.notes) rows.push(['Notes', receipt.notes]);
+
+  autoTable(doc, {
+    startY: 38,
+    body: rows,
+    theme: 'plain',
+    styles: { fontSize: 11, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
+  });
+
+  const afterTable = (doc as any).lastAutoTable.finalY + 8;
+  doc.setFillColor(230, 246, 245);
+  doc.rect(20, afterTable, 170, 16, 'F');
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Amount Paid', 25, afterTable + 10);
+  doc.setFontSize(14);
+  doc.text(`Tk ${money(receipt.amount_paid)}`, 185, afterTable + 10, { align: 'right' });
+
+  return doc.output('blob');
+}
+
+export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
+  const XLSX = await import('xlsx');
+  const rows = [
+    ['MicroLoan Admin - Payment Receipt'],
+    [],
+    ['Receipt No.', receipt.receipt_no],
+    ['Date', new Date(receipt.payment_date).toISOString().slice(0, 10)],
+    ['Borrower', receipt.full_name],
+    ['Borrower Code', receipt.borrower_code],
+    ['Phone', receipt.phone || ''],
+    ['Loan Code', receipt.loan_code],
+    ['Payment Method', receipt.payment_method.replace('_', ' ')],
+    ['Notes', receipt.notes || ''],
+    [],
+    ['Amount Paid (BDT)', Number(receipt.amount_paid)],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 20 }, { wch: 30 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Receipt');
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([out], { type: 'application/octet-stream' });
+}
+
 function safeSheetName(name: string, used: Set<string>): string {
   let base = name.replace(/[:\\/?*[\]]/g, '').trim().slice(0, 28) || 'Borrower';
   let final = base;
