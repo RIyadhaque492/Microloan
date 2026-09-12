@@ -9,6 +9,7 @@ export const metadata = { title: 'Loan Details - MicroLoan Admin' };
 
 export default async function LoanViewPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
+  if (!id || isNaN(id)) notFound();
   await refreshOverdueInstallments();
   const data = await getLoan(id);
   if (!data) notFound();

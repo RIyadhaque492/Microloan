@@ -9,6 +9,7 @@ export const metadata = { title: 'Payment Receipt - MicroLoan Admin' };
 
 export default async function ReceiptPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
+  if (!id || isNaN(id)) notFound();
   const [p] = await sql`
     SELECT c.*, b.full_name, b.phone, b.borrower_code, l.loan_code
     FROM collections c

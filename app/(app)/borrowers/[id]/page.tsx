@@ -19,6 +19,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 
 export default async function BorrowerViewPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
+  if (!id || isNaN(id)) notFound();
   const borrower = await getBorrower(id);
   if (!borrower) notFound();
   const loans = (await getLoansForBorrower(id)) as any[];

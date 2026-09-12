@@ -7,6 +7,7 @@ export const metadata = { title: 'Edit Payment - MicroLoan Admin' };
 
 export default async function EditCollectionPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
+  if (!id || isNaN(id)) notFound();
   const [collection] = await sql`
     SELECT c.*, b.full_name, l.loan_code FROM collections c
     JOIN borrowers b ON b.id = c.borrower_id

@@ -7,6 +7,7 @@ export const metadata = { title: 'Edit Borrower - MicroLoan Admin' };
 
 export default async function EditBorrowerPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
+  if (!id || isNaN(id)) notFound();
   const borrower = await getBorrower(id);
   if (!borrower) notFound();
 

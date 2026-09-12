@@ -14,6 +14,7 @@ export default async function CollectPage({
   searchParams: { installment_id?: string; error?: string };
 }) {
   const loanId = Number(params.loanId);
+  if (!loanId || isNaN(loanId)) notFound();
   const data = await getLoanForCollection(loanId);
   if (!data) notFound();
   const { loan, installments } = data;
