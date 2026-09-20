@@ -1,12 +1,12 @@
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
-export const metadata = { title: 'Add Borrower - MicroLoan Admin' };
+export const metadata = { title: 'Add Member - MicroLoan Admin' };
 
 export default function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
   return (
     <div>
-      <PageHeader title="Add Borrower" />
+      <PageHeader title="Add Member" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
       <form action={createBorrowerAction} className="card p-6 max-w-3xl space-y-5">
@@ -27,9 +27,14 @@ export default function NewBorrowerPage({ searchParams }: { searchParams: { erro
           <div><label className="label">Monthly Income</label><input name="monthly_income" type="number" step="0.01" className="input" /></div>
           <div><label className="label">Guarantor Name</label><input name="guarantor_name" className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" className="input" /></div>
+          <div>
+            <label className="label">Registration Fee (৳)</label>
+            <input name="registration_fee" type="number" step="0.01" defaultValue={0} className="input" />
+            <p className="text-xs text-gray-400 mt-1">One-time membership fee collected at sign-up, if any.</p>
+          </div>
         </div>
         <div className="flex gap-2">
-          <button type="submit" className="btn btn-primary">Save Borrower</button>
+          <button type="submit" className="btn btn-primary">Save Member</button>
         </div>
       </form>
     </div>

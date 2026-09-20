@@ -1,15 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getBorrower, getLoansForBorrower, getBorrowerDocuments } from '@/lib/data';
+import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance } from '@/lib/data';
 import { money, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
-export const metadata = { title: 'Borrower Profile - MicroLoan Admin' };
+export const metadata = { title: 'Member Profile - MicroLoan Admin' };
 
 const DOC_TYPE_LABELS: Record<string, string> = {
-  borrower_nid: 'Borrower NID/ID',
-  borrower_photo: 'Borrower Photo',
+  borrower_nid: 'Member NID/ID',
+  borrower_photo: 'Member Photo',
   income_proof: 'Income Proof',
   address_proof: 'Address Proof',
   guarantor_nid: 'Guarantor NID/ID',
@@ -24,6 +24,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
   if (!borrower) notFound();
   const loans = (await getLoansForBorrower(id)) as any[];
   const documents = (await getBorrowerDocuments(id)) as any[];
+  const savingsBalance = await getSavingsBalance(id);
 
   const uploadAction = uploadDocumentAction.bind(null, id);
 
@@ -57,11 +58,17 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
             <p>💼 {borrower.occupation || '—'}</p>
             <p>📍 {borrower.present_address || '—'}</p>
             <p>🤝 Guarantor: {borrower.guarantor_name || '—'} {borrower.guarantor_phone ? `(${borrower.guarantor_phone})` : ''}</p>
+            <p>🧾 Registration Fee: ৳{money(borrower.registration_fee)}</p>
           </div>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 rounded-lg bg-tealight p-3 flex items-center justify-between">
+            <span className="text-sm font-semibold text-navy">🏦 Savings Balance</span>
+            <span className="font-bold text-teal">৳{money(savingsBalance)}</span>
+          </div>
+          <div className="mt-3 flex gap-2">
             <Link href={`/borrowers/${id}/edit`} className="btn btn-outline flex-1">✏️ Edit</Link>
             <Link href={`/loans/new?borrower_id=${borrower.id}`} className="btn btn-primary flex-1">➕ New Loan</Link>
           </div>
+          <Link href={`/savings/${id}`} className="btn btn-outline w-full mt-2">🏦 Manage Savings</Link>
         </div>
 
         <div className="lg:col-span-2 space-y-4">
@@ -85,7 +92,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
           </div>
 
           <div id="documents" className="card p-5">
-            <h3 className="font-semibold text-sm mb-3">Documents (Borrower &amp; Guarantor)</h3>
+            <h3 className="font-semibold text-sm mb-3">Documents (Member &amp; Guarantor)</h3>
 
             {documents.length === 0 ? (
               <p className="text-gray-400 text-sm mb-4">No documents uploaded yet.</p>
@@ -122,9 +129,9 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
                 <div>
                   <label className="label">Document Type</label>
                   <select name="doc_type" className="input" defaultValue="borrower_nid">
-                    <optgroup label="Borrower">
-                      <option value="borrower_nid">Borrower NID / ID Card</option>
-                      <option value="borrower_photo">Borrower Photo</option>
+                    <optgroup label="Member">
+                      <option value="borrower_nid">Member NID / ID Card</option>
+                      <option value="borrower_photo">Member Photo</option>
                       <option value="income_proof">Income Proof</option>
                       <option value="address_proof">Address Proof</option>
                     </optgroup>

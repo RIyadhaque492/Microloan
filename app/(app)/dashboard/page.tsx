@@ -38,13 +38,13 @@ export default async function DashboardPage() {
       <div className="rounded-xl bg-gradient-to-r from-navy via-teal-700 to-teal-600 text-white p-5 mb-4 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold">Welcome back 👋</h2>
-          <p className="text-teal-50 text-sm opacity-90">Here's how your loan book looks today.</p>
+          <p className="text-teal-50 text-sm opacity-90">Here's how things look today.</p>
         </div>
         <Link href="/loans/new" className="btn bg-white text-navy hover:bg-gray-100 font-semibold">➕ Register New Loan</Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <StatCard icon="👥" label="Total Borrowers" value={String(stats.totalBorrowers)} color="teal" />
+        <StatCard icon="👥" label="Total Members" value={String(stats.totalBorrowers)} color="teal" />
         <StatCard icon="📄" label="Active Loans" value={String(stats.activeLoans)} color="navy" />
         <StatCard icon="💵" label="Total Collected" value={`৳${money(stats.totalCollected)}`} color="green" />
         <StatCard icon="⚠️" label="Overdue Installments" value={String(stats.overdueCount)} color="red" />
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard icon="📈" label="Total Disbursed" value={`৳${money(stats.totalDisbursed)}`} color="purple" />
         <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="gold" />
-        <StatCard icon="🕒" label="Pending Approval" value={String(stats.pendingLoans)} color="navy" />
+        <StatCard icon="🏦" label="Total Savings" value={`৳${money(stats.savingsTotal)}`} color="teal" />
         <Link href="/calculator" className="card p-4 flex items-center justify-center bg-navy text-white font-semibold hover:bg-navydark transition-colors">
           🧮 Loan Calculator
         </Link>
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
             Recent Loans <Link href="/loans" className="text-teal text-xs font-normal">View all</Link>
           </div>
           <table className="app-table">
-            <thead><tr><th>Loan Code</th><th>Borrower</th><th>Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>Loan Code</th><th>Member</th><th>Amount</th><th>Status</th></tr></thead>
             <tbody>
               {(stats.recentLoans as any[]).length === 0 && (
                 <tr><td colSpan={4} className="text-center text-gray-400 py-6">No loans yet.</td></tr>
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
             Installments Due (Next 7 Days) <Link href="/collections" className="text-teal text-xs font-normal">Collect</Link>
           </div>
           <table className="app-table">
-            <thead><tr><th>Borrower</th><th>Due</th><th>Amount</th><th></th></tr></thead>
+            <thead><tr><th>Member</th><th>Due</th><th>Amount</th><th></th></tr></thead>
             <tbody>
               {(stats.upcoming as any[]).length === 0 && (
                 <tr><td colSpan={4} className="text-center text-gray-400 py-6">No upcoming dues.</td></tr>

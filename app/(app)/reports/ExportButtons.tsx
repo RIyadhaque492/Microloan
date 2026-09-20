@@ -37,7 +37,7 @@ export default function ExportButtons(props: Props) {
         props.mode === 'single'
           ? await buildSingleUserPdfBlob(props.borrower, props.loans, props.payments)
           : await buildAllUsersPdfBlob(props.rows);
-      const filename = props.mode === 'single' ? `borrower-${props.borrower.borrower_code}.pdf` : `all-borrowers-report.pdf`;
+      const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.pdf` : `all-members-report.pdf`;
       const url = URL.createObjectURL(blob);
       setPreview({ kind: 'pdf', blob, url, filename, mimeType: 'application/pdf' });
     } finally {
@@ -46,7 +46,7 @@ export default function ExportButtons(props: Props) {
   }
 
   function openExcelPreview() {
-    const filename = props.mode === 'single' ? `borrower-${props.borrower.borrower_code}.xlsx` : `all-borrowers-report.xlsx`;
+    const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.xlsx` : `all-members-report.xlsx`;
     setPreview({ kind: 'excel', filename, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
 
@@ -158,7 +158,7 @@ function ExcelPreviewTable({ props }: { props: Props }) {
           <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Summary</h4>
           <table className="app-table"><tbody>
             <tr><td>Name</td><td>{props.borrower.full_name}</td></tr>
-            <tr><td>Borrower Code</td><td>{props.borrower.borrower_code}</td></tr>
+            <tr><td>Member Code</td><td>{props.borrower.borrower_code}</td></tr>
             <tr><td>Total Borrowed</td><td>৳{money(props.borrower.total_borrowed)}</td></tr>
             <tr><td>Total Paid</td><td>৳{money(props.borrower.total_paid)}</td></tr>
             <tr><td>Outstanding</td><td>৳{money(props.borrower.outstanding_balance)}</td></tr>
@@ -184,7 +184,7 @@ function ExcelPreviewTable({ props }: { props: Props }) {
 
   return (
     <div className="text-sm">
-      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Summary sheet + one sheet per borrower ({props.rows.length} total)</h4>
+      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Summary sheet + one sheet per member ({props.rows.length} total)</h4>
       <table className="app-table">
         <thead><tr><th>Code</th><th>Name</th><th>Borrowed</th><th>Paid</th><th>Outstanding</th></tr></thead>
         <tbody>

@@ -1,10 +1,6 @@
 import Link from 'next/link';
 import { getSiteSettings } from '@/lib/data';
 
-// Without this, Next.js tries to statically pre-render this page at BUILD time
-// (since it has no cookies/searchParams to signal otherwise) — which would both
-// break the build (no real database available then) and freeze the homepage's
-// content to whatever it was at deploy time, ignoring later Settings changes.
 export const dynamic = 'force-dynamic';
 
 export default async function PublicHomePage() {
@@ -30,7 +26,6 @@ export default async function PublicHomePage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
-      {/* Navbar */}
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
           <div className="font-extrabold text-lg text-navy flex items-center gap-2">💰 {siteName}</div>
@@ -38,7 +33,6 @@ export default async function PublicHomePage() {
         </div>
       </header>
 
-      {/* Banner */}
       <section className="bg-gradient-to-br from-navy via-navy to-teal-700 text-white">
         <div className="max-w-6xl mx-auto px-5 py-16 sm:py-24 text-center">
           {tagline && <p className="uppercase tracking-wide text-teal-200 text-sm font-semibold mb-3">{tagline}</p>}
@@ -48,7 +42,6 @@ export default async function PublicHomePage() {
         </div>
       </section>
 
-      {/* About / details section */}
       {aboutText && (
         <section className="max-w-4xl mx-auto px-5 py-14 text-center">
           <h2 className="text-2xl font-bold text-navy mb-4">About Us</h2>
@@ -56,7 +49,6 @@ export default async function PublicHomePage() {
         </section>
       )}
 
-      {/* Features */}
       <section className="bg-gray-50 py-14">
         <div className="max-w-6xl mx-auto px-5">
           <h2 className="text-2xl font-bold text-navy text-center mb-8">Why Choose Us</h2>
@@ -72,7 +64,6 @@ export default async function PublicHomePage() {
         </div>
       </section>
 
-      {/* Footer with contact + map */}
       <footer id="contact" className="bg-navydark text-gray-300">
         <div className="max-w-6xl mx-auto px-5 py-14 grid md:grid-cols-2 gap-8">
           <div>
@@ -86,15 +77,7 @@ export default async function PublicHomePage() {
           </div>
           {mapSrc && (
             <div className="rounded-lg overflow-hidden h-56 md:h-full min-h-[180px] border border-white/10">
-              <iframe
-                title="Location map"
-                src={mapSrc}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+              <iframe title="Location map" src={mapSrc} width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
             </div>
           )}
         </div>

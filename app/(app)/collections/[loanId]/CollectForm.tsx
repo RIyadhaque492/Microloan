@@ -21,12 +21,7 @@ export default function CollectForm({ loanId, installments, preselectId }: { loa
       <input type="hidden" name="loan_id" value={loanId} />
       <div>
         <label className="label">Apply Starting From Installment</label>
-        <select
-          name="installment_id"
-          className="input"
-          value={selectedId}
-          onChange={(e) => onSelectChange(Number(e.target.value))}
-        >
+        <select name="installment_id" className="input" value={selectedId} onChange={(e) => onSelectChange(Number(e.target.value))}>
           {installments.map((i) => (
             <option key={i.id} value={i.id}>
               #{i.installment_no} — Due {new Date(i.due_date).toLocaleDateString()} — ৳{(Number(i.amount) - Number(i.paid_amount)).toFixed(2)} due ({i.status})

@@ -1,11 +1,5 @@
 import { money } from './utils';
 
-/**
- * Shares a file via the native share sheet if the browser/OS supports sharing
- * files (most mobile browsers do — this lets the user pick WhatsApp, Messenger,
- * email, etc. with the actual file attached). Falls back to a plain download
- * everywhere else (desktop browsers mostly).
- */
 export async function shareOrDownloadBlob(blob: Blob, filename: string, mimeType: string) {
   try {
     const file = new File([blob], filename, { type: mimeType });
@@ -41,7 +35,7 @@ export async function buildSingleUserPdfBlob(borrower: any, loans: any[], paymen
   const doc = new jsPDF();
 
   doc.setFontSize(16);
-  doc.text('Borrower Credit / Debt Report', 14, 15);
+  doc.text('Member Credit / Debt Report', 14, 15);
   doc.setFontSize(9);
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 21);
 
@@ -80,7 +74,7 @@ export async function buildAllUsersPdfBlob(rows: any[]): Promise<Blob> {
   const doc = new jsPDF();
 
   doc.setFontSize(16);
-  doc.text('All Borrowers - Full Credit Report', 14, 15);
+  doc.text('All Members - Full Credit Report', 14, 15);
   doc.setFontSize(9);
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 21);
 
@@ -128,17 +122,23 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   const autoTable = (await import('jspdf-autotable')).default;
   const doc = new jsPDF();
 
-  doc.setFontSize(18);
-  doc.text('MicroLoan Admin', 105, 20, { align: 'center' });
-  doc.setFontSize(11);
-  doc.text('Payment Receipt', 105, 27, { align: 'center' });
+  // Outer border around the whole receipt
+  doc.setDrawColor(15, 42, 63);
+  doc.setLineWidth(0.6);
+  doc.rect(12, 12, 186, 190);
   doc.setLineWidth(0.2);
-  doc.line(20, 32, 190, 32);
+  doc.rect(14, 14, 182, 186);
+
+  doc.setFontSize(18);
+  doc.text('MicroLoan Admin', 105, 26, { align: 'center' });
+  doc.setFontSize(11);
+  doc.text('Payment Receipt', 105, 33, { align: 'center' });
+  doc.line(20, 38, 190, 38);
 
   const rows = [
     ['Receipt No.', receipt.receipt_no],
     ['Date', new Date(receipt.payment_date).toLocaleDateString()],
-    ['Borrower', `${receipt.full_name} (${receipt.borrower_code})`],
+    ['Member', `${receipt.full_name} (${receipt.borrower_code})`],
     ['Phone', receipt.phone || '-'],
     ['Loan Code', receipt.loan_code],
     ['Payment Method', receipt.payment_method.replace('_', ' ')],
@@ -146,16 +146,20 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   if (receipt.notes) rows.push(['Notes', receipt.notes]);
 
   autoTable(doc, {
-    startY: 38,
+    startY: 44,
     body: rows,
     theme: 'plain',
     styles: { fontSize: 11, cellPadding: 2 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
+    margin: { left: 20, right: 20 },
   });
 
   const afterTable = (doc as any).lastAutoTable.finalY + 8;
   doc.setFillColor(230, 246, 245);
   doc.rect(20, afterTable, 170, 16, 'F');
+  doc.setDrawColor(20, 149, 143);
+  doc.setLineWidth(0.3);
+  doc.rect(20, afterTable, 170, 16);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Amount Paid', 25, afterTable + 10);
@@ -167,8 +171,7 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
 
 // =====================================================================
 // Excel exports — built with ExcelJS (not the plain `xlsx` package, which
-// silently drops all cell styling on write). Shared styling helpers below
-// keep every export looking consistent and presentation-ready.
+// silently drops all cell styling on write).
 // =====================================================================
 
 const BRAND_NAVY = 'FF0F2A3F';
@@ -230,9 +233,7 @@ function autoWidth(ws: any, colCount: number, minWidths: number[] = [], startRow
     const col = ws.getColumn(i);
     let max = minWidths[i - 1] || 10;
     col.eachCell({ includeEmpty: false }, (cell: any) => {
-      if (cell.row < startRow) return; // skip merged title/subtitle rows — their text isn't this column's content
-      // A Date's raw toString() is a long verbose string (e.g. "Sat Sep 12 2026 00:00:00 GMT...");
-      // what actually displays is the numFmt-formatted value (e.g. "2026-09-12", 10 chars).
+      if (cell.row < startRow) return;
       const len = cell.value instanceof Date ? 10 : String(cell.value ?? '').length;
       if (len > max) max = len;
     });
@@ -240,17 +241,18 @@ function autoWidth(ws: any, colCount: number, minWidths: number[] = [], startRow
   }
 }
 
-/** All Borrowers Report — a Summary sheet plus one detail sheet per borrower. */
 export async function buildAllUsersExcelBlob(rows: any[]): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'MicroLoan Admin';
   wb.created = new Date();
 
-  // ---- Summary sheet ----
-  const summary = wb.addWorksheet('Summary', { views: [{ state: 'frozen', ySplit: 4 }], pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' } });
-  const headers = ['Borrower Code', 'Name', 'Phone', 'Loans', 'Borrowed (BDT)', 'Paid (BDT)', 'Outstanding (BDT)', 'Status'];
-  titleRow(summary, 'MicroLoan Admin — All Borrowers Credit Report', headers.length);
+  const summary = wb.addWorksheet('Summary', {
+    views: [{ state: 'frozen', ySplit: 4 }],
+    pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
+  });
+  const headers = ['Member Code', 'Name', 'Phone', 'Loans', 'Borrowed (BDT)', 'Paid (BDT)', 'Outstanding (BDT)', 'Status'];
+  titleRow(summary, 'MicroLoan Admin — All Members Credit Report', headers.length);
   subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}`, headers.length);
   summary.addRow([]);
   const headerRow = summary.addRow(headers);
@@ -281,7 +283,6 @@ export async function buildAllUsersExcelBlob(rows: any[]): Promise<Blob> {
 
   autoWidth(summary, headers.length, [18, 22, 14, 7, 14, 14, 16, 12], 4);
 
-  // ---- One detail sheet per borrower ----
   const used = new Set<string>(['Summary']);
   for (const r of rows) {
     const ws = wb.addWorksheet(safeSheetName(r.full_name, used), { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
@@ -326,7 +327,6 @@ export async function buildAllUsersExcelBlob(rows: any[]): Promise<Blob> {
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-/** Single borrower report — Summary, Loans, and Payments as separate sheets. */
 export async function buildSingleUserExcelBlob(borrower: any, loans: any[], payments: any[]): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
@@ -334,13 +334,13 @@ export async function buildSingleUserExcelBlob(borrower: any, loans: any[], paym
   wb.created = new Date();
 
   const summary = wb.addWorksheet('Summary', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-  titleRow(summary, 'Borrower Credit / Debt Report', 2);
+  titleRow(summary, 'Member Credit / Debt Report', 2);
   subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}`, 2);
   summary.addRow([]);
 
   const fields: [string, any][] = [
     ['Name', borrower.full_name],
-    ['Borrower Code', borrower.borrower_code],
+    ['Member Code', borrower.borrower_code],
     ['Phone', borrower.phone],
     ['Total Borrowed (BDT)', Number(borrower.total_borrowed)],
     ['Total Paid (BDT)', Number(borrower.total_paid)],
@@ -381,7 +381,6 @@ export async function buildSingleUserExcelBlob(borrower: any, loans: any[], paym
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-/** Single payment receipt. */
 export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
@@ -395,8 +394,8 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
   const fields: [string, any][] = [
     ['Receipt No.', receipt.receipt_no],
     ['Date', new Date(receipt.payment_date)],
-    ['Borrower', receipt.full_name],
-    ['Borrower Code', receipt.borrower_code],
+    ['Member', receipt.full_name],
+    ['Member Code', receipt.borrower_code],
     ['Phone', receipt.phone || ''],
     ['Loan Code', receipt.loan_code],
     ['Payment Method', receipt.payment_method.replace('_', ' ')],
@@ -427,7 +426,7 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
 }
 
 function safeSheetName(name: string, used: Set<string>): string {
-  let base = name.replace(/[:\\/?*[\]]/g, '').trim().slice(0, 28) || 'Borrower';
+  let base = name.replace(/[:\\/?*[\]]/g, '').trim().slice(0, 28) || 'Member';
   let final = base;
   let i = 1;
   while (used.has(final)) {

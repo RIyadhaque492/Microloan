@@ -16,7 +16,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
       )}
 
       <p className="text-sm text-gray-500 mb-4">
-        This controls the content on your public homepage (the one visitors see before logging in) — banner text, about section, and footer contact details.
+        This controls the content on your public homepage (the one visitors see before logging in) — banner text, about section, contact details — plus the reference savings interest rate.
       </p>
 
       <form action={updateSiteSettingsAction} className="card p-6 max-w-2xl space-y-5">
@@ -52,6 +52,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
           <label className="label">Address</label>
           <textarea name="contact_address" defaultValue={settings?.contact_address} className="input" rows={2} />
           <p className="text-xs text-gray-400 mt-1">This address is also used to show a map on the homepage footer.</p>
+        </div>
+
+        <h3 className="font-semibold text-sm text-navy pt-2 border-t border-gray-100">Savings</h3>
+        <div>
+          <label className="label">Savings Interest Rate (% per annum)</label>
+          <input name="savings_interest_rate" type="number" step="0.01" defaultValue={settings?.savings_interest_rate ?? 0} className="input max-w-xs" />
+          <p className="text-xs text-gray-400 mt-1">Reference rate shown on member savings pages — update it here anytime, no code change needed.</p>
         </div>
 
         <button type="submit" className="btn btn-primary">Save Settings</button>

@@ -10,6 +10,9 @@ export async function getDashboardStats() {
   const [outstanding] = await sql`
     SELECT COALESCE(SUM(amount - paid_amount),0) AS s FROM loan_installments WHERE status IN ('pending','partial','overdue')
   `;
+  const [savingsTotal] = await sql`
+    SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS s FROM savings_transactions
+  `;
 
   const recentLoans = await sql`
     SELECT l.*, b.full_name FROM loans l JOIN borrowers b ON b.id = l.borrower_id
@@ -32,6 +35,7 @@ export async function getDashboardStats() {
     overdueCount: overdueCount.c,
     pendingLoans: pendingLoans.c,
     outstanding: Number(outstanding.s),
+    savingsTotal: Number(savingsTotal.s),
     recentLoans,
     upcoming,
   };
@@ -122,24 +126,6 @@ export async function getBorrower(id: number) {
   return borrower || null;
 }
 
-export async function getSiteSettings() {
-  try {
-    const [row] = await sql`SELECT * FROM site_settings WHERE id = 1`;
-    return row || null;
-  } catch {
-    // Table doesn't exist yet (migration not run) or another transient DB issue —
-    // fail gracefully so the public homepage shows sensible defaults instead of crashing.
-    return null;
-  }
-}
-
-export async function getBorrowerDocuments(borrowerId: number) {
-  return sql`
-    SELECT id, borrower_id, doc_title, doc_type, file_name, mime_type, file_size, uploaded_at
-    FROM borrower_documents WHERE borrower_id = ${borrowerId} ORDER BY uploaded_at DESC
-  `;
-}
-
 export async function getLoansForBorrower(borrowerId: number) {
   return sql`SELECT * FROM loans WHERE borrower_id = ${borrowerId} ORDER BY created_at DESC`;
 }
@@ -226,10 +212,6 @@ export async function getRecentPayments() {
   `;
 }
 
-export async function getCollectionInstallments(loanId: number) {
-  return sql`SELECT * FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid' ORDER BY installment_no ASC`;
-}
-
 export async function getLoanForCollection(loanId: number) {
   const [loan] = await sql`
     SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.id AS borrower_id
@@ -242,22 +224,22 @@ export async function getLoanForCollection(loanId: number) {
   return { loan, installments };
 }
 
-/**
- * Every borrower's FULL history (not just totals) — used by the "All Users Report"
- * so it shows each borrower's actual loans and payments, not just summary numbers.
- */
-export async function getAllUsersFullHistory(search?: string) {
-  const summary = await getCreditSummary(search);
-  const results = [];
-  for (const r of summary as any[]) {
-    const loans = await sql`SELECT * FROM loans WHERE borrower_id = ${r.id} ORDER BY created_at DESC`;
-    const payments = await sql`
-      SELECT c.*, l.loan_code FROM collections c JOIN loans l ON l.id = c.loan_id
-      WHERE c.borrower_id = ${r.id} ORDER BY c.payment_date DESC
-    `;
-    results.push({ ...r, loans, payments });
+export async function getSiteSettings() {
+  try {
+    const [row] = await sql`SELECT * FROM site_settings WHERE id = 1`;
+    return row || null;
+  } catch {
+    // Table doesn't exist yet (migration not run) or another transient DB issue —
+    // fail gracefully so the public homepage shows sensible defaults instead of crashing.
+    return null;
   }
-  return results;
+}
+
+export async function getBorrowerDocuments(borrowerId: number) {
+  return sql`
+    SELECT id, borrower_id, doc_title, doc_type, file_name, mime_type, file_size, uploaded_at
+    FROM borrower_documents WHERE borrower_id = ${borrowerId} ORDER BY uploaded_at DESC
+  `;
 }
 
 export async function getPaymentsForBorrower(borrowerId: number) {
@@ -266,11 +248,11 @@ export async function getPaymentsForBorrower(borrowerId: number) {
     WHERE c.borrower_id = ${borrowerId} ORDER BY c.payment_date DESC
   `;
 }
+
 /**
- * Every borrower's credit/debt summary. Only loans that were actually disbursed
+ * Every member's credit/debt summary. Only loans that were actually disbursed
  * (active, completed, defaulted) count toward "borrowed" — 'approved' hasn't been
- * disbursed yet, and 'defaulted' must still count as debt (this mirrors a real bug
- * that was found and fixed in the original PHP version's report logic).
+ * disbursed yet, and 'defaulted' must still count as debt.
  */
 export async function getCreditSummary(search?: string) {
   const like = search ? `%${search}%` : null;
@@ -302,4 +284,55 @@ export async function getCreditSummary(search?: string) {
     const creditStatus = r.overdue_count > 0 ? 'Overdue' : outstanding > 0 ? 'Active Debt' : 'Clear';
     return { ...r, outstanding_balance: outstanding, credit_status: creditStatus };
   });
+}
+
+export async function getAllUsersFullHistory(search?: string) {
+  const summary = await getCreditSummary(search);
+  const results = [];
+  for (const r of summary as any[]) {
+    const loans = await sql`SELECT * FROM loans WHERE borrower_id = ${r.id} ORDER BY created_at DESC`;
+    const payments = await sql`
+      SELECT c.*, l.loan_code FROM collections c JOIN loans l ON l.id = c.loan_id
+      WHERE c.borrower_id = ${r.id} ORDER BY c.payment_date DESC
+    `;
+    results.push({ ...r, loans, payments });
+  }
+  return results;
+}
+
+// ---------- Savings ----------
+
+export async function getSavingsBalance(borrowerId: number): Promise<number> {
+  const [row] = await sql`
+    SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS balance
+    FROM savings_transactions WHERE borrower_id = ${borrowerId}
+  `;
+  return Number(row.balance);
+}
+
+export async function getSavingsTransactions(borrowerId: number) {
+  return sql`
+    SELECT * FROM savings_transactions WHERE borrower_id = ${borrowerId} ORDER BY transaction_date DESC, id DESC
+  `;
+}
+
+export async function getAllMembersSavings(search?: string) {
+  const like = search ? `%${search}%` : null;
+  const rows = like
+    ? await sql`
+        SELECT b.id, b.borrower_code, b.full_name, b.phone,
+          COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS balance,
+          (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count
+        FROM borrowers b
+        WHERE b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.phone ILIKE ${like}
+        ORDER BY b.full_name ASC
+      `
+    : await sql`
+        SELECT b.id, b.borrower_code, b.full_name, b.phone,
+          COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS balance,
+          (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count
+        FROM borrowers b
+        ORDER BY b.full_name ASC
+      `;
+  return rows as any[];
 }

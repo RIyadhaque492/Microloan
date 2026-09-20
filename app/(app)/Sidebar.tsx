@@ -7,10 +7,10 @@ import { logoutAction } from '@/lib/actions';
 
 function currentPageTitle(pathname: string): string {
   if (pathname === '/dashboard') return 'Dashboard';
-  if (pathname === '/borrowers/new') return 'Add Borrower';
-  if (pathname.startsWith('/borrowers/') && pathname.endsWith('/edit')) return 'Edit Borrower';
-  if (pathname.startsWith('/borrowers/')) return 'Borrower Profile';
-  if (pathname === '/borrowers') return 'All Borrowers';
+  if (pathname === '/borrowers/new') return 'Add Member';
+  if (pathname.startsWith('/borrowers/') && pathname.endsWith('/edit')) return 'Edit Member';
+  if (pathname.startsWith('/borrowers/')) return 'Member Profile';
+  if (pathname === '/borrowers') return 'All Members';
   if (pathname === '/loans/new') return 'Loan Registration';
   if (pathname.startsWith('/loans/')) return 'Loan Details';
   if (pathname === '/loans') return 'All Loans';
@@ -22,6 +22,8 @@ function currentPageTitle(pathname: string): string {
   if (pathname === '/reports') return 'Reports';
   if (pathname === '/notifications') return 'Notifications';
   if (pathname === '/settings') return 'Website Settings';
+  if (pathname.startsWith('/savings/')) return 'Member Savings';
+  if (pathname === '/savings') return 'Savings';
   return 'MicroLoan';
 }
 
@@ -43,13 +45,13 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
   const isLoansNew = pathname === '/loans/new';
   const isCollections = pathname.startsWith('/collections');
   const isCalculator = pathname.startsWith('/calculator');
+  const isSavings = pathname.startsWith('/savings');
   const isReports = pathname.startsWith('/reports');
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
 
   return (
     <>
-      {/* Mobile topbar — shows the CURRENT PAGE name, not just a static brand */}
       <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between bg-navy text-white px-4 py-3">
         <button onClick={() => setOpen(true)} aria-label="Open menu" className="text-2xl leading-none px-1">☰</button>
         <div className="font-bold truncate px-2">{currentPageTitle(pathname)}</div>
@@ -76,9 +78,9 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
         <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto" onClick={() => setOpen(false)}>
           <Link href="/dashboard" className={linkClass(isDashboard)}>📊 Dashboard</Link>
 
-          <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Borrowers</div>
-          <Link href="/borrowers" className={linkClass(isBorrowersList)}>👥 All Borrowers</Link>
-          <Link href="/borrowers/new" className={linkClass(isBorrowersNew)}>➕ Add Borrower</Link>
+          <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Members</div>
+          <Link href="/borrowers" className={linkClass(isBorrowersList)}>👥 All Members</Link>
+          <Link href="/borrowers/new" className={linkClass(isBorrowersNew)}>➕ Add Member</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Loans</div>
           <Link href="/loans" className={linkClass(isLoansList)}>📄 All Loans</Link>
@@ -87,6 +89,9 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Collections</div>
           <Link href="/collections" className={linkClass(isCollections)}>💵 Loan Collection</Link>
+
+          <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Savings</div>
+          <Link href="/savings" className={linkClass(isSavings)}>🏦 Member Savings</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Reports</div>
           <Link href="/reports" className={linkClass(isReports)}>📑 Credit Reports</Link>

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { sql } from './db';
 import { createSession, destroySession, getSession } from './auth';
-import { generateCode, generateSchedule } from './utils';
+import { generateCode, generateScheduleFromInstallment } from './utils';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -40,7 +40,7 @@ export async function logoutAction() {
   redirect('/login');
 }
 
-// ---------- Borrowers ----------
+// ---------- Borrowers (Members) ----------
 
 export async function createBorrowerAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -54,13 +54,13 @@ export async function createBorrowerAction(formData: FormData) {
 
   const [row] = await sql`
     INSERT INTO borrowers
-      (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, status, created_by)
+      (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, status, created_by)
     VALUES (
       ${code}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')},
       ${phone}, ${String(formData.get('email') || '')}, ${String(formData.get('nid_number') || '')},
       ${String(formData.get('present_address') || '')}, ${String(formData.get('occupation') || '')},
       ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')},
-      ${String(formData.get('guarantor_phone') || '')}, 'active', ${admin.adminId}
+      ${String(formData.get('guarantor_phone') || '')}, ${Number(formData.get('registration_fee') || 0)}, 'active', ${admin.adminId}
     )
     RETURNING id
   `;
@@ -85,6 +85,7 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
       monthly_income = ${Number(formData.get('monthly_income') || 0)},
       guarantor_name = ${String(formData.get('guarantor_name') || '')},
       guarantor_phone = ${String(formData.get('guarantor_phone') || '')},
+      registration_fee = ${Number(formData.get('registration_fee') || 0)},
       status = ${String(formData.get('status') || 'active')}
     WHERE id = ${id}
   `;
@@ -98,7 +99,7 @@ export async function deleteBorrowerAction(id: number) {
   await requireAdmin();
   const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE borrower_id = ${id}`;
   if (c > 0) {
-    redirect('/borrowers?error=' + encodeURIComponent('Cannot delete a borrower with existing loans. Deactivate them instead.'));
+    redirect('/borrowers?error=' + encodeURIComponent('Cannot delete a member with existing loans. Deactivate them instead.'));
   }
   await sql`DELETE FROM borrowers WHERE id = ${id}`;
   revalidatePath('/borrowers');
@@ -106,31 +107,34 @@ export async function deleteBorrowerAction(id: number) {
 }
 
 // ---------- Loans ----------
+// Registration now takes the loan amount, the installment amount, and the
+// number of installments — the interest rate is DERIVED from those, not
+// entered directly (see lib/utils.ts generateScheduleFromInstallment).
 
 export async function createLoanAction(formData: FormData) {
   const admin = await requireAdmin();
 
   const borrowerId = Number(formData.get('borrower_id'));
   const amount = Number(formData.get('loan_amount'));
-  const rate = Number(formData.get('interest_rate'));
+  const installmentAmount = Number(formData.get('installment_amount'));
   const interestType = String(formData.get('interest_type') || 'flat');
   const tenure = Number(formData.get('tenure'));
   const frequency = String(formData.get('repayment_frequency') || 'monthly') as 'daily' | 'weekly' | 'monthly';
   const purpose = String(formData.get('purpose') || '');
   const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
 
-  if (!borrowerId || amount <= 0 || tenure <= 0) {
+  if (!borrowerId || amount <= 0 || tenure <= 0 || installmentAmount <= 0) {
     redirect('/loans/new?error=' + encodeURIComponent('Please fill in all required loan fields correctly.'));
   }
 
-  const schedule = generateSchedule(amount, rate, tenure, frequency, disbursed);
+  const schedule = generateScheduleFromInstallment(amount, installmentAmount, tenure, frequency, disbursed);
   const code = generateCode('LN');
 
   const [loan] = await sql`
     INSERT INTO loans
       (loan_code, borrower_id, loan_amount, interest_rate, interest_type, tenure, repayment_frequency, total_payable, installment_amount, purpose, disbursement_date, status, created_by)
     VALUES (
-      ${code}, ${borrowerId}, ${amount}, ${rate}, ${interestType}, ${tenure}, ${frequency},
+      ${code}, ${borrowerId}, ${amount}, ${schedule.interestRate}, ${interestType}, ${tenure}, ${frequency},
       ${schedule.totalPayable}, ${schedule.installmentAmount}, ${purpose}, ${disbursed}, 'pending', ${admin.adminId}
     )
     RETURNING id
@@ -178,12 +182,6 @@ export async function deleteLoanAction(id: number) {
 
 // ---------- Collections ----------
 
-/**
- * Applies a payment amount across a loan's unpaid installments, cascading
- * overflow into the next one(s). Shared by collectPaymentAction (new payments)
- * and updateCollectionAction (which replays a loan's whole payment history
- * after an edit, to keep installment states correct).
- */
 async function applyPaymentToInstallments(
   loanId: number,
   amount: number,
@@ -220,18 +218,18 @@ async function applyPaymentToInstallments(
     remaining -= payNow;
   }
 
-  return { appliedAmount: Math.round((amount - Math.max(remaining, 0)) * 100) / 100, firstInstallmentId };
+  const appliedAmount = Math.round((amount - Math.max(remaining, 0)) * 100) / 100;
+  return { appliedAmount, firstInstallmentId };
 }
 
 async function recomputeLoanCompletionStatus(loanId: number) {
   const [{ c: remainingUnpaid }] = await sql`
     SELECT COUNT(*)::int AS c FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid'
   `;
-  const [loanRow] = await sql`SELECT status FROM loans WHERE id = ${loanId}`;
-  if (remainingUnpaid === 0 && loanRow.status !== 'completed') {
+  const [loan] = await sql`SELECT status FROM loans WHERE id = ${loanId}`;
+  if (remainingUnpaid === 0 && loan.status !== 'completed') {
     await sql`UPDATE loans SET status = 'completed' WHERE id = ${loanId}`;
-  } else if (remainingUnpaid > 0 && loanRow.status === 'completed') {
-    // Editing a payment down can un-complete a loan — put it back to active.
+  } else if (remainingUnpaid > 0 && loan.status === 'completed') {
     await sql`UPDATE loans SET status = 'active' WHERE id = ${loanId}`;
   }
 }
@@ -267,9 +265,6 @@ export async function collectPaymentAction(formData: FormData) {
   } catch (err: any) {
     const msg = String(err?.message || '');
     if (msg.includes('installment_id') && msg.includes('does not exist')) {
-      // migration_add_installment_tracking.sql hasn't been run on this database yet.
-      // Fall back so recording a payment still works — the Edit Payment feature's
-      // exact replay-ordering just won't be as precise until the migration runs.
       [collection] = await sql`
         INSERT INTO collections (receipt_no, loan_id, borrower_id, amount_paid, payment_method, payment_date, notes, collected_by)
         VALUES (${receiptNo}, ${loanId}, ${loan.borrower_id}, ${appliedAmount}, ${method}, ${paymentDate}, ${notes}, ${admin.adminId})
@@ -295,29 +290,24 @@ export async function collectPaymentAction(formData: FormData) {
 export async function updateCollectionAction(id: number, formData: FormData) {
   await requireAdmin();
 
+  const amount = Number(formData.get('amount_paid'));
+  const method = String(formData.get('payment_method') || 'cash');
+  const paymentDate = String(formData.get('payment_date') || new Date().toISOString().slice(0, 10));
+  const notes = String(formData.get('notes') || '');
+
   const [collection] = await sql`SELECT * FROM collections WHERE id = ${id}`;
   if (!collection) redirect('/collections?error=' + encodeURIComponent('Payment record not found.'));
-
-  const newAmount = Number(formData.get('amount_paid'));
-  const newMethod = String(formData.get('payment_method') || 'cash');
-  const newDate = String(formData.get('payment_date') || collection.payment_date);
-  const newNotes = String(formData.get('notes') || '');
-
-  if (newAmount <= 0) {
-    redirect(`/collections/edit/${id}?error=` + encodeURIComponent('Amount must be greater than zero.'));
-  }
-
   const loanId = collection.loan_id;
 
   await sql`
-    UPDATE collections SET amount_paid = ${newAmount}, payment_method = ${newMethod}, payment_date = ${newDate}, notes = ${newNotes}
+    UPDATE collections SET amount_paid = ${amount}, payment_method = ${method}, payment_date = ${paymentDate}, notes = ${notes}
     WHERE id = ${id}
   `;
 
-  // Rebuild every installment on this loan from scratch, then replay every
-  // payment for this loan in date order (using the edited amount for this
-  // one) — this is what makes editing a past payment safe and correct,
-  // rather than trying to patch the old effect in place.
+  // Recompute every installment on this loan from scratch by replaying every
+  // payment in chronological order — the only reliable way to handle an edited
+  // historical payment correctly (fragile incremental patching risks drifting
+  // out of sync with reality).
   await sql`UPDATE loan_installments SET paid_amount = 0, status = 'pending', paid_date = NULL WHERE loan_id = ${loanId}`;
 
   const allCollections = (await sql`
@@ -325,20 +315,61 @@ export async function updateCollectionAction(id: number, formData: FormData) {
   `) as any[];
 
   for (const c of allCollections) {
-    await applyPaymentToInstallments(loanId, Number(c.amount_paid), c.installment_id, c.payment_date);
+    const dateStr = c.payment_date instanceof Date ? c.payment_date.toISOString().slice(0, 10) : String(c.payment_date).slice(0, 10);
+    await applyPaymentToInstallments(loanId, Number(c.amount_paid), c.installment_id ?? null, dateStr);
+  }
+
+  await sql`UPDATE loan_installments SET status = 'overdue' WHERE status = 'pending' AND due_date < CURRENT_DATE`;
+  await recomputeLoanCompletionStatus(loanId);
+
+  revalidatePath(`/loans/${loanId}`);
+  revalidatePath('/collections');
+  redirect(`/loans/${loanId}`);
+}
+
+// ---------- Savings ----------
+
+export async function recordSavingsTransactionAction(borrowerId: number, formData: FormData) {
+  const admin = await requireAdmin();
+
+  const type = String(formData.get('type') || 'deposit');
+  const amount = Number(formData.get('amount'));
+  const notes = String(formData.get('notes') || '');
+  const transactionDate = String(formData.get('transaction_date') || new Date().toISOString().slice(0, 10));
+
+  if (amount <= 0) {
+    redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('Amount must be greater than zero.'));
+  }
+  if (type !== 'deposit' && type !== 'withdrawal') {
+    redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('Invalid transaction type.'));
+  }
+
+  if (type === 'withdrawal') {
+    const [row] = await sql`
+      SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS balance
+      FROM savings_transactions WHERE borrower_id = ${borrowerId}
+    `;
+    if (Number(row.balance) < amount) {
+      redirect(`/savings/${borrowerId}?error=` + encodeURIComponent(`Insufficient savings balance (available: ৳${Number(row.balance).toFixed(2)}).`));
+    }
   }
 
   await sql`
-    UPDATE loan_installments li SET status = 'overdue'
-    FROM loans l
-    WHERE li.loan_id = l.id AND li.loan_id = ${loanId} AND li.status = 'pending' AND li.due_date < CURRENT_DATE
-      AND l.status IN ('active', 'defaulted')
+    INSERT INTO savings_transactions (borrower_id, type, amount, notes, transaction_date, recorded_by)
+    VALUES (${borrowerId}, ${type}, ${amount}, ${notes}, ${transactionDate}, ${admin.adminId})
   `;
-  await recomputeLoanCompletionStatus(loanId);
 
-  revalidatePath('/collections');
-  revalidatePath(`/loans/${loanId}`);
-  redirect(`/loans/${loanId}`);
+  revalidatePath(`/savings/${borrowerId}`);
+  revalidatePath('/savings');
+  redirect(`/savings/${borrowerId}`);
+}
+
+export async function deleteSavingsTransactionAction(borrowerId: number, transactionId: number) {
+  await requireAdmin();
+  await sql`DELETE FROM savings_transactions WHERE id = ${transactionId} AND borrower_id = ${borrowerId}`;
+  revalidatePath(`/savings/${borrowerId}`);
+  revalidatePath('/savings');
+  redirect(`/savings/${borrowerId}`);
 }
 
 // ---------- Site Settings ----------
@@ -356,6 +387,7 @@ export async function updateSiteSettingsAction(formData: FormData) {
       contact_phone = ${String(formData.get('contact_phone') || '')},
       contact_email = ${String(formData.get('contact_email') || '')},
       contact_address = ${String(formData.get('contact_address') || '')},
+      savings_interest_rate = ${Number(formData.get('savings_interest_rate') || 0)},
       updated_at = now()
     WHERE id = 1
   `;
@@ -367,7 +399,7 @@ export async function updateSiteSettingsAction(formData: FormData) {
 
 // ---------- Documents ----------
 
-const MAX_DOC_SIZE = 3 * 1024 * 1024; // 3MB — stays safely under Vercel's request size limits once base64-encoded
+const MAX_DOC_SIZE = 3 * 1024 * 1024;
 const ALLOWED_DOC_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
 export async function uploadDocumentAction(borrowerId: number, formData: FormData) {

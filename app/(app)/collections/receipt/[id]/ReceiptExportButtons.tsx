@@ -102,7 +102,7 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
                   <tbody>
                     <tr><td>Receipt No.</td><td>{receipt.receipt_no}</td></tr>
                     <tr><td>Date</td><td>{new Date(receipt.payment_date).toLocaleDateString()}</td></tr>
-                    <tr><td>Borrower</td><td>{receipt.full_name} ({receipt.borrower_code})</td></tr>
+                    <tr><td>Member</td><td>{receipt.full_name} ({receipt.borrower_code})</td></tr>
                     <tr><td>Loan Code</td><td>{receipt.loan_code}</td></tr>
                     <tr><td>Method</td><td>{receipt.payment_method.replace('_', ' ')}</td></tr>
                     {receipt.notes && <tr><td>Notes</td><td>{receipt.notes}</td></tr>}

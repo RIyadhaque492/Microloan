@@ -1,6 +1,6 @@
+import Link from 'next/link';
 import { getNotifications, generateDueNotifications } from '@/lib/data';
 import { markNotificationReadAction, markAllNotificationsReadAction } from '@/lib/actions';
-import Link from 'next/link';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Notifications - MicroLoan Admin' };
@@ -17,14 +17,9 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
   return (
     <div>
-      <PageHeader
-        title="Notifications"
-        action={
-          <form action={markAllNotificationsReadAction}>
-            <button className="btn btn-outline !py-1.5 !px-3 text-xs">✔ Mark all read</button>
-          </form>
-        }
-      />
+      <PageHeader title="Notifications" showBack={false} action={
+        <form action={markAllNotificationsReadAction}><button className="btn btn-outline !py-1.5 !px-3 text-xs">✔ Mark all read</button></form>
+      } />
 
       <div className="flex gap-2 flex-wrap mb-4">
         <Link href="/notifications" className={`btn ${!searchParams.type ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>All</Link>

@@ -12,10 +12,10 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
 
   return (
     <div>
-      <PageHeader title="All Loans" action={<Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>} />
+      <PageHeader title="All Loans" showBack={false} action={<Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>} />
 
       <form className="flex gap-2 flex-wrap mb-4">
-        <input name="q" defaultValue={searchParams.q} placeholder="Search loan code, borrower..." className="input max-w-xs" />
+        <input name="q" defaultValue={searchParams.q} placeholder="Search loan code, member..." className="input max-w-xs" />
         <select name="status" defaultValue={searchParams.status || ''} className="input max-w-[160px]">
           <option value="">All Statuses</option>
           {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -27,7 +27,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
 
       <div className="table-wrap">
         <table className="app-table">
-          <thead><tr><th>Loan Code</th><th>Borrower</th><th>Amount</th><th>Tenure</th><th>Progress</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Loan Code</th><th>Member</th><th>Amount</th><th>Tenure</th><th>Progress</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {loans.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-10">No loans found.</td></tr>}
             {loans.map((l) => (

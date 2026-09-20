@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
-import { updateLoanStatusAction } from '@/lib/actions';
+import { updateLoanStatusAction, deleteLoanAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 
 export const metadata = { title: 'Loan Details - MicroLoan Admin' };
@@ -20,14 +20,14 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
   return (
     <div>
       <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-3">
           <BackLink />
           <div>
             <h1 className="text-lg font-bold text-navy flex items-center gap-2">
               {loan.loan_code} <span className={`badge ${statusBadgeClass(loan.status)}`}>{loan.status}</span>
             </h1>
             <p className="text-gray-500 text-sm">
-              Borrower: <Link href={`/borrowers/${loan.borrower_id}`} className="text-teal">{loan.full_name}</Link> ({loan.borrower_code}) — {loan.phone}
+              Member: <Link href={`/borrowers/${loan.borrower_id}`} className="text-teal">{loan.full_name}</Link> ({loan.borrower_code}) — {loan.phone}
             </p>
           </div>
         </div>
@@ -47,7 +47,7 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(loan.loan_amount)}</div><div className="text-xs text-gray-500">Principal</div></div>
-        <div className="card p-4"><div className="text-lg font-bold text-navy">{loan.interest_rate}%</div><div className="text-xs text-gray-500">{loan.interest_type} Interest</div></div>
+        <div className="card p-4"><div className="text-lg font-bold text-navy">{loan.interest_rate}%</div><div className="text-xs text-gray-500">{loan.interest_type} Interest (calculated)</div></div>
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(loan.total_payable)}</div><div className="text-xs text-gray-500">Total Payable</div></div>
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(Number(loan.total_payable) - paidTotal)}</div><div className="text-xs text-gray-500">Balance Remaining</div></div>
       </div>
@@ -83,13 +83,19 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
                   <td><Link href={`/collections/receipt/${p.id}`} className="text-teal">{p.receipt_no}</Link></td>
                   <td>{new Date(p.payment_date).toLocaleDateString()}</td>
                   <td>৳{money(p.amount_paid)}</td>
-                  <td><Link href={`/collections/edit/${p.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Edit</Link></td>
+                  <td><Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-400 hover:text-teal">Edit</Link></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {loan.status === 'pending' || loan.status === 'rejected' ? (
+        <form action={deleteLoanAction.bind(null, id)} className="mt-4">
+          <button className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Delete this loan</button>
+        </form>
+      ) : null}
     </div>
   );
 }

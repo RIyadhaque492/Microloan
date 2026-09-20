@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import PageHeader from '../PageHeader';
 import { getCreditSummary, getLoansForBorrower, getPaymentsForBorrower, getAllUsersFullHistory } from '@/lib/data';
 import { money, buildSingleUserShareText, buildAllUsersShareText, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
+import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Reports - MicroLoan Admin' };
 
@@ -29,9 +29,9 @@ export default async function ReportsPage({
         <form className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
           <input type="hidden" name="mode" value="single" />
           <div className="flex-1 min-w-[220px]">
-            <label className="label">Choose a borrower</label>
+            <label className="label">Choose a member</label>
             <select name="borrower" defaultValue={borrowerId || ''} className="input">
-              <option value="">-- Select a borrower --</option>
+              <option value="">-- Select a member --</option>
               {allRows.map((r: any) => (
                 <option key={r.id} value={r.id}>{r.full_name} ({r.borrower_code})</option>
               ))}
@@ -83,7 +83,6 @@ export default async function ReportsPage({
     );
   }
 
-  // All-users mode — full history per borrower
   const rows = await getAllUsersFullHistory(searchParams.q);
   const shareText = buildAllUsersShareText(rows);
   const totals = rows.reduce(
@@ -98,26 +97,26 @@ export default async function ReportsPage({
   return (
     <div>
       <PageHeader title="Reports" />
-        <ModeSwitch mode={mode} />
+      <ModeSwitch mode={mode} />
 
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <form className="flex gap-2">
           <input type="hidden" name="mode" value="all" />
-          <input name="q" defaultValue={searchParams.q} placeholder="Search borrower..." className="input max-w-xs" />
+          <input name="q" defaultValue={searchParams.q} placeholder="Search member..." className="input max-w-xs" />
           <button className="btn btn-outline">Search</button>
         </form>
         <ExportButtons mode="all" rows={rows} shareText={shareText} />
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(totals.borrowed)}</div><div className="text-xs text-gray-500">Total Borrowed</div></div>
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(totals.paid)}</div><div className="text-xs text-gray-500">Total Paid</div></div>
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(totals.outstanding)}</div><div className="text-xs text-gray-500">Total Outstanding</div></div>
       </div>
 
-      <p className="text-xs text-gray-400 mb-3">Tap a borrower to expand their full loan and payment history.</p>
+      <p className="text-xs text-gray-400 mb-3">Tap a member to expand their full loan and payment history.</p>
 
-      {rows.length === 0 && <div className="card p-8 text-center text-gray-400">No borrowers found.</div>}
+      {rows.length === 0 && <div className="card p-8 text-center text-gray-400">No members found.</div>}
 
       <div className="space-y-2">
         {rows.map((r: any) => (
@@ -170,8 +169,8 @@ export default async function ReportsPage({
 function ModeSwitch({ mode }: { mode: string }) {
   return (
     <div className="flex gap-2 mb-4">
-      <Link href="/reports?mode=all" className={`btn ${mode === 'all' ? 'btn-primary' : 'btn-outline'}`}>All Users Report</Link>
-      <Link href="/reports?mode=single" className={`btn ${mode === 'single' ? 'btn-primary' : 'btn-outline'}`}>Single User Report</Link>
+      <Link href="/reports?mode=all" className={`btn ${mode === 'all' ? 'btn-primary' : 'btn-outline'}`}>All Members Report</Link>
+      <Link href="/reports?mode=single" className={`btn ${mode === 'single' ? 'btn-primary' : 'btn-outline'}`}>Single Member Report</Link>
     </div>
   );
 }

@@ -32,6 +32,7 @@ export type InstallmentPlan = {
 
 export type ScheduleResult = {
   totalPayable: number;
+  interestRate: number;
   installmentAmount: number;
   installments: InstallmentPlan[];
 };
@@ -40,55 +41,49 @@ function toDateOnlyString(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function computeDueDate(start: Date, i: number, frequency: 'daily' | 'weekly' | 'monthly'): Date {
+  const due = new Date(start);
+  if (frequency === 'daily') due.setUTCDate(due.getUTCDate() + i);
+  else if (frequency === 'weekly') due.setUTCDate(due.getUTCDate() + i * 7);
+  else due.setUTCMonth(due.getUTCMonth() + i);
+  return due;
+}
+
 /**
- * Builds a flat-interest installment schedule.
- * Mirrors the original PHP generate_installments() logic 1:1, including the
- * fix for the last-installment rounding-remainder bug (tenure is coerced to
- * a real number up front so the "last installment" check is always reliable).
+ * Builds an installment schedule from the amount the admin actually wants to
+ * collect each installment — not the other way around. The interest rate is
+ * DERIVED from principal, installment amount, and tenure, rather than being
+ * an input: total payable = installmentAmount x tenure, interest = total -
+ * principal, rate = interest / principal x 100 (flat — applied once to the
+ * whole loan, not prorated by time).
  */
-export function generateSchedule(
+export function generateScheduleFromInstallment(
   principal: number,
-  ratePercent: number,
+  installmentAmount: number,
   tenure: number,
   frequency: 'daily' | 'weekly' | 'monthly',
   startDateStr: string
 ): ScheduleResult {
   const count = Math.trunc(Number(tenure));
-
-  // Flat interest applies once to the full loan amount, for the whole loan
-  // term — it is NOT prorated by how long the loan runs. A "20% flat" loan
-  // means interest = 20% of principal, whether it's paid off in 2 months or 12.
-  const interestAmount = principal * (ratePercent / 100);
-  const totalPayable = Math.round((principal + interestAmount) * 100) / 100;
-  const installmentAmount = Math.round((totalPayable / count) * 100) / 100;
+  const perInstallment = Math.round(Number(installmentAmount) * 100) / 100;
+  const totalPayable = Math.round(perInstallment * count * 100) / 100;
+  const interestAmount = totalPayable - principal;
+  const interestRate = principal > 0 ? Math.round((interestAmount / principal) * 100 * 1000) / 1000 : 0;
 
   const start = new Date(startDateStr + 'T00:00:00Z');
   const installments: InstallmentPlan[] = [];
-  let runningTotal = 0;
-
   for (let i = 1; i <= count; i++) {
-    const due = new Date(start);
-    if (frequency === 'daily') {
-      due.setUTCDate(due.getUTCDate() + i);
-    } else if (frequency === 'weekly') {
-      due.setUTCDate(due.getUTCDate() + i * 7);
-    } else {
-      due.setUTCMonth(due.getUTCMonth() + i);
-    }
-
-    const amt = i === count ? Math.round((totalPayable - runningTotal) * 100) / 100 : installmentAmount;
-    runningTotal += amt;
-
-    installments.push({ installmentNo: i, dueDate: toDateOnlyString(due), amount: amt });
+    const due = computeDueDate(start, i, frequency);
+    installments.push({ installmentNo: i, dueDate: toDateOnlyString(due), amount: perInstallment });
   }
 
-  return { totalPayable, installmentAmount, installments };
+  return { totalPayable, interestRate, installmentAmount: perInstallment, installments };
 }
 
 export function buildSingleUserShareText(borrower: any, loans: any[]): string {
   const lines = [
     `*MicroLoan Credit Report*`,
-    `Borrower: ${borrower.full_name} (${borrower.borrower_code})`,
+    `Member: ${borrower.full_name} (${borrower.borrower_code})`,
     `Phone: ${borrower.phone}`,
     '',
     `Total Borrowed: ৳${money(borrower.total_borrowed)}`,
@@ -111,7 +106,7 @@ export function buildAllUsersShareText(rows: any[]): string {
   const totalPaid = rows.reduce((s, r) => s + Number(r.total_paid), 0);
   const totalOutstanding = rows.reduce((s, r) => s + Number(r.outstanding_balance), 0);
 
-  const lines = [`*MicroLoan - All Borrowers Summary*`, `Generated: ${new Date().toLocaleString()}`, ''];
+  const lines = [`*MicroLoan - All Members Summary*`, `Generated: ${new Date().toLocaleString()}`, ''];
   for (const r of rows) {
     lines.push(`${r.full_name} (${r.borrower_code}): Borrowed ৳${money(r.total_borrowed)}, Paid ৳${money(r.total_paid)}, Due ৳${money(r.outstanding_balance)} [${r.credit_status}]`);
   }
@@ -137,6 +132,8 @@ export function statusBadgeClass(status: string): string {
     overdue: 'bg-red-100 text-red-700',
     inactive: 'bg-gray-200 text-gray-700',
     blacklisted: 'bg-red-100 text-red-700',
+    deposit: 'bg-green-100 text-green-700',
+    withdrawal: 'bg-amber-100 text-amber-700',
   };
   return map[status] || 'bg-gray-200 text-gray-700';
 }

@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db';
-import { createLoanAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
+import LoanForm from './LoanForm';
 
 export const metadata = { title: 'Loan Registration - MicroLoan Admin' };
 
@@ -12,54 +12,7 @@ export default async function NewLoanPage({ searchParams }: { searchParams: { bo
     <div>
       <PageHeader title="Loan Registration" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
-
-      <form action={createLoanAction} className="card p-6 max-w-3xl space-y-5">
-        <div>
-          <label className="label">Select Borrower *</label>
-          <select name="borrower_id" required defaultValue={searchParams.borrower_id || ''} className="input">
-            <option value="">-- Choose Borrower --</option>
-            {(borrowers as any[]).map((b) => (
-              <option key={b.id} value={b.id}>{b.full_name} ({b.borrower_code}) — {b.phone}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <div><label className="label">Loan Amount (৳) *</label><input name="loan_amount" type="number" step="0.01" required className="input" /></div>
-          <div><label className="label">Interest Rate (% flat) *</label><input name="interest_rate" type="number" step="0.01" defaultValue={10} required className="input" /><p className="text-xs text-gray-400 mt-1">Applied once to the whole loan — not per year.</p></div>
-          <div>
-            <label className="label">Interest Type</label>
-            <select name="interest_type" className="input">
-              <option value="flat">Flat</option>
-              <option value="declining">Declining Balance</option>
-            </select>
-          </div>
-          <div><label className="label">Tenure (installments) *</label><input name="tenure" type="number" placeholder="e.g. 12" required className="input" /></div>
-          <div>
-            <label className="label">Repayment Frequency</label>
-            <select name="repayment_frequency" className="input" defaultValue="monthly">
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </div>
-          <div><label className="label">Disbursement Date</label><input name="disbursement_date" type="date" defaultValue={today} className="input" /></div>
-          <div className="md:col-span-3"><label className="label">Purpose</label><input name="purpose" className="input" /></div>
-        </div>
-
-        <div className="text-sm bg-sky-50 text-sky-800 rounded-lg px-3 py-2">
-          ℹ️ The installment schedule is generated automatically. The loan starts as <strong>Pending</strong> until approved.
-        </div>
-
-        <div className="text-sm bg-amber-50 text-amber-800 rounded-lg px-3 py-2">
-          📎 Make sure the borrower's and guarantor's ID documents are uploaded before approving this loan.
-          {searchParams.borrower_id && (
-            <> <a href={`/borrowers/${searchParams.borrower_id}#documents`} className="underline font-semibold" target="_blank" rel="noopener noreferrer">Check/upload documents</a></>
-          )}
-        </div>
-
-        <button type="submit" className="btn btn-primary">Register Loan</button>
-      </form>
+      <LoanForm borrowers={borrowers as any[]} preselectBorrowerId={Number(searchParams.borrower_id) || 0} today={today} />
     </div>
   );
 }

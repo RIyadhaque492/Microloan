@@ -8,6 +8,7 @@ export const metadata = { title: 'Edit Payment - MicroLoan Admin' };
 export default async function EditCollectionPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
   if (!id || isNaN(id)) notFound();
+
   const [collection] = await sql`
     SELECT c.*, b.full_name, l.loan_code FROM collections c
     JOIN borrowers b ON b.id = c.borrower_id
@@ -16,29 +17,27 @@ export default async function EditCollectionPage({ params, searchParams }: { par
   `;
   if (!collection) notFound();
 
-  const action = updateCollectionAction.bind(null, id);
-  const dateValue = new Date(collection.payment_date).toISOString().slice(0, 10);
+  const updateAction = updateCollectionAction.bind(null, id);
 
   return (
     <div>
       <PageHeader title="Edit Payment" />
+
+      <div className="mb-4 rounded-lg bg-amber-50 text-amber-800 text-sm px-3 py-2">
+        ⚠️ Editing this payment will recalculate the entire installment schedule for loan <strong>{collection.loan_code}</strong> by replaying every payment in date order. This is the correct way to fix a mistake, but double-check the result afterward.
+      </div>
+
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <div className="card p-4 mb-4 text-sm max-w-xl">
-        <p className="text-gray-500">Receipt: <strong className="text-navy">{collection.receipt_no}</strong></p>
-        <p className="text-gray-500">Borrower: <strong className="text-navy">{collection.full_name}</strong></p>
-        <p className="text-gray-500">Loan: <strong className="text-navy">{collection.loan_code}</strong></p>
-      </div>
-
-      <div className="mb-4 rounded-lg bg-amber-50 text-amber-800 text-sm px-3 py-2 max-w-xl">
-        ⚠️ Changing the amount will automatically recalculate this loan's entire installment schedule
-        (all payments for this loan are replayed in date order using the new amount).
-      </div>
-
-      <form action={action} className="card p-6 max-w-xl space-y-5">
+      <form action={updateAction} className="card p-6 max-w-lg space-y-4">
+        <div className="text-sm text-gray-500">
+          <p><strong>Receipt:</strong> {collection.receipt_no}</p>
+          <p><strong>Member:</strong> {collection.full_name}</p>
+          <p><strong>Loan:</strong> {collection.loan_code}</p>
+        </div>
         <div>
           <label className="label">Amount Paid (৳) *</label>
-          <input name="amount_paid" type="number" step="0.01" defaultValue={collection.amount_paid} required className="input" />
+          <input name="amount_paid" type="number" step="0.01" required defaultValue={collection.amount_paid} className="input" />
         </div>
         <div>
           <label className="label">Payment Method</label>
@@ -51,13 +50,13 @@ export default async function EditCollectionPage({ params, searchParams }: { par
         </div>
         <div>
           <label className="label">Payment Date</label>
-          <input name="payment_date" type="date" defaultValue={dateValue} className="input" />
+          <input name="payment_date" type="date" defaultValue={new Date(collection.payment_date).toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
           <label className="label">Notes</label>
           <textarea name="notes" defaultValue={collection.notes} className="input" rows={2} />
         </div>
-        <button type="submit" className="btn btn-primary">Save Changes</button>
+        <button type="submit" className="btn btn-primary">Save & Recalculate</button>
       </form>
     </div>
   );
