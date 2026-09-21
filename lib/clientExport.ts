@@ -29,40 +29,149 @@ function paymentRow(p: any) {
   return [p.receipt_no, p.loan_code, new Date(p.payment_date).toLocaleDateString(), `Tk ${money(p.amount_paid)}`, p.payment_method];
 }
 
+// Shared brand colors (RGB, matching the app's navy/teal/gold palette)
+const RGB_NAVY: [number, number, number] = [15, 42, 63];
+const RGB_TEAL: [number, number, number] = [20, 149, 143];
+const RGB_TEAL_LIGHT: [number, number, number] = [230, 246, 245];
+const RGB_GOLD: [number, number, number] = [217, 154, 43];
+const RGB_GREEN: [number, number, number] = [22, 101, 52];
+const RGB_GREEN_LIGHT: [number, number, number] = [220, 252, 231];
+const RGB_RED: [number, number, number] = [185, 28, 28];
+const RGB_RED_LIGHT: [number, number, number] = [254, 226, 226];
+const RGB_AMBER_LIGHT: [number, number, number] = [254, 243, 199];
+const RGB_AMBER: [number, number, number] = [146, 64, 14];
+
+function drawPageBorder(doc: any) {
+  doc.setDrawColor(...RGB_NAVY);
+  doc.setLineWidth(0.5);
+  doc.rect(6, 6, 198, 285);
+}
+
+/** Full-width colored banner at the top of a page, with a title and optional subtitle. */
+function drawBanner(doc: any, title: string, subtitle: string) {
+  doc.setFillColor(...RGB_NAVY);
+  doc.rect(6, 6, 198, 22, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text(fitTextWidth(doc, title, 190), 12, 17);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(fitTextWidth(doc, subtitle, 190), 12, 24);
+  doc.setTextColor(0, 0, 0);
+}
+
+/** A colored, bordered stat box — like a small stat card. Returns nothing, just draws. */
+function drawStatBox(doc: any, x: number, y: number, w: number, h: number, label: string, value: string, fill: [number, number, number], text: [number, number, number]) {
+  doc.setFillColor(...fill);
+  doc.setDrawColor(...text);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(x, y, w, h, 1.5, 1.5, 'FD');
+  doc.setTextColor(...text);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(label, x + 3, y + 6);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(value, x + 3, y + 13);
+  doc.setTextColor(0, 0, 0);
+}
+
+/** A colored section-header bar (e.g. "Loan History") spanning the content width. */
+function drawSectionHeader(doc: any, text: string, x: number, y: number, w: number, fill: [number, number, number] = RGB_TEAL) {
+  doc.setFillColor(...fill);
+  doc.rect(x, y, w, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(text, x + 3, y + 5);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+}
+
+function statusColors(status: string): { fill: [number, number, number]; text: [number, number, number] } {
+  if (status === 'Overdue') return { fill: RGB_RED_LIGHT, text: RGB_RED };
+  if (status === 'Active Debt') return { fill: RGB_AMBER_LIGHT, text: RGB_AMBER };
+  return { fill: RGB_GREEN_LIGHT, text: RGB_GREEN };
+}
+
+/** Truncates text with an ellipsis so it fits maxWidth, using jsPDF's actual measured
+ *  text width for the current font — not an estimate — so this is reliable regardless
+ *  of font/size or how long the real name/code turns out to be. */
+function fitTextWidth(doc: any, text: string, maxWidth: number): string {
+  if (doc.getTextWidth(text) <= maxWidth) return text;
+  let truncated = text;
+  while (truncated.length > 1 && doc.getTextWidth(truncated + '...') > maxWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated.trimEnd() + '...';
+}
+
 export async function buildSingleUserPdfBlob(borrower: any, loans: any[], payments: any[]): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   const doc = new jsPDF();
+  const X = 12;
+  const W = 186;
 
-  doc.setFontSize(16);
-  doc.text('Member Credit / Debt Report', 14, 15);
-  doc.setFontSize(9);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 21);
+  drawPageBorder(doc);
+  drawBanner(doc, 'Member Credit / Debt Report', `Generated: ${new Date().toLocaleString()}`);
 
+  // Member info box
+  doc.setFillColor(...RGB_TEAL_LIGHT);
+  doc.setDrawColor(...RGB_TEAL);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(X, 32, W, 18, 1.5, 1.5, 'FD');
   doc.setFontSize(12);
-  doc.text(`${borrower.full_name} (${borrower.borrower_code})`, 14, 30);
-  doc.setFontSize(10);
-  doc.text(`Phone: ${borrower.phone}`, 14, 36);
-  doc.text(`Total Borrowed: Tk ${money(borrower.total_borrowed)}   Total Paid: Tk ${money(borrower.total_paid)}   Outstanding: Tk ${money(borrower.outstanding_balance)}`, 14, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...RGB_NAVY);
+  const nameText = `${borrower.full_name} (${borrower.borrower_code})`;
+  const maxNameWidth = W - 4 - 42 - 4; // leave room for the badge on the right
+  const fittedName = fitTextWidth(doc, nameText, maxNameWidth);
+  doc.text(fittedName, X + 4, 39);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(60, 60, 60);
+  doc.text(`Phone: ${borrower.phone}`, X + 4, 46);
 
+  const sc = statusColors(borrower.credit_status || 'Clear');
+  doc.setFillColor(...sc.fill);
+  doc.roundedRect(X + W - 42, 35, 38, 8, 1.5, 1.5, 'F');
+  doc.setTextColor(...sc.text);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text(String(borrower.credit_status || 'Clear'), X + W - 23, 40, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+
+  // Stat boxes
+  const boxW = 58, gap = 6, boxY = 54, boxH = 16;
+  drawStatBox(doc, X, boxY, boxW, boxH, 'TOTAL BORROWED', `Tk ${money(borrower.total_borrowed)}`, [224, 231, 241], RGB_NAVY);
+  drawStatBox(doc, X + boxW + gap, boxY, boxW, boxH, 'TOTAL PAID', `Tk ${money(borrower.total_paid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
+  drawStatBox(doc, X + (boxW + gap) * 2, boxY, boxW, boxH, 'OUTSTANDING', `Tk ${money(borrower.outstanding_balance)}`, RGB_RED_LIGHT, RGB_RED);
+
+  let y = boxY + boxH + 8;
+  drawSectionHeader(doc, 'Loan History', X, y, W, RGB_NAVY);
   autoTable(doc, {
-    startY: 50,
+    startY: y + 7,
     head: [['Loan Code', 'Amount', 'Tenure', 'Total Payable', 'Status']],
     body: loans.length ? loans.map(loanRow) : [['No loans on record.', '', '', '', '']],
-    headStyles: { fillColor: [15, 42, 63] },
+    headStyles: { fillColor: RGB_NAVY },
     styles: { fontSize: 8 },
+    margin: { left: X, right: X },
+    didDrawPage: () => drawPageBorder(doc),
   });
 
-  const afterLoans = (doc as any).lastAutoTable.finalY + 8;
-  doc.setFontSize(11);
-  doc.text('Payment History', 14, afterLoans);
-
+  y = (doc as any).lastAutoTable.finalY + 8;
+  drawSectionHeader(doc, 'Payment History', X, y, W, RGB_TEAL);
   autoTable(doc, {
-    startY: afterLoans + 4,
+    startY: y + 7,
     head: [['Receipt No.', 'Loan Code', 'Date', 'Amount Paid', 'Method']],
     body: payments.length ? payments.map(paymentRow) : [['No payments recorded.', '', '', '', '']],
-    headStyles: { fillColor: [15, 42, 63] },
+    headStyles: { fillColor: RGB_TEAL },
     styles: { fontSize: 8 },
+    margin: { left: X, right: X },
+    didDrawPage: () => drawPageBorder(doc),
   });
 
   return doc.output('blob');
@@ -72,45 +181,74 @@ export async function buildAllUsersPdfBlob(rows: any[]): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   const doc = new jsPDF();
+  const X = 12;
+  const W = 186;
 
-  doc.setFontSize(16);
-  doc.text('All Members - Full Credit Report', 14, 15);
-  doc.setFontSize(9);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 21);
+  const totalBorrowed = rows.reduce((s, r) => s + Number(r.total_borrowed), 0);
+  const totalPaid = rows.reduce((s, r) => s + Number(r.total_paid), 0);
+  const totalOutstanding = rows.reduce((s, r) => s + Number(r.outstanding_balance), 0);
 
+  drawPageBorder(doc);
+  drawBanner(doc, 'All Members - Full Credit Report', `Generated: ${new Date().toLocaleString()}  •  ${rows.length} member(s)`);
+
+  const boxW = 58, gap = 6, boxY = 32, boxH = 16;
+  drawStatBox(doc, X, boxY, boxW, boxH, 'TOTAL BORROWED', `Tk ${money(totalBorrowed)}`, [224, 231, 241], RGB_NAVY);
+  drawStatBox(doc, X + boxW + gap, boxY, boxW, boxH, 'TOTAL PAID', `Tk ${money(totalPaid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
+  drawStatBox(doc, X + (boxW + gap) * 2, boxY, boxW, boxH, 'TOTAL OUTSTANDING', `Tk ${money(totalOutstanding)}`, RGB_RED_LIGHT, RGB_RED);
+
+  let y = boxY + boxH + 8;
+  drawSectionHeader(doc, 'All Members Summary', X, y, W, RGB_NAVY);
   autoTable(doc, {
-    startY: 27,
+    startY: y + 7,
     head: [['Code', 'Name', 'Phone', 'Borrowed', 'Paid', 'Outstanding', 'Status']],
     body: rows.map((r) => [r.borrower_code, r.full_name, r.phone, `Tk ${money(r.total_borrowed)}`, `Tk ${money(r.total_paid)}`, `Tk ${money(r.outstanding_balance)}`, r.credit_status]),
-    headStyles: { fillColor: [15, 42, 63] },
+    headStyles: { fillColor: RGB_NAVY },
     styles: { fontSize: 8 },
+    margin: { left: X, right: X },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.column.index === 6) {
+        const sc = statusColors(String(data.cell.raw));
+        data.cell.styles.fillColor = sc.fill;
+        data.cell.styles.textColor = sc.text;
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.halign = 'center';
+      }
+    },
+    didDrawPage: () => drawPageBorder(doc),
   });
 
   for (const r of rows) {
     doc.addPage();
-    doc.setFontSize(13);
-    doc.text(`${r.full_name} (${r.borrower_code})`, 14, 18);
-    doc.setFontSize(9);
-    doc.text(`${r.phone}  |  Borrowed: Tk ${money(r.total_borrowed)}  Paid: Tk ${money(r.total_paid)}  Outstanding: Tk ${money(r.outstanding_balance)}`, 14, 24);
+    drawPageBorder(doc);
+    drawBanner(doc, r.full_name, `${r.borrower_code}  •  ${r.phone}`);
 
+    const mBoxW = 58, mBoxY = 32, mBoxH = 16;
+    drawStatBox(doc, X, mBoxY, mBoxW, mBoxH, 'BORROWED', `Tk ${money(r.total_borrowed)}`, [224, 231, 241], RGB_NAVY);
+    drawStatBox(doc, X + mBoxW + gap, mBoxY, mBoxW, mBoxH, 'PAID', `Tk ${money(r.total_paid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
+    drawStatBox(doc, X + (mBoxW + gap) * 2, mBoxY, mBoxW, mBoxH, 'OUTSTANDING', `Tk ${money(r.outstanding_balance)}`, RGB_RED_LIGHT, RGB_RED);
+
+    let my = mBoxY + mBoxH + 8;
+    drawSectionHeader(doc, 'Loan History', X, my, W, RGB_TEAL);
     autoTable(doc, {
-      startY: 30,
+      startY: my + 7,
       head: [['Loan Code', 'Amount', 'Tenure', 'Total Payable', 'Status']],
       body: r.loans.length ? r.loans.map(loanRow) : [['No loans on record.', '', '', '', '']],
-      headStyles: { fillColor: [20, 149, 143] },
+      headStyles: { fillColor: RGB_TEAL },
       styles: { fontSize: 8 },
+      margin: { left: X, right: X },
+      didDrawPage: () => drawPageBorder(doc),
     });
 
-    const afterLoans = (doc as any).lastAutoTable.finalY + 6;
-    doc.setFontSize(10);
-    doc.text('Payment History', 14, afterLoans);
-
+    my = (doc as any).lastAutoTable.finalY + 8;
+    drawSectionHeader(doc, 'Payment History', X, my, W, RGB_GOLD);
     autoTable(doc, {
-      startY: afterLoans + 3,
+      startY: my + 7,
       head: [['Receipt No.', 'Loan Code', 'Date', 'Amount Paid', 'Method']],
       body: r.payments.length ? r.payments.map(paymentRow) : [['No payments recorded.', '', '', '', '']],
-      headStyles: { fillColor: [20, 149, 143] },
+      headStyles: { fillColor: RGB_GOLD },
       styles: { fontSize: 8 },
+      margin: { left: X, right: X },
+      didDrawPage: () => drawPageBorder(doc),
     });
   }
 
