@@ -5,7 +5,7 @@ import PageHeader from '../../../PageHeader';
 
 export const metadata = { title: 'Edit Member - MicroLoan Admin' };
 
-export default async function EditBorrowerPage({ params }: { params: { id: string } }) {
+export default async function EditBorrowerPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
   const id = Number(params.id);
   if (!id || isNaN(id)) notFound();
   const borrower = await getBorrower(id);
@@ -16,9 +16,14 @@ export default async function EditBorrowerPage({ params }: { params: { id: strin
   return (
     <div>
       <PageHeader title="Edit Member" />
+      {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
       <form action={updateAction} className="card p-6 max-w-3xl space-y-5">
         <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="label">Member ID *</label>
+            <input name="member_id" required defaultValue={borrower.borrower_code} className="input" />
+          </div>
           <div><label className="label">Full Name *</label><input name="full_name" required defaultValue={borrower.full_name} className="input" /></div>
           <div><label className="label">Father's Name</label><input name="father_name" defaultValue={borrower.father_name} className="input" /></div>
           <div>

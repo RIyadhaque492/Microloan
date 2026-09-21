@@ -11,7 +11,7 @@ import {
 } from '@/lib/clientExport';
 
 type Props =
-  | { mode: 'single'; borrower: any; loans: any[]; payments: any[]; shareText: string }
+  | { mode: 'single'; borrower: any; shareText: string }
   | { mode: 'all'; rows: any[]; shareText: string };
 
 type Preview =
@@ -35,7 +35,7 @@ export default function ExportButtons(props: Props) {
     try {
       const blob =
         props.mode === 'single'
-          ? await buildSingleUserPdfBlob(props.borrower, props.loans, props.payments)
+          ? await buildSingleUserPdfBlob(props.borrower)
           : await buildAllUsersPdfBlob(props.rows);
       const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.pdf` : `all-members-report.pdf`;
       const url = URL.createObjectURL(blob);
@@ -66,7 +66,7 @@ export default function ExportButtons(props: Props) {
       try {
         const blob =
           props.mode === 'single'
-            ? await buildSingleUserExcelBlob(props.borrower, props.loans, props.payments)
+            ? await buildSingleUserExcelBlob(props.borrower)
             : await buildAllUsersExcelBlob(props.rows);
         await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
       } finally {
@@ -153,43 +153,30 @@ export default function ExportButtons(props: Props) {
 function ExcelPreviewTable({ props }: { props: Props }) {
   if (props.mode === 'single') {
     return (
-      <div className="space-y-4 text-sm">
-        <div>
-          <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Summary</h4>
-          <table className="app-table"><tbody>
-            <tr><td>Name</td><td>{props.borrower.full_name}</td></tr>
-            <tr><td>Member Code</td><td>{props.borrower.borrower_code}</td></tr>
-            <tr><td>Total Borrowed</td><td>৳{money(props.borrower.total_borrowed)}</td></tr>
-            <tr><td>Total Paid</td><td>৳{money(props.borrower.total_paid)}</td></tr>
-            <tr><td>Outstanding</td><td>৳{money(props.borrower.outstanding_balance)}</td></tr>
-          </tbody></table>
-        </div>
-        <div>
-          <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Loans ({props.loans.length})</h4>
-          <table className="app-table">
-            <thead><tr><th>Loan Code</th><th>Amount</th><th>Status</th></tr></thead>
-            <tbody>{props.loans.map((l) => <tr key={l.id}><td>{l.loan_code}</td><td>৳{money(l.loan_amount)}</td><td>{l.status}</td></tr>)}</tbody>
-          </table>
-        </div>
-        <div>
-          <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Payments ({props.payments.length})</h4>
-          <table className="app-table">
-            <thead><tr><th>Receipt</th><th>Date</th><th>Amount</th></tr></thead>
-            <tbody>{props.payments.map((p) => <tr key={p.id}><td>{p.receipt_no}</td><td>{new Date(p.payment_date).toLocaleDateString()}</td><td>৳{money(p.amount_paid)}</td></tr>)}</tbody>
-          </table>
-        </div>
-      </div>
+      <table className="app-table">
+        <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>{props.borrower.borrower_code}</td>
+            <td>{props.borrower.full_name}</td>
+            <td>৳{money(props.borrower.total_borrowed)}</td>
+            <td>৳{money(props.borrower.total_paid)}</td>
+            <td>৳{money(props.borrower.outstanding_balance)}</td>
+            <td>{props.borrower.credit_status}</td>
+          </tr>
+        </tbody>
+      </table>
     );
   }
 
   return (
     <div className="text-sm">
-      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Summary sheet + one sheet per member ({props.rows.length} total)</h4>
+      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">{props.rows.length} member(s)</h4>
       <table className="app-table">
-        <thead><tr><th>Code</th><th>Name</th><th>Borrowed</th><th>Paid</th><th>Outstanding</th></tr></thead>
+        <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th></tr></thead>
         <tbody>
           {props.rows.map((r: any) => (
-            <tr key={r.id}><td>{r.borrower_code}</td><td>{r.full_name}</td><td>৳{money(r.total_borrowed)}</td><td>৳{money(r.total_paid)}</td><td>৳{money(r.outstanding_balance)}</td></tr>
+            <tr key={r.id}><td>{r.borrower_code}</td><td>{r.full_name}</td><td>৳{money(r.total_borrowed)}</td><td>৳{money(r.total_paid)}</td><td>৳{money(r.outstanding_balance)}</td><td>{r.credit_status}</td></tr>
           ))}
         </tbody>
       </table>

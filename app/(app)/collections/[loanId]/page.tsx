@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { getLoanForCollection } from '@/lib/data';
-import { money } from '@/lib/utils';
 import PageHeader from '../../PageHeader';
 import CollectForm from './CollectForm';
 
@@ -20,7 +19,6 @@ export default async function CollectPage({
   const { loan, installments } = data;
 
   const installmentsArr = installments as any[];
-  const balance = installmentsArr.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount)), 0);
   const preselectId = Number(searchParams.installment_id) || installmentsArr[0]?.id || 0;
 
   return (
@@ -30,12 +28,8 @@ export default async function CollectPage({
         <div className="card p-5 h-fit">
           <h2 className="font-bold text-navy mb-1">{loan.full_name}</h2>
           <p className="text-sm text-gray-500 mb-1">{loan.phone}</p>
-          <p className="text-xs text-gray-400 mb-3">Loan Code: {loan.loan_code}</p>
-          {searchParams.error && <div className="mb-3 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
-          <div className="flex justify-between border-t pt-2 text-sm">
-            <span className="text-gray-500">Outstanding Balance</span>
-            <strong>৳{money(balance)}</strong>
-          </div>
+          <p className="text-xs text-gray-400">Loan Code: {loan.loan_code}</p>
+          {searchParams.error && <div className="mt-3 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
         </div>
 
         {installmentsArr.length === 0 ? (

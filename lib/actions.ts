@@ -44,54 +44,82 @@ export async function logoutAction() {
 
 export async function createBorrowerAction(formData: FormData) {
   const admin = await requireAdmin();
-  const code = generateCode('BOR');
 
+  const memberId = String(formData.get('member_id') || '').trim();
   const fullName = String(formData.get('full_name') || '').trim();
   const phone = String(formData.get('phone') || '').trim();
   if (!fullName || !phone) {
     redirect('/borrowers/new?error=' + encodeURIComponent('Full name and phone are required.'));
   }
+  if (!memberId) {
+    redirect('/borrowers/new?error=' + encodeURIComponent('Member ID is required.'));
+  }
 
-  const [row] = await sql`
-    INSERT INTO borrowers
-      (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, status, created_by)
-    VALUES (
-      ${code}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')},
-      ${phone}, ${String(formData.get('email') || '')}, ${String(formData.get('nid_number') || '')},
-      ${String(formData.get('present_address') || '')}, ${String(formData.get('occupation') || '')},
-      ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')},
-      ${String(formData.get('guarantor_phone') || '')}, ${Number(formData.get('registration_fee') || 0)}, 'active', ${admin.adminId}
-    )
-    RETURNING id
-  `;
+  let row: any;
+  try {
+    [row] = await sql`
+      INSERT INTO borrowers
+        (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, status, created_by)
+      VALUES (
+        ${memberId}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')},
+        ${phone}, ${String(formData.get('email') || '')}, ${String(formData.get('nid_number') || '')},
+        ${String(formData.get('present_address') || '')}, ${String(formData.get('occupation') || '')},
+        ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')},
+        ${String(formData.get('guarantor_phone') || '')}, ${Number(formData.get('registration_fee') || 0)}, 'active', ${admin.adminId}
+      )
+      RETURNING id
+    `;
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (err?.code === '23505' || msg.includes('duplicate key') || msg.includes('already exists')) {
+      redirect('/borrowers/new?error=' + encodeURIComponent(`Member ID "${memberId}" is already in use — please choose a different one.`));
+    }
+    throw err;
+  }
 
   revalidatePath('/borrowers');
+  revalidatePath('/loans/new');
   redirect(`/borrowers/${row.id}`);
 }
 
 export async function updateBorrowerAction(id: number, formData: FormData) {
   await requireAdmin();
 
-  await sql`
-    UPDATE borrowers SET
-      full_name = ${String(formData.get('full_name') || '')},
-      father_name = ${String(formData.get('father_name') || '')},
-      gender = ${String(formData.get('gender') || 'male')},
-      phone = ${String(formData.get('phone') || '')},
-      email = ${String(formData.get('email') || '')},
-      nid_number = ${String(formData.get('nid_number') || '')},
-      present_address = ${String(formData.get('present_address') || '')},
-      occupation = ${String(formData.get('occupation') || '')},
-      monthly_income = ${Number(formData.get('monthly_income') || 0)},
-      guarantor_name = ${String(formData.get('guarantor_name') || '')},
-      guarantor_phone = ${String(formData.get('guarantor_phone') || '')},
-      registration_fee = ${Number(formData.get('registration_fee') || 0)},
-      status = ${String(formData.get('status') || 'active')}
-    WHERE id = ${id}
-  `;
+  const memberId = String(formData.get('member_id') || '').trim();
+  if (!memberId) {
+    redirect(`/borrowers/${id}/edit?error=` + encodeURIComponent('Member ID is required.'));
+  }
+
+  try {
+    await sql`
+      UPDATE borrowers SET
+        borrower_code = ${memberId},
+        full_name = ${String(formData.get('full_name') || '')},
+        father_name = ${String(formData.get('father_name') || '')},
+        gender = ${String(formData.get('gender') || 'male')},
+        phone = ${String(formData.get('phone') || '')},
+        email = ${String(formData.get('email') || '')},
+        nid_number = ${String(formData.get('nid_number') || '')},
+        present_address = ${String(formData.get('present_address') || '')},
+        occupation = ${String(formData.get('occupation') || '')},
+        monthly_income = ${Number(formData.get('monthly_income') || 0)},
+        guarantor_name = ${String(formData.get('guarantor_name') || '')},
+        guarantor_phone = ${String(formData.get('guarantor_phone') || '')},
+        registration_fee = ${Number(formData.get('registration_fee') || 0)},
+        status = ${String(formData.get('status') || 'active')}
+      WHERE id = ${id}
+    `;
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (err?.code === '23505' || msg.includes('duplicate key') || msg.includes('already exists')) {
+      redirect(`/borrowers/${id}/edit?error=` + encodeURIComponent(`Member ID "${memberId}" is already in use — please choose a different one.`));
+    }
+    throw err;
+  }
 
   revalidatePath('/borrowers');
   revalidatePath(`/borrowers/${id}`);
+  revalidatePath('/loans/new');
   redirect(`/borrowers/${id}`);
 }
 

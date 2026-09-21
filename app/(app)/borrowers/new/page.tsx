@@ -1,9 +1,13 @@
+import { getNextMemberId } from '@/lib/data';
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
 export const metadata = { title: 'Add Member - MicroLoan Admin' };
+export const dynamic = 'force-dynamic';
 
-export default function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
+  const suggestedId = await getNextMemberId();
+
   return (
     <div>
       <PageHeader title="Add Member" />
@@ -11,6 +15,11 @@ export default function NewBorrowerPage({ searchParams }: { searchParams: { erro
 
       <form action={createBorrowerAction} className="card p-6 max-w-3xl space-y-5">
         <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="label">Member ID *</label>
+            <input name="member_id" required defaultValue={suggestedId} className="input" />
+            <p className="text-xs text-gray-400 mt-1">Auto-suggested next ID — edit if you want a different one.</p>
+          </div>
           <div><label className="label">Full Name *</label><input name="full_name" required className="input" /></div>
           <div><label className="label">Father's Name</label><input name="father_name" className="input" /></div>
           <div>

@@ -22,13 +22,6 @@ export async function shareOrDownloadBlob(blob: Blob, filename: string, mimeType
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function loanRow(l: any) {
-  return [l.loan_code, `Tk ${money(l.loan_amount)}`, `${l.tenure} ${l.repayment_frequency}`, `Tk ${money(l.total_payable)}`, l.status];
-}
-function paymentRow(p: any) {
-  return [p.receipt_no, p.loan_code, new Date(p.payment_date).toLocaleDateString(), `Tk ${money(p.amount_paid)}`, p.payment_method];
-}
-
 // Shared brand colors (RGB, matching the app's navy/teal/gold palette)
 const RGB_NAVY: [number, number, number] = [15, 42, 63];
 const RGB_TEAL: [number, number, number] = [20, 149, 143];
@@ -107,7 +100,27 @@ function fitTextWidth(doc: any, text: string, maxWidth: number): string {
   return truncated.trimEnd() + '...';
 }
 
-export async function buildSingleUserPdfBlob(borrower: any, loans: any[], payments: any[]): Promise<Blob> {
+const SUMMARY_HEAD = ['Member ID', 'Name', 'Loan Amount', 'Paid', 'Remaining Balance', 'Status'];
+const SUMMARY_STATUS_COL = 5; // index of the Status column within SUMMARY_HEAD
+
+function summaryRow(r: any) {
+  return [r.borrower_code, r.full_name, `Tk ${money(r.total_borrowed)}`, `Tk ${money(r.total_paid)}`, `Tk ${money(r.outstanding_balance)}`, r.credit_status];
+}
+
+function statusCellColorer(colIndex: number) {
+  return (data: any) => {
+    if (data.section === 'body' && data.column.index === colIndex) {
+      const sc = statusColors(String(data.cell.raw));
+      data.cell.styles.fillColor = sc.fill;
+      data.cell.styles.textColor = sc.text;
+      data.cell.styles.fontStyle = 'bold';
+      data.cell.styles.halign = 'center';
+    }
+  };
+}
+
+/** Single member report — one page, same columns as the All Members report (just one row). */
+export async function buildSingleUserPdfBlob(borrower: any): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   const doc = new jsPDF();
@@ -115,68 +128,30 @@ export async function buildSingleUserPdfBlob(borrower: any, loans: any[], paymen
   const W = 186;
 
   drawPageBorder(doc);
-  drawBanner(doc, 'Member Credit / Debt Report', `Generated: ${new Date().toLocaleString()}`);
+  drawBanner(doc, 'Member Credit / Debt Report', `Generated: ${new Date().toLocaleString()}  •  ${borrower.full_name}`);
 
-  // Member info box
-  doc.setFillColor(...RGB_TEAL_LIGHT);
-  doc.setDrawColor(...RGB_TEAL);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(X, 32, W, 18, 1.5, 1.5, 'FD');
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...RGB_NAVY);
-  const nameText = `${borrower.full_name} (${borrower.borrower_code})`;
-  const maxNameWidth = W - 4 - 42 - 4; // leave room for the badge on the right
-  const fittedName = fitTextWidth(doc, nameText, maxNameWidth);
-  doc.text(fittedName, X + 4, 39);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(60, 60, 60);
-  doc.text(`Phone: ${borrower.phone}`, X + 4, 46);
-
-  const sc = statusColors(borrower.credit_status || 'Clear');
-  doc.setFillColor(...sc.fill);
-  doc.roundedRect(X + W - 42, 35, 38, 8, 1.5, 1.5, 'F');
-  doc.setTextColor(...sc.text);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text(String(borrower.credit_status || 'Clear'), X + W - 23, 40, { align: 'center' });
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'normal');
-
-  // Stat boxes
-  const boxW = 58, gap = 6, boxY = 54, boxH = 16;
+  const boxW = 58, gap = 6, boxY = 32, boxH = 16;
   drawStatBox(doc, X, boxY, boxW, boxH, 'TOTAL BORROWED', `Tk ${money(borrower.total_borrowed)}`, [224, 231, 241], RGB_NAVY);
   drawStatBox(doc, X + boxW + gap, boxY, boxW, boxH, 'TOTAL PAID', `Tk ${money(borrower.total_paid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
   drawStatBox(doc, X + (boxW + gap) * 2, boxY, boxW, boxH, 'OUTSTANDING', `Tk ${money(borrower.outstanding_balance)}`, RGB_RED_LIGHT, RGB_RED);
 
-  let y = boxY + boxH + 8;
-  drawSectionHeader(doc, 'Loan History', X, y, W, RGB_NAVY);
+  const y = boxY + boxH + 8;
+  drawSectionHeader(doc, 'Member Summary', X, y, W, RGB_NAVY);
   autoTable(doc, {
     startY: y + 7,
-    head: [['Loan Code', 'Amount', 'Tenure', 'Total Payable', 'Status']],
-    body: loans.length ? loans.map(loanRow) : [['No loans on record.', '', '', '', '']],
+    head: [SUMMARY_HEAD],
+    body: [summaryRow(borrower)],
     headStyles: { fillColor: RGB_NAVY },
     styles: { fontSize: 8 },
     margin: { left: X, right: X },
-    didDrawPage: () => drawPageBorder(doc),
-  });
-
-  y = (doc as any).lastAutoTable.finalY + 8;
-  drawSectionHeader(doc, 'Payment History', X, y, W, RGB_TEAL);
-  autoTable(doc, {
-    startY: y + 7,
-    head: [['Receipt No.', 'Loan Code', 'Date', 'Amount Paid', 'Method']],
-    body: payments.length ? payments.map(paymentRow) : [['No payments recorded.', '', '', '', '']],
-    headStyles: { fillColor: RGB_TEAL },
-    styles: { fontSize: 8 },
-    margin: { left: X, right: X },
+    didParseCell: statusCellColorer(SUMMARY_STATUS_COL),
     didDrawPage: () => drawPageBorder(doc),
   });
 
   return doc.output('blob');
 }
 
+/** All members report — one page: banner, totals, and a summary table (one row per member). */
 export async function buildAllUsersPdfBlob(rows: any[]): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
@@ -196,61 +171,18 @@ export async function buildAllUsersPdfBlob(rows: any[]): Promise<Blob> {
   drawStatBox(doc, X + boxW + gap, boxY, boxW, boxH, 'TOTAL PAID', `Tk ${money(totalPaid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
   drawStatBox(doc, X + (boxW + gap) * 2, boxY, boxW, boxH, 'TOTAL OUTSTANDING', `Tk ${money(totalOutstanding)}`, RGB_RED_LIGHT, RGB_RED);
 
-  let y = boxY + boxH + 8;
+  const y = boxY + boxH + 8;
   drawSectionHeader(doc, 'All Members Summary', X, y, W, RGB_NAVY);
   autoTable(doc, {
     startY: y + 7,
-    head: [['Code', 'Name', 'Phone', 'Borrowed', 'Paid', 'Outstanding', 'Status']],
-    body: rows.map((r) => [r.borrower_code, r.full_name, r.phone, `Tk ${money(r.total_borrowed)}`, `Tk ${money(r.total_paid)}`, `Tk ${money(r.outstanding_balance)}`, r.credit_status]),
+    head: [SUMMARY_HEAD],
+    body: rows.map((r) => summaryRow(r)),
     headStyles: { fillColor: RGB_NAVY },
     styles: { fontSize: 8 },
     margin: { left: X, right: X },
-    didParseCell: (data: any) => {
-      if (data.section === 'body' && data.column.index === 6) {
-        const sc = statusColors(String(data.cell.raw));
-        data.cell.styles.fillColor = sc.fill;
-        data.cell.styles.textColor = sc.text;
-        data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.halign = 'center';
-      }
-    },
+    didParseCell: statusCellColorer(SUMMARY_STATUS_COL),
     didDrawPage: () => drawPageBorder(doc),
   });
-
-  for (const r of rows) {
-    doc.addPage();
-    drawPageBorder(doc);
-    drawBanner(doc, r.full_name, `${r.borrower_code}  •  ${r.phone}`);
-
-    const mBoxW = 58, mBoxY = 32, mBoxH = 16;
-    drawStatBox(doc, X, mBoxY, mBoxW, mBoxH, 'BORROWED', `Tk ${money(r.total_borrowed)}`, [224, 231, 241], RGB_NAVY);
-    drawStatBox(doc, X + mBoxW + gap, mBoxY, mBoxW, mBoxH, 'PAID', `Tk ${money(r.total_paid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
-    drawStatBox(doc, X + (mBoxW + gap) * 2, mBoxY, mBoxW, mBoxH, 'OUTSTANDING', `Tk ${money(r.outstanding_balance)}`, RGB_RED_LIGHT, RGB_RED);
-
-    let my = mBoxY + mBoxH + 8;
-    drawSectionHeader(doc, 'Loan History', X, my, W, RGB_TEAL);
-    autoTable(doc, {
-      startY: my + 7,
-      head: [['Loan Code', 'Amount', 'Tenure', 'Total Payable', 'Status']],
-      body: r.loans.length ? r.loans.map(loanRow) : [['No loans on record.', '', '', '', '']],
-      headStyles: { fillColor: RGB_TEAL },
-      styles: { fontSize: 8 },
-      margin: { left: X, right: X },
-      didDrawPage: () => drawPageBorder(doc),
-    });
-
-    my = (doc as any).lastAutoTable.finalY + 8;
-    drawSectionHeader(doc, 'Payment History', X, my, W, RGB_GOLD);
-    autoTable(doc, {
-      startY: my + 7,
-      head: [['Receipt No.', 'Loan Code', 'Date', 'Amount Paid', 'Method']],
-      body: r.payments.length ? r.payments.map(paymentRow) : [['No payments recorded.', '', '', '', '']],
-      headStyles: { fillColor: RGB_GOLD },
-      styles: { fontSize: 8 },
-      margin: { left: X, right: X },
-      didDrawPage: () => drawPageBorder(doc),
-    });
-  }
 
   return doc.output('blob');
 }
@@ -379,6 +311,9 @@ function autoWidth(ws: any, colCount: number, minWidths: number[] = [], startRow
   }
 }
 
+const EXCEL_HEADERS = ['Member ID', 'Name', 'Loan Amount (BDT)', 'Paid (BDT)', 'Remaining Balance (BDT)', 'Status'];
+
+/** All members report — a single sheet, one row per member. */
 export async function buildAllUsersExcelBlob(rows: any[]): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
@@ -389,131 +324,63 @@ export async function buildAllUsersExcelBlob(rows: any[]): Promise<Blob> {
     views: [{ state: 'frozen', ySplit: 4 }],
     pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
   });
-  const headers = ['Member Code', 'Name', 'Phone', 'Loans', 'Borrowed (BDT)', 'Paid (BDT)', 'Outstanding (BDT)', 'Status'];
-  titleRow(summary, 'MicroLoan Admin — All Members Credit Report', headers.length);
-  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}`, headers.length);
+  titleRow(summary, 'MicroLoan Admin — All Members Credit Report', EXCEL_HEADERS.length);
+  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}  •  ${rows.length} member(s)`, EXCEL_HEADERS.length);
   summary.addRow([]);
-  const headerRow = summary.addRow(headers);
+  const headerRow = summary.addRow(EXCEL_HEADERS);
   styleHeaderRow(headerRow);
 
   let totalBorrowed = 0, totalPaid = 0, totalOutstanding = 0;
   rows.forEach((r, i) => {
-    const row = summary.addRow([r.borrower_code, r.full_name, r.phone, r.loans.length, Number(r.total_borrowed), Number(r.total_paid), Number(r.outstanding_balance), '']);
+    const row = summary.addRow([r.borrower_code, r.full_name, Number(r.total_borrowed), Number(r.total_paid), Number(r.outstanding_balance), '']);
     styleDataRow(row, i % 2 === 1);
+    row.getCell(3).numFmt = MONEY_FMT;
+    row.getCell(4).numFmt = MONEY_FMT;
     row.getCell(5).numFmt = MONEY_FMT;
-    row.getCell(6).numFmt = MONEY_FMT;
-    row.getCell(7).numFmt = MONEY_FMT;
-    applyStatusBadge(row.getCell(8), r.credit_status);
+    applyStatusBadge(row.getCell(6), r.credit_status);
     totalBorrowed += Number(r.total_borrowed);
     totalPaid += Number(r.total_paid);
     totalOutstanding += Number(r.outstanding_balance);
   });
 
-  const totalRow = summary.addRow(['', '', '', 'TOTAL', totalBorrowed, totalPaid, totalOutstanding, '']);
+  const totalRow = summary.addRow(['', 'TOTAL', totalBorrowed, totalPaid, totalOutstanding, '']);
   totalRow.eachCell((cell: any) => {
     cell.font = { bold: true };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
     cell.border = { top: { style: 'thin', color: { argb: BRAND_TEAL } } };
   });
+  totalRow.getCell(3).numFmt = MONEY_FMT;
+  totalRow.getCell(4).numFmt = MONEY_FMT;
   totalRow.getCell(5).numFmt = MONEY_FMT;
-  totalRow.getCell(6).numFmt = MONEY_FMT;
-  totalRow.getCell(7).numFmt = MONEY_FMT;
 
-  autoWidth(summary, headers.length, [18, 22, 14, 7, 14, 14, 16, 12], 4);
-
-  const used = new Set<string>(['Summary']);
-  for (const r of rows) {
-    const ws = wb.addWorksheet(safeSheetName(r.full_name, used), { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-    titleRow(ws, `${r.full_name} (${r.borrower_code})`, 5);
-    subtitleRow(ws, 2, `${r.phone}  •  Borrowed: Tk ${money(r.total_borrowed)}  •  Paid: Tk ${money(r.total_paid)}  •  Outstanding: Tk ${money(r.outstanding_balance)}`, 5);
-    ws.addRow([]);
-
-    const loanHeaderRow = ws.addRow(['Loan Code', 'Amount (BDT)', 'Tenure', 'Total Payable (BDT)', 'Status']);
-    styleHeaderRow(loanHeaderRow);
-    if (r.loans.length === 0) {
-      ws.addRow(['No loans on record.', '', '', '', '']);
-    } else {
-      r.loans.forEach((l: any, i: number) => {
-        const row = ws.addRow([l.loan_code, Number(l.loan_amount), `${l.tenure} ${l.repayment_frequency}`, Number(l.total_payable), l.status]);
-        styleDataRow(row, i % 2 === 1);
-        row.getCell(2).numFmt = MONEY_FMT;
-        row.getCell(4).numFmt = MONEY_FMT;
-      });
-    }
-
-    ws.addRow([]);
-    const payTitleCell = ws.addRow(['Payment History']).getCell(1);
-    payTitleCell.font = { bold: true, size: 11, color: { argb: BRAND_NAVY } };
-
-    const payHeaderRow = ws.addRow(['Receipt No.', 'Loan Code', 'Date', 'Amount Paid (BDT)', 'Method']);
-    styleHeaderRow(payHeaderRow);
-    if (r.payments.length === 0) {
-      ws.addRow(['No payments recorded.', '', '', '', '']);
-    } else {
-      r.payments.forEach((p: any, i: number) => {
-        const row = ws.addRow([p.receipt_no, p.loan_code, new Date(p.payment_date), p.amount_paid !== undefined ? Number(p.amount_paid) : 0, p.payment_method]);
-        styleDataRow(row, i % 2 === 1);
-        row.getCell(3).numFmt = 'yyyy-mm-dd';
-        row.getCell(4).numFmt = MONEY_FMT;
-      });
-    }
-
-    autoWidth(ws, 5, [22, 16, 14, 18, 14], 4);
-  }
+  autoWidth(summary, EXCEL_HEADERS.length, [12, 22, 16, 14, 18, 14], 4);
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-export async function buildSingleUserExcelBlob(borrower: any, loans: any[], payments: any[]): Promise<Blob> {
+/** Single member report — a single sheet, the same columns as the All Members report (just one row). */
+export async function buildSingleUserExcelBlob(borrower: any): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'MicroLoan Admin';
   wb.created = new Date();
 
-  const summary = wb.addWorksheet('Summary', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-  titleRow(summary, 'Member Credit / Debt Report', 2);
-  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}`, 2);
+  const summary = wb.addWorksheet('Summary', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' } });
+  titleRow(summary, 'Member Credit / Debt Report', EXCEL_HEADERS.length);
+  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}`, EXCEL_HEADERS.length);
   summary.addRow([]);
+  const headerRow = summary.addRow(EXCEL_HEADERS);
+  styleHeaderRow(headerRow);
 
-  const fields: [string, any][] = [
-    ['Name', borrower.full_name],
-    ['Member Code', borrower.borrower_code],
-    ['Phone', borrower.phone],
-    ['Total Borrowed (BDT)', Number(borrower.total_borrowed)],
-    ['Total Paid (BDT)', Number(borrower.total_paid)],
-    ['Outstanding Balance (BDT)', Number(borrower.outstanding_balance)],
-    ['Credit Status', borrower.credit_status],
-  ];
-  for (const [label, value] of fields) {
-    const row = summary.addRow([label, value]);
-    row.getCell(1).font = { bold: true, color: { argb: BRAND_NAVY } };
-    if (typeof value === 'number') row.getCell(2).numFmt = MONEY_FMT;
-    if (label === 'Credit Status') applyStatusBadge(row.getCell(2), value);
-  }
-  autoWidth(summary, 2, [22, 30], 4);
+  const row = summary.addRow([borrower.borrower_code, borrower.full_name, Number(borrower.total_borrowed), Number(borrower.total_paid), Number(borrower.outstanding_balance), '']);
+  styleDataRow(row, false);
+  row.getCell(3).numFmt = MONEY_FMT;
+  row.getCell(4).numFmt = MONEY_FMT;
+  row.getCell(5).numFmt = MONEY_FMT;
+  applyStatusBadge(row.getCell(6), borrower.credit_status);
 
-  const loanSheet = wb.addWorksheet('Loans', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-  const loanHeaderRow = loanSheet.addRow(['Loan Code', 'Amount (BDT)', 'Tenure', 'Total Payable (BDT)', 'Status']);
-  styleHeaderRow(loanHeaderRow);
-  loans.forEach((l, i) => {
-    const row = loanSheet.addRow([l.loan_code, Number(l.loan_amount), `${l.tenure} ${l.repayment_frequency}`, Number(l.total_payable), l.status]);
-    styleDataRow(row, i % 2 === 1);
-    row.getCell(2).numFmt = MONEY_FMT;
-    row.getCell(4).numFmt = MONEY_FMT;
-  });
-  autoWidth(loanSheet, 5, [22, 16, 14, 18, 14]);
-
-  const paySheet = wb.addWorksheet('Payments', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-  const payHeaderRow = paySheet.addRow(['Receipt No.', 'Loan Code', 'Date', 'Amount Paid (BDT)', 'Method']);
-  styleHeaderRow(payHeaderRow);
-  payments.forEach((p, i) => {
-    const row = paySheet.addRow([p.receipt_no, p.loan_code, new Date(p.payment_date), Number(p.amount_paid), p.payment_method]);
-    styleDataRow(row, i % 2 === 1);
-    row.getCell(3).numFmt = 'yyyy-mm-dd';
-    row.getCell(4).numFmt = MONEY_FMT;
-  });
-  autoWidth(paySheet, 5, [22, 16, 14, 18, 14]);
+  autoWidth(summary, EXCEL_HEADERS.length, [12, 22, 16, 14, 18, 14], 4);
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -561,15 +428,4 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-}
-
-function safeSheetName(name: string, used: Set<string>): string {
-  let base = name.replace(/[:\\/?*[\]]/g, '').trim().slice(0, 28) || 'Member';
-  let final = base;
-  let i = 1;
-  while (used.has(final)) {
-    final = `${base}${i++}`.slice(0, 31);
-  }
-  used.add(final);
-  return final;
 }
