@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getBorrower, getSavingsBalance, getSavingsTransactions, getSiteSettings } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
@@ -60,26 +61,38 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
 
         <div className="lg:col-span-2">
           <div className="table-wrap">
-            <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Transaction History</div>
+            <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between items-center">
+              <span>Transaction History</span>
+              <span className="text-xs text-gray-400 font-normal">📞 {borrower.phone}</span>
+            </div>
             <table className="app-table">
-              <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Notes</th><th></th></tr></thead>
+              <thead><tr><th>SL</th><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Notes</th><th></th></tr></thead>
               <tbody>
-                {transactions.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-8">No transactions yet.</td></tr>}
-                {transactions.map((t) => (
-                  <tr key={t.id}>
-                    <td>{new Date(t.transaction_date).toLocaleDateString()}</td>
-                    <td><span className={`badge ${statusBadgeClass(t.type)}`}>{t.type}</span></td>
-                    <td className={t.type === 'deposit' ? 'text-green-700' : 'text-amber-700'}>
-                      {t.type === 'deposit' ? '+' : '-'}৳{money(t.amount)}
-                    </td>
-                    <td className="text-gray-500">{t.notes || '—'}</td>
-                    <td>
-                      <form action={deleteSavingsTransactionAction.bind(null, id, t.id)}>
-                        <button type="submit" className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑</button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
+                {transactions.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-8">No transactions yet.</td></tr>}
+                {(() => {
+                  let running = 0;
+                  return transactions.map((t, i) => {
+                    running += t.type === 'deposit' ? Number(t.amount) : -Number(t.amount);
+                    return (
+                      <tr key={t.id}>
+                        <td>{i + 1}</td>
+                        <td>{new Date(t.transaction_date).toLocaleDateString()}</td>
+                        <td><span className={`badge ${statusBadgeClass(t.type)}`}>{t.type}</span></td>
+                        <td className={t.type === 'deposit' ? 'text-green-700' : 'text-amber-700'}>
+                          {t.type === 'deposit' ? '+' : '-'}৳{money(t.amount)}
+                        </td>
+                        <td className="font-semibold">৳{money(running)}</td>
+                        <td className="text-gray-500">{t.notes || '—'}</td>
+                        <td className="whitespace-nowrap">
+                          <Link href={`/savings/${id}/edit/${t.id}`} className="text-xs text-gray-400 hover:text-teal mr-2">Edit</Link>
+                          <form action={deleteSavingsTransactionAction.bind(null, id, t.id)} className="inline">
+                            <button type="submit" className="text-xs text-red-400 hover:text-red-600 confirm-delete">Delete</button>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>

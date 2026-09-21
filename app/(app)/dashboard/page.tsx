@@ -50,9 +50,13 @@ export default async function DashboardPage() {
         <StatCard icon="⚠️" label="Overdue Installments" value={String(stats.overdueCount)} color="red" />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard icon="📈" label="Total Disbursed" value={`৳${money(stats.totalDisbursed)}`} color="purple" />
-        <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="gold" />
+        <StatCard icon="📈" label="Loan Disbursement" value={`৳${money(stats.totalDisbursed)}`} color="purple" />
+        <StatCard icon="💰" label="Installment Collected" value={`৳${money(stats.totalCollected)}`} color="green" />
+        <StatCard icon="🧾" label="Other Revenue" value={`৳${money(stats.otherRevenue)}`} color="gold" />
         <StatCard icon="🏦" label="Total Savings" value={`৳${money(stats.savingsTotal)}`} color="teal" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="navy" />
         <Link href="/calculator" className="card p-4 flex items-center justify-center bg-navy text-white font-semibold hover:bg-navydark transition-colors">
           🧮 Loan Calculator
         </Link>

@@ -364,6 +364,42 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
   redirect(`/savings/${borrowerId}`);
 }
 
+export async function editSavingsTransactionAction(borrowerId: number, transactionId: number, formData: FormData) {
+  await requireAdmin();
+
+  const type = String(formData.get('type') || 'deposit');
+  const amount = Number(formData.get('amount'));
+  const notes = String(formData.get('notes') || '');
+  const transactionDate = String(formData.get('transaction_date') || new Date().toISOString().slice(0, 10));
+
+  if (amount <= 0) {
+    redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('Amount must be greater than zero.'));
+  }
+  if (type !== 'deposit' && type !== 'withdrawal') {
+    redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('Invalid transaction type.'));
+  }
+
+  // Check the resulting balance (excluding this transaction's old value) would stay non-negative
+  const [row] = await sql`
+    SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS balance
+    FROM savings_transactions WHERE borrower_id = ${borrowerId} AND id != ${transactionId}
+  `;
+  const balanceWithoutThis = Number(row.balance);
+  const newBalance = type === 'deposit' ? balanceWithoutThis + amount : balanceWithoutThis - amount;
+  if (newBalance < 0) {
+    redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('This change would make the savings balance negative.'));
+  }
+
+  await sql`
+    UPDATE savings_transactions SET type = ${type}, amount = ${amount}, notes = ${notes}, transaction_date = ${transactionDate}
+    WHERE id = ${transactionId} AND borrower_id = ${borrowerId}
+  `;
+
+  revalidatePath(`/savings/${borrowerId}`);
+  revalidatePath('/savings');
+  redirect(`/savings/${borrowerId}`);
+}
+
 export async function deleteSavingsTransactionAction(borrowerId: number, transactionId: number) {
   await requireAdmin();
   await sql`DELETE FROM savings_transactions WHERE id = ${transactionId} AND borrower_id = ${borrowerId}`;

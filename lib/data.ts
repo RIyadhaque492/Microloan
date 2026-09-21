@@ -13,6 +13,7 @@ export async function getDashboardStats() {
   const [savingsTotal] = await sql`
     SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS s FROM savings_transactions
   `;
+  const [otherRevenue] = await sql`SELECT COALESCE(SUM(registration_fee), 0) AS s FROM borrowers`;
 
   const recentLoans = await sql`
     SELECT l.*, b.full_name FROM loans l JOIN borrowers b ON b.id = l.borrower_id
@@ -36,6 +37,7 @@ export async function getDashboardStats() {
     pendingLoans: pendingLoans.c,
     outstanding: Number(outstanding.s),
     savingsTotal: Number(savingsTotal.s),
+    otherRevenue: Number(otherRevenue.s),
     recentLoans,
     upcoming,
   };
@@ -312,7 +314,7 @@ export async function getSavingsBalance(borrowerId: number): Promise<number> {
 
 export async function getSavingsTransactions(borrowerId: number) {
   return sql`
-    SELECT * FROM savings_transactions WHERE borrower_id = ${borrowerId} ORDER BY transaction_date DESC, id DESC
+    SELECT * FROM savings_transactions WHERE borrower_id = ${borrowerId} ORDER BY transaction_date ASC, id ASC
   `;
 }
 

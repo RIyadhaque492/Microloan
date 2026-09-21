@@ -44,17 +44,26 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         <div className="table-wrap h-fit">
           <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Recent Payments</div>
           <table className="app-table">
-            <thead><tr><th>Receipt</th><th>Member</th><th>Amount</th><th></th></tr></thead>
+            <thead><tr><th>SL</th><th>Receipt</th><th>Member</th><th>Date</th><th>Amount Paid</th><th></th></tr></thead>
             <tbody>
-              {recent.length === 0 && <tr><td colSpan={4} className="text-center text-gray-400 py-8">No payments yet.</td></tr>}
-              {recent.map((p) => (
+              {recent.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-8">No payments yet.</td></tr>}
+              {recent.map((p, i) => (
                 <tr key={p.id}>
+                  <td>{i + 1}</td>
                   <td><Link href={`/collections/receipt/${p.id}`} className="text-teal">{p.receipt_no}</Link></td>
                   <td>{p.full_name}</td>
+                  <td>{new Date(p.payment_date).toLocaleDateString()}</td>
                   <td>৳{money(p.amount_paid)}</td>
                   <td><Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-400 hover:text-teal">Edit</Link></td>
                 </tr>
               ))}
+              {recent.length > 0 && (
+                <tr className="bg-tealight font-bold">
+                  <td colSpan={4} className="text-right">Total</td>
+                  <td>৳{money(recent.reduce((s, p) => s + Number(p.amount_paid), 0))}</td>
+                  <td></td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
