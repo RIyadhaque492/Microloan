@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getCreditSummary } from '@/lib/data';
+import { getCreditSummary, getPaymentsForBorrower } from '@/lib/data';
 import { money, buildSingleUserShareText, buildAllUsersShareText } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
 import PageHeader from '../PageHeader';
@@ -23,6 +23,8 @@ export default async function ReportsPage({
     const borrowerId = Number(searchParams.borrower || 0);
     const allRows = await getCreditSummary();
     const selected = borrowerId ? allRows.find((r: any) => r.id === borrowerId) : null;
+    const payments = selected ? ((await getPaymentsForBorrower(selected.id)) as any[]) : [];
+    const orderedPayments = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
     const shareText = selected ? buildSingleUserShareText(selected, []) : '';
 
     return (
@@ -51,7 +53,7 @@ export default async function ReportsPage({
                 <h2 className="font-bold text-lg">Member Credit / Debt Report</h2>
                 <p className="text-teal-100 text-xs opacity-90">Generated: {new Date().toLocaleString()}</p>
               </div>
-              <ExportButtons mode="single" borrower={selected} shareText={shareText} />
+              <ExportButtons mode="single" borrower={selected} payments={payments} shareText={shareText} />
             </div>
 
             <div className="bg-white p-5">
@@ -68,6 +70,36 @@ export default async function ReportsPage({
                   </tr>
                 </tbody>
               </table>
+
+              <h3 className="font-semibold text-sm text-navy mt-6 mb-2">Payment History — every installment tracked individually</h3>
+              <table className="app-table">
+                <thead><tr><th>SL</th><th>Receipt No.</th><th>Date</th><th>Amount Paid</th><th>Running Total</th></tr></thead>
+                <tbody>
+                  {orderedPayments.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
+                  {(() => {
+                    let running = 0;
+                    return orderedPayments.map((p, i) => {
+                      running += Number(p.amount_paid);
+                      return (
+                        <tr key={p.id}>
+                          <td>{i + 1}</td>
+                          <td>{p.receipt_no}</td>
+                          <td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                          <td>৳{money(p.amount_paid)}</td>
+                          <td className="font-semibold">৳{money(running)}</td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                  {orderedPayments.length > 0 && (
+                    <tr className="bg-tealight font-bold">
+                      <td colSpan={4} className="text-right">TOTAL PAID</td>
+                      <td>৳{money(orderedPayments.reduce((s, p) => s + Number(p.amount_paid), 0))}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
             </div>
           </div>

@@ -119,8 +119,8 @@ function statusCellColorer(colIndex: number) {
   };
 }
 
-/** Single member report — one page, same columns as the All Members report (just one row). */
-export async function buildSingleUserPdfBlob(borrower: any): Promise<Blob> {
+/** Single member report — summary row, plus every individual payment with a running total. */
+export async function buildSingleUserPdfBlob(borrower: any, payments: any[] = []): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   const doc = new jsPDF();
@@ -135,7 +135,7 @@ export async function buildSingleUserPdfBlob(borrower: any): Promise<Blob> {
   drawStatBox(doc, X + boxW + gap, boxY, boxW, boxH, 'TOTAL PAID', `Tk ${money(borrower.total_paid)}`, RGB_GREEN_LIGHT, RGB_GREEN);
   drawStatBox(doc, X + (boxW + gap) * 2, boxY, boxW, boxH, 'OUTSTANDING', `Tk ${money(borrower.outstanding_balance)}`, RGB_RED_LIGHT, RGB_RED);
 
-  const y = boxY + boxH + 8;
+  let y = boxY + boxH + 8;
   drawSectionHeader(doc, 'Member Summary', X, y, W, RGB_NAVY);
   autoTable(doc, {
     startY: y + 7,
@@ -145,6 +145,36 @@ export async function buildSingleUserPdfBlob(borrower: any): Promise<Blob> {
     styles: { fontSize: 8 },
     margin: { left: X, right: X },
     didParseCell: statusCellColorer(SUMMARY_STATUS_COL),
+    didDrawPage: () => drawPageBorder(doc),
+  });
+
+  // Payment history — every individual payment, oldest first, with a running total, so
+  // several installments paid toward the same loan are tracked separately, not just
+  // shown as one lump sum.
+  y = (doc as any).lastAutoTable.finalY + 8;
+  drawSectionHeader(doc, 'Payment History', X, y, W, RGB_TEAL);
+  const ordered = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+  let running = 0;
+  const payBody = ordered.map((p, i) => {
+    running += Number(p.amount_paid);
+    return [String(i + 1), p.receipt_no, new Date(p.payment_date).toLocaleDateString(), `Tk ${money(p.amount_paid)}`, `Tk ${money(running)}`];
+  });
+  if (payBody.length === 0) payBody.push(['', 'No payments recorded.', '', '', '']);
+  else payBody.push(['', '', '', 'TOTAL PAID', `Tk ${money(running)}`]);
+
+  autoTable(doc, {
+    startY: y + 7,
+    head: [['SL', 'Receipt No.', 'Date', 'Amount Paid', 'Running Total']],
+    body: payBody,
+    headStyles: { fillColor: RGB_TEAL },
+    styles: { fontSize: 8 },
+    margin: { left: X, right: X },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.row.index === payBody.length - 1 && payments.length > 0) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = RGB_TEAL_LIGHT;
+      }
+    },
     didDrawPage: () => drawPageBorder(doc),
   });
 
@@ -359,8 +389,8 @@ export async function buildAllUsersExcelBlob(rows: any[]): Promise<Blob> {
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-/** Single member report — a single sheet, the same columns as the All Members report (just one row). */
-export async function buildSingleUserExcelBlob(borrower: any): Promise<Blob> {
+/** Single member report — summary sheet, plus a Payments sheet with running total. */
+export async function buildSingleUserExcelBlob(borrower: any, payments: any[] = []): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'MicroLoan Admin';
@@ -381,6 +411,37 @@ export async function buildSingleUserExcelBlob(borrower: any): Promise<Blob> {
   applyStatusBadge(row.getCell(6), borrower.credit_status);
 
   autoWidth(summary, EXCEL_HEADERS.length, [12, 22, 16, 14, 18, 14], 4);
+
+  // Payments sheet — every individual payment, oldest first, with a running total.
+  const paySheet = wb.addWorksheet('Payments', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+  const payHeaders = ['SL', 'Receipt No.', 'Date', 'Amount Paid (BDT)', 'Running Total (BDT)'];
+  const payHeaderRow = paySheet.addRow(payHeaders);
+  styleHeaderRow(payHeaderRow);
+
+  const ordered = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+  let running = 0;
+  ordered.forEach((p, i) => {
+    running += Number(p.amount_paid);
+    const r = paySheet.addRow([i + 1, p.receipt_no, new Date(p.payment_date), Number(p.amount_paid), running]);
+    styleDataRow(r, i % 2 === 1);
+    r.getCell(3).numFmt = 'yyyy-mm-dd';
+    r.getCell(4).numFmt = MONEY_FMT;
+    r.getCell(5).numFmt = MONEY_FMT;
+  });
+
+  if (ordered.length === 0) {
+    paySheet.addRow(['', 'No payments recorded.', '', '', '']);
+  } else {
+    const totalRow = paySheet.addRow(['', '', '', 'TOTAL PAID', running]);
+    totalRow.eachCell((cell: any) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
+      cell.border = { top: { style: 'thin', color: { argb: BRAND_TEAL } } };
+    });
+    totalRow.getCell(5).numFmt = MONEY_FMT;
+  }
+
+  autoWidth(paySheet, 5, [6, 22, 14, 16, 18]);
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });

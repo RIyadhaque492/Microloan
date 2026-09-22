@@ -11,7 +11,7 @@ import {
 } from '@/lib/clientExport';
 
 type Props =
-  | { mode: 'single'; borrower: any; shareText: string }
+  | { mode: 'single'; borrower: any; payments: any[]; shareText: string }
   | { mode: 'all'; rows: any[]; shareText: string };
 
 type Preview =
@@ -35,7 +35,7 @@ export default function ExportButtons(props: Props) {
     try {
       const blob =
         props.mode === 'single'
-          ? await buildSingleUserPdfBlob(props.borrower)
+          ? await buildSingleUserPdfBlob(props.borrower, props.payments)
           : await buildAllUsersPdfBlob(props.rows);
       const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.pdf` : `all-members-report.pdf`;
       const url = URL.createObjectURL(blob);
@@ -66,7 +66,7 @@ export default function ExportButtons(props: Props) {
       try {
         const blob =
           props.mode === 'single'
-            ? await buildSingleUserExcelBlob(props.borrower)
+            ? await buildSingleUserExcelBlob(props.borrower, props.payments)
             : await buildAllUsersExcelBlob(props.rows);
         await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
       } finally {
@@ -152,20 +152,48 @@ export default function ExportButtons(props: Props) {
 
 function ExcelPreviewTable({ props }: { props: Props }) {
   if (props.mode === 'single') {
+    const ordered = [...props.payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+    let running = 0;
     return (
-      <table className="app-table">
-        <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>{props.borrower.borrower_code}</td>
-            <td>{props.borrower.full_name}</td>
-            <td>৳{money(props.borrower.total_borrowed)}</td>
-            <td>৳{money(props.borrower.total_paid)}</td>
-            <td>৳{money(props.borrower.outstanding_balance)}</td>
-            <td>{props.borrower.credit_status}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="space-y-4">
+        <table className="app-table">
+          <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>{props.borrower.borrower_code}</td>
+              <td>{props.borrower.full_name}</td>
+              <td>৳{money(props.borrower.total_borrowed)}</td>
+              <td>৳{money(props.borrower.total_paid)}</td>
+              <td>৳{money(props.borrower.outstanding_balance)}</td>
+              <td>{props.borrower.credit_status}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div>
+          <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Payment History ({ordered.length})</h4>
+          <table className="app-table">
+            <thead><tr><th>SL</th><th>Receipt No.</th><th>Date</th><th>Amount Paid</th><th>Running Total</th></tr></thead>
+            <tbody>
+              {ordered.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
+              {ordered.map((p: any, i: number) => {
+                running += Number(p.amount_paid);
+                return (
+                  <tr key={p.id}>
+                    <td>{i + 1}</td><td>{p.receipt_no}</td><td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td>৳{money(p.amount_paid)}</td><td className="font-semibold">৳{money(running)}</td>
+                  </tr>
+                );
+              })}
+              {ordered.length > 0 && (
+                <tr className="bg-tealight font-bold">
+                  <td colSpan={4} className="text-right">TOTAL PAID</td>
+                  <td>৳{money(running)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     );
   }
 
