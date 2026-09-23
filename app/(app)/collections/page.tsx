@@ -22,23 +22,27 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
       <div className="card p-4 mb-4">
-        <div className="text-xs text-gray-500">Total Balance Due Across All Loans</div>
+        <div className="text-xs text-gray-500">Total Remaining Balance Across All Loans</div>
         <div className="text-2xl font-bold text-navy">৳{money(totalBalance)}</div>
       </div>
 
       <div className="table-wrap">
         <table className="app-table">
-          <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Next Due</th><th>Balance</th><th></th></tr></thead>
+          <thead><tr><th>Member ID</th><th>Name</th><th>Last Payment Date</th><th>Total Paid</th><th>Remaining Balance</th><th></th></tr></thead>
           <tbody>
             {loans.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-10">No outstanding collections.</td></tr>}
             {loans.map((l) => (
               <tr key={l.id}>
                 <td>{l.borrower_code}</td>
                 <td>{l.full_name}<div className="text-xs text-gray-400">{l.loan_code}</div></td>
-                <td>{l.phone}</td>
-                <td>{l.next_due ? new Date(l.next_due).toLocaleDateString() : '—'}</td>
+                <td>{l.last_payment_date ? new Date(l.last_payment_date).toLocaleDateString() : '—'}</td>
+                <td>৳{money(l.total_paid)}</td>
                 <td className="font-semibold">৳{money(l.balance)}</td>
-                <td><Link href={`/collections/${l.id}`} className="btn btn-primary !py-1 !px-2 text-xs">Collect</Link></td>
+                <td className="whitespace-nowrap">
+                  <Link href={`/collections/${l.id}`} className="btn btn-primary !py-1 !px-2 text-xs mr-1">Collect</Link>
+                  <Link href={`/collections/history/${l.id}`} className="btn btn-outline !py-1 !px-2 text-xs mr-1">View</Link>
+                  <Link href={`/loans/${l.id}`} className="text-xs text-gray-400 hover:text-teal">Edit</Link>
+                </td>
               </tr>
             ))}
           </tbody>

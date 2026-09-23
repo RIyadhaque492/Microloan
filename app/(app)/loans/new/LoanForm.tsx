@@ -1,8 +1,27 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { createLoanAction } from '@/lib/actions';
+import { useFormStatus } from 'react-dom';
+import { createLoanAction, saveDraftLoanAction } from '@/lib/actions';
 import { generateScheduleFromInstallment, money } from '@/lib/utils';
+
+function RegisterButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className="btn btn-primary disabled:opacity-60">
+      {pending ? 'Registering…' : '✅ Register Loan'}
+    </button>
+  );
+}
+
+function DraftButton({ formAction }: { formAction: any }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" formAction={formAction} disabled={pending} className="btn btn-outline disabled:opacity-60">
+      {pending ? 'Saving…' : '💾 Save as Draft'}
+    </button>
+  );
+}
 
 export default function LoanForm({ borrowers, preselectBorrowerId, today }: { borrowers: any[]; preselectBorrowerId: number; today: string }) {
   const [amount, setAmount] = useState<number>(0);
@@ -94,7 +113,10 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
         )}
       </div>
 
-      <button type="submit" className="btn btn-primary">Register Loan</button>
+      <div className="flex gap-2">
+        <DraftButton formAction={saveDraftLoanAction} />
+        <RegisterButton />
+      </div>
     </form>
   );
 }

@@ -62,50 +62,26 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="table-wrap">
-          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between">
-            Recent Loans <Link href="/loans" className="text-teal text-xs font-normal">View all</Link>
-          </div>
-          <table className="app-table">
-            <thead><tr><th>Loan Code</th><th>Member</th><th>Amount</th><th>Status</th></tr></thead>
-            <tbody>
-              {(stats.recentLoans as any[]).length === 0 && (
-                <tr><td colSpan={4} className="text-center text-gray-400 py-6">No loans yet.</td></tr>
-              )}
-              {(stats.recentLoans as any[]).map((l) => (
-                <tr key={l.id}>
-                  <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
-                  <td>{l.full_name}</td>
-                  <td>৳{money(l.loan_amount)}</td>
-                  <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="table-wrap">
+        <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between">
+          Recent Loans <Link href="/loans" className="text-teal text-xs font-normal">View all</Link>
         </div>
-
-        <div className="table-wrap">
-          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between">
-            Installments Due (Next 7 Days) <Link href="/collections" className="text-teal text-xs font-normal">Collect</Link>
-          </div>
-          <table className="app-table">
-            <thead><tr><th>Member</th><th>Due</th><th>Amount</th><th></th></tr></thead>
-            <tbody>
-              {(stats.upcoming as any[]).length === 0 && (
-                <tr><td colSpan={4} className="text-center text-gray-400 py-6">No upcoming dues.</td></tr>
-              )}
-              {(stats.upcoming as any[]).map((i) => (
-                <tr key={i.id}>
-                  <td>{i.full_name}<div className="text-xs text-gray-400">{i.phone}</div></td>
-                  <td>{new Date(i.due_date).toLocaleDateString()}<div><span className={`badge ${statusBadgeClass(i.status)}`}>{i.status}</span></div></td>
-                  <td>৳{money(Number(i.amount) - Number(i.paid_amount))}</td>
-                  <td><Link href={`/collections/${i.loan_id}?installment_id=${i.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Collect</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <table className="app-table">
+          <thead><tr><th>Loan Code</th><th>Member</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            {(stats.recentLoans as any[]).length === 0 && (
+              <tr><td colSpan={4} className="text-center text-gray-400 py-6">No loans yet.</td></tr>
+            )}
+            {(stats.recentLoans as any[]).map((l) => (
+              <tr key={l.id}>
+                <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
+                <td>{l.full_name}</td>
+                <td>৳{money(l.loan_amount)}</td>
+                <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

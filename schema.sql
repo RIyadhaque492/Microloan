@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS borrowers (
     guarantor_name VARCHAR(150),
     guarantor_phone VARCHAR(30),
     registration_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+    fee_receipt_no VARCHAR(20),
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS loan_installments (
     amount NUMERIC(12,2) NOT NULL,
     paid_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
     paid_date DATE,
+    particulars VARCHAR(150),
     status VARCHAR(20) NOT NULL DEFAULT 'pending'
 );
 
@@ -137,6 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_borrower ON borrower_documents(borrower
 CREATE TABLE IF NOT EXISTS savings_transactions (
     id SERIAL PRIMARY KEY,
     borrower_id INTEGER NOT NULL REFERENCES borrowers(id) ON DELETE CASCADE,
+    receipt_no VARCHAR(20) UNIQUE,
     type VARCHAR(10) NOT NULL, -- 'deposit' or 'withdrawal'
     amount NUMERIC(12,2) NOT NULL,
     notes VARCHAR(255),

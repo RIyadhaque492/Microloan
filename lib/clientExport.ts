@@ -54,6 +54,24 @@ function drawBanner(doc: any, title: string, subtitle: string) {
   doc.setTextColor(0, 0, 0);
 }
 
+/** Full-width colored footer bar at the bottom of the page, showing total figures. */
+function drawFooter(doc: any, figures: [string, string][]) {
+  const footerY = 279;
+  doc.setFillColor(...RGB_GOLD);
+  doc.rect(6, footerY, 198, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  const n = figures.length;
+  const colW = 198 / n;
+  figures.forEach(([label, value], i) => {
+    const x = 6 + colW * i + colW / 2;
+    doc.text(`${label}: ${value}`, x, footerY + 7.5, { align: 'center' });
+  });
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+}
+
 /** A colored, bordered stat box — like a small stat card. Returns nothing, just draws. */
 function drawStatBox(doc: any, x: number, y: number, w: number, h: number, label: string, value: string, fill: [number, number, number], text: [number, number, number]) {
   doc.setFillColor(...fill);
@@ -148,26 +166,28 @@ export async function buildSingleUserPdfBlob(borrower: any, payments: any[] = []
     didDrawPage: () => drawPageBorder(doc),
   });
 
-  // Payment history — every individual payment, oldest first, with a running total, so
-  // several installments paid toward the same loan are tracked separately, not just
-  // shown as one lump sum.
+  // Payment history — every individual payment, oldest first, with a running total and
+  // remaining balance, so several installments paid toward the same loan are tracked
+  // separately, not just shown as one lump sum.
   y = (doc as any).lastAutoTable.finalY + 8;
   drawSectionHeader(doc, 'Payment History', X, y, W, RGB_TEAL);
   const ordered = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+  const totalOwed = Number(borrower.outstanding_balance) + Number(borrower.total_paid);
   let running = 0;
   const payBody = ordered.map((p, i) => {
     running += Number(p.amount_paid);
-    return [String(i + 1), p.receipt_no, new Date(p.payment_date).toLocaleDateString(), `Tk ${money(p.amount_paid)}`, `Tk ${money(running)}`];
+    const remaining = totalOwed - running;
+    return [String(i + 1), p.receipt_no, p.notes || 'Payment', new Date(p.payment_date).toLocaleDateString(), `Tk ${money(p.amount_paid)}`, `Tk ${money(running)}`, `Tk ${money(remaining)}`];
   });
-  if (payBody.length === 0) payBody.push(['', 'No payments recorded.', '', '', '']);
-  else payBody.push(['', '', '', 'TOTAL PAID', `Tk ${money(running)}`]);
+  if (payBody.length === 0) payBody.push(['', 'No payments recorded.', '', '', '', '', '']);
+  else payBody.push(['', '', '', '', 'TOTAL PAID', `Tk ${money(running)}`, `Tk ${money(totalOwed - running)}`]);
 
   autoTable(doc, {
     startY: y + 7,
-    head: [['SL', 'Receipt No.', 'Date', 'Amount Paid', 'Running Total']],
+    head: [['SL', 'Receipt No.', 'Particulars', 'Date', 'Amount Paid', 'Running Total', 'Remaining Balance']],
     body: payBody,
     headStyles: { fillColor: RGB_TEAL },
-    styles: { fontSize: 8 },
+    styles: { fontSize: 7.5 },
     margin: { left: X, right: X },
     didParseCell: (data: any) => {
       if (data.section === 'body' && data.row.index === payBody.length - 1 && payments.length > 0) {
@@ -175,8 +195,20 @@ export async function buildSingleUserPdfBlob(borrower: any, payments: any[] = []
         data.cell.styles.fillColor = RGB_TEAL_LIGHT;
       }
     },
-    didDrawPage: () => drawPageBorder(doc),
+    didDrawPage: () => {
+      drawPageBorder(doc);
+      drawFooter(doc, [
+        ['Total Borrowed', `Tk ${money(borrower.total_borrowed)}`],
+        ['Total Paid', `Tk ${money(borrower.total_paid)}`],
+        ['Outstanding', `Tk ${money(borrower.outstanding_balance)}`],
+      ]);
+    },
   });
+  drawFooter(doc, [
+    ['Total Borrowed', `Tk ${money(borrower.total_borrowed)}`],
+    ['Total Paid', `Tk ${money(borrower.total_paid)}`],
+    ['Outstanding', `Tk ${money(borrower.outstanding_balance)}`],
+  ]);
 
   return doc.output('blob');
 }
@@ -202,17 +234,29 @@ export async function buildAllUsersPdfBlob(rows: any[]): Promise<Blob> {
   drawStatBox(doc, X + (boxW + gap) * 2, boxY, boxW, boxH, 'TOTAL OUTSTANDING', `Tk ${money(totalOutstanding)}`, RGB_RED_LIGHT, RGB_RED);
 
   const y = boxY + boxH + 8;
-  drawSectionHeader(doc, 'All Members Summary', X, y, W, RGB_NAVY);
+  drawSectionHeader(doc, 'All Members Summary', X, y, W, RGB_GOLD);
   autoTable(doc, {
     startY: y + 7,
     head: [SUMMARY_HEAD],
     body: rows.map((r) => summaryRow(r)),
-    headStyles: { fillColor: RGB_NAVY },
+    headStyles: { fillColor: RGB_GOLD },
     styles: { fontSize: 8 },
     margin: { left: X, right: X },
     didParseCell: statusCellColorer(SUMMARY_STATUS_COL),
-    didDrawPage: () => drawPageBorder(doc),
+    didDrawPage: () => {
+      drawPageBorder(doc);
+      drawFooter(doc, [
+        ['Total Borrowed', `Tk ${money(totalBorrowed)}`],
+        ['Total Paid', `Tk ${money(totalPaid)}`],
+        ['Total Outstanding', `Tk ${money(totalOutstanding)}`],
+      ]);
+    },
   });
+  drawFooter(doc, [
+    ['Total Borrowed', `Tk ${money(totalBorrowed)}`],
+    ['Total Paid', `Tk ${money(totalPaid)}`],
+    ['Total Outstanding', `Tk ${money(totalOutstanding)}`],
+  ]);
 
   return doc.output('blob');
 }

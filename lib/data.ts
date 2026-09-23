@@ -188,7 +188,12 @@ export async function getLoan(id: number) {
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id WHERE l.id = ${id}
   `;
   if (!loan) return null;
-  const installments = await sql`SELECT * FROM loan_installments WHERE loan_id = ${id} ORDER BY installment_no ASC`;
+  const installments = await sql`
+    SELECT li.*, c.id AS receipt_id, c.receipt_no
+    FROM loan_installments li
+    LEFT JOIN collections c ON c.installment_id = li.id
+    WHERE li.loan_id = ${id} ORDER BY li.installment_no ASC
+  `;
   const payments = await sql`SELECT * FROM collections WHERE loan_id = ${id} ORDER BY payment_date DESC`;
   return { loan, installments, payments };
 }
@@ -200,6 +205,8 @@ export async function getActiveLoansWithBalance(search?: string) {
         SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.borrower_code,
           (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS due_count,
           (SELECT COALESCE(SUM(li.amount - li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS balance,
+          (SELECT COALESCE(SUM(li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id) AS total_paid,
+          (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
           (SELECT MIN(li.due_date) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS next_due
         FROM loans l JOIN borrowers b ON b.id = l.borrower_id
         WHERE l.status = 'active' AND (b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like})
@@ -208,6 +215,8 @@ export async function getActiveLoansWithBalance(search?: string) {
         SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.borrower_code,
           (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS due_count,
           (SELECT COALESCE(SUM(li.amount - li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS balance,
+          (SELECT COALESCE(SUM(li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id) AS total_paid,
+          (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
           (SELECT MIN(li.due_date) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS next_due
         FROM loans l JOIN borrowers b ON b.id = l.borrower_id
         WHERE l.status = 'active'

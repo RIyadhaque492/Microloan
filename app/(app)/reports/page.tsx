@@ -73,34 +73,44 @@ export default async function ReportsPage({
 
               <h3 className="font-semibold text-sm text-navy mt-6 mb-2">Payment History — every installment tracked individually</h3>
               <table className="app-table">
-                <thead><tr><th>SL</th><th>Receipt No.</th><th>Date</th><th>Amount Paid</th><th>Running Total</th></tr></thead>
+                <thead><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Running Total</th><th>Remaining Balance</th></tr></thead>
                 <tbody>
-                  {orderedPayments.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
+                  {orderedPayments.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
                   {(() => {
                     let running = 0;
+                    const totalOwed = Number(selected.outstanding_balance) + Number(selected.total_paid);
                     return orderedPayments.map((p, i) => {
                       running += Number(p.amount_paid);
                       return (
                         <tr key={p.id}>
                           <td>{i + 1}</td>
                           <td>{p.receipt_no}</td>
+                          <td>{p.notes || 'Payment'}</td>
                           <td>{new Date(p.payment_date).toLocaleDateString()}</td>
                           <td>৳{money(p.amount_paid)}</td>
                           <td className="font-semibold">৳{money(running)}</td>
+                          <td>৳{money(totalOwed - running)}</td>
                         </tr>
                       );
                     });
                   })()}
                   {orderedPayments.length > 0 && (
                     <tr className="bg-tealight font-bold">
-                      <td colSpan={4} className="text-right">TOTAL PAID</td>
+                      <td colSpan={5} className="text-right">TOTAL PAID</td>
                       <td>৳{money(orderedPayments.reduce((s, p) => s + Number(p.amount_paid), 0))}</td>
+                      <td>৳{money(selected.outstanding_balance)}</td>
                     </tr>
                   )}
                 </tbody>
               </table>
 
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
+            </div>
+
+            <div className="bg-navy text-white px-5 py-3 flex flex-wrap justify-around gap-3 text-sm">
+              <span><strong>Total Borrowed:</strong> ৳{money(selected.total_borrowed)}</span>
+              <span><strong>Total Paid:</strong> ৳{money(selected.total_paid)}</span>
+              <span><strong>Outstanding:</strong> ৳{money(selected.outstanding_balance)}</span>
             </div>
           </div>
         )}
@@ -149,7 +159,7 @@ export default async function ReportsPage({
       </div>
 
       <div className="rounded-xl border-2 border-navy/10 overflow-hidden">
-        <div className="bg-navy text-white px-5 py-3 font-semibold text-sm">All Members Summary — {rows.length} member(s)</div>
+        <div className="bg-gold text-white px-5 py-3 font-semibold text-sm" style={{ backgroundColor: '#d99a2b' }}>All Members Summary — {rows.length} member(s)</div>
         <div className="table-wrap !rounded-none !border-0">
           <table className="app-table">
             <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th><th></th></tr></thead>
@@ -163,11 +173,20 @@ export default async function ReportsPage({
                   <td>৳{money(r.total_paid)}</td>
                   <td className="font-semibold">৳{money(r.outstanding_balance)}</td>
                   <td><span className={`badge border ${STATUS_STYLE[r.credit_status]}`}>{r.credit_status}</span></td>
-                  <td><Link href={`/reports?mode=single&borrower=${r.id}`} className="text-xs text-teal hover:underline">View</Link></td>
+                  <td className="whitespace-nowrap">
+                    <Link href={`/reports?mode=single&borrower=${r.id}`} className="text-xs text-teal hover:underline mr-2">View</Link>
+                    <Link href={`/borrowers/${r.id}/edit`} className="text-xs text-gray-400 hover:text-teal mr-2">Edit</Link>
+                    <Link href={`/borrowers/${r.id}/edit`} className="text-xs text-red-400 hover:text-red-600">Delete</Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="bg-navy text-white px-5 py-3 flex flex-wrap justify-around gap-3 text-sm">
+          <span><strong>Total Loan Amount:</strong> ৳{money(totals.borrowed)}</span>
+          <span><strong>Total Paid:</strong> ৳{money(totals.paid)}</span>
+          <span><strong>Total Remaining Balance:</strong> ৳{money(totals.outstanding)}</span>
         </div>
       </div>
     </div>

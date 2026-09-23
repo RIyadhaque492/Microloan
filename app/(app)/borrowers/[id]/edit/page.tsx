@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getBorrower } from '@/lib/data';
-import { updateBorrowerAction } from '@/lib/actions';
+import { updateBorrowerAction, deleteBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../../PageHeader';
 
 export const metadata = { title: 'Edit Member - MicroLoan Admin' };
@@ -54,6 +54,11 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
         <div className="flex gap-2">
           <button type="submit" className="btn btn-primary">Save Changes</button>
         </div>
+      </form>
+
+      <form action={deleteBorrowerAction.bind(null, id)} className="max-w-3xl mt-3">
+        <button type="submit" className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Delete this member</button>
+        <p className="text-xs text-gray-400 mt-1">Only possible if this member has no loans on record.</p>
       </form>
     </div>
   );

@@ -121,6 +121,7 @@ export function buildAllUsersShareText(rows: any[]): string {
 
 export function statusBadgeClass(status: string): string {
   const map: Record<string, string> = {
+    draft: 'bg-purple-100 text-purple-700',
     pending: 'bg-gray-200 text-gray-700',
     approved: 'bg-sky-100 text-sky-700',
     active: 'bg-teal-100 text-teal-700',

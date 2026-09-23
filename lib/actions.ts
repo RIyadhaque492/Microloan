@@ -13,6 +13,26 @@ async function requireAdmin() {
   return session!;
 }
 
+/**
+ * Receipt numbers use a letter prefix by transaction type, plus a 4-digit
+ * sequential number scoped to that type/table: L for loan payments (collections),
+ * S for savings, M for member (registration) fees, P for processing fees.
+ * Each prefix has its own independent counter.
+ */
+async function nextReceiptNumber(prefix: 'L' | 'S' | 'M' | 'P', table: 'collections' | 'savings_transactions' | 'borrowers', column: 'receipt_no' | 'fee_receipt_no'): Promise<string> {
+  const pattern = `^${prefix}[0-9]{4}$`;
+  let row: any;
+  if (table === 'collections') {
+    [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(receipt_no FROM 2)::int), 0) AS max_n FROM collections WHERE receipt_no ~ ${pattern}`;
+  } else if (table === 'savings_transactions') {
+    [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(receipt_no FROM 2)::int), 0) AS max_n FROM savings_transactions WHERE receipt_no ~ ${pattern}`;
+  } else {
+    [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(fee_receipt_no FROM 2)::int), 0) AS max_n FROM borrowers WHERE fee_receipt_no ~ ${pattern}`;
+  }
+  const next = Number(row.max_n) + 1;
+  return prefix + String(next).padStart(4, '0');
+}
+
 // ---------- Auth ----------
 
 export async function loginAction(formData: FormData) {
@@ -55,17 +75,20 @@ export async function createBorrowerAction(formData: FormData) {
     redirect('/borrowers/new?error=' + encodeURIComponent('Member ID is required.'));
   }
 
+  const regFee = Number(formData.get('registration_fee') || 0);
+  const feeReceiptNo = regFee > 0 ? await nextReceiptNumber('M', 'borrowers', 'fee_receipt_no') : null;
+
   let row: any;
   try {
     [row] = await sql`
       INSERT INTO borrowers
-        (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, status, created_by)
+        (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, fee_receipt_no, status, created_by)
       VALUES (
         ${memberId}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')},
         ${phone}, ${String(formData.get('email') || '')}, ${String(formData.get('nid_number') || '')},
         ${String(formData.get('present_address') || '')}, ${String(formData.get('occupation') || '')},
         ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')},
-        ${String(formData.get('guarantor_phone') || '')}, ${Number(formData.get('registration_fee') || 0)}, 'active', ${admin.adminId}
+        ${String(formData.get('guarantor_phone') || '')}, ${regFee}, ${feeReceiptNo}, 'active', ${admin.adminId}
       )
       RETURNING id
     `;
@@ -179,6 +202,105 @@ export async function createLoanAction(formData: FormData) {
   redirect(`/loans/${loan.id}`);
 }
 
+/**
+ * Saves a loan as a draft — the fields the admin has filled in so far, with no
+ * installment schedule generated yet (that only happens once the draft is
+ * finalized via finalizeDraftLoanAction, since the schedule depends on having
+ * real values for amount/installment/tenure).
+ */
+export async function saveDraftLoanAction(formData: FormData) {
+  const admin = await requireAdmin();
+
+  const borrowerId = Number(formData.get('borrower_id')) || null;
+  const amount = Number(formData.get('loan_amount')) || 0;
+  const installmentAmount = Number(formData.get('installment_amount')) || 0;
+  const interestType = String(formData.get('interest_type') || 'flat');
+  const tenure = Number(formData.get('tenure')) || 0;
+  const frequency = String(formData.get('repayment_frequency') || 'monthly');
+  const purpose = String(formData.get('purpose') || '');
+  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+
+  if (!borrowerId) {
+    redirect('/loans/new?error=' + encodeURIComponent('Please select a member before saving a draft.'));
+  }
+
+  const code = generateCode('LN');
+  const [loan] = await sql`
+    INSERT INTO loans
+      (loan_code, borrower_id, loan_amount, interest_type, tenure, repayment_frequency, purpose, disbursement_date, installment_amount, status, created_by)
+    VALUES (${code}, ${borrowerId}, ${amount}, ${interestType}, ${tenure}, ${frequency}, ${purpose}, ${disbursed}, ${installmentAmount}, 'draft', ${admin.adminId})
+    RETURNING id
+  `;
+
+  revalidatePath('/loans');
+  redirect(`/loans/${loan.id}`);
+}
+
+/** Turns a draft into a real registered loan — generates the installment schedule now. */
+export async function finalizeDraftLoanAction(id: number) {
+  await requireAdmin();
+
+  const [loan] = await sql`SELECT * FROM loans WHERE id = ${id} AND status = 'draft'`;
+  if (!loan) redirect('/loans?error=' + encodeURIComponent('Draft not found.'));
+
+  const amount = Number(loan.loan_amount);
+  const installmentAmount = Number(loan.installment_amount);
+  const tenure = Number(loan.tenure);
+  if (amount <= 0 || installmentAmount <= 0 || tenure <= 0) {
+    redirect(`/loans/${id}/edit-draft?error=` + encodeURIComponent('Fill in the loan amount, installment amount, and tenure before finalizing.'));
+  }
+
+  const disbursed = loan.disbursement_date ? new Date(loan.disbursement_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const schedule = generateScheduleFromInstallment(amount, installmentAmount, tenure, loan.repayment_frequency, disbursed);
+
+  await sql`
+    UPDATE loans SET interest_rate = ${schedule.interestRate}, total_payable = ${schedule.totalPayable}, status = 'pending'
+    WHERE id = ${id}
+  `;
+
+  for (const inst of schedule.installments) {
+    await sql`
+      INSERT INTO loan_installments (loan_id, installment_no, due_date, amount)
+      VALUES (${id}, ${inst.installmentNo}, ${inst.dueDate}, ${inst.amount})
+    `;
+  }
+
+  revalidatePath('/loans');
+  revalidatePath(`/loans/${id}`);
+  redirect(`/loans/${id}`);
+}
+
+export async function updateDraftLoanAction(id: number, formData: FormData) {
+  await requireAdmin();
+
+  const borrowerId = Number(formData.get('borrower_id')) || null;
+  const amount = Number(formData.get('loan_amount')) || 0;
+  const installmentAmount = Number(formData.get('installment_amount')) || 0;
+  const interestType = String(formData.get('interest_type') || 'flat');
+  const tenure = Number(formData.get('tenure')) || 0;
+  const frequency = String(formData.get('repayment_frequency') || 'monthly');
+  const purpose = String(formData.get('purpose') || '');
+  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+
+  await sql`
+    UPDATE loans SET borrower_id = ${borrowerId}, loan_amount = ${amount}, installment_amount = ${installmentAmount},
+      interest_type = ${interestType}, tenure = ${tenure}, repayment_frequency = ${frequency}, purpose = ${purpose},
+      disbursement_date = ${disbursed}
+    WHERE id = ${id} AND status = 'draft'
+  `;
+
+  revalidatePath(`/loans/${id}`);
+  redirect(`/loans/${id}`);
+}
+
+export async function updateInstallmentParticularsAction(loanId: number, installmentId: number, formData: FormData) {
+  await requireAdmin();
+  const particulars = String(formData.get('particulars') || '').trim() || null;
+  await sql`UPDATE loan_installments SET particulars = ${particulars} WHERE id = ${installmentId} AND loan_id = ${loanId}`;
+  revalidatePath(`/loans/${loanId}`);
+  redirect(`/loans/${loanId}`);
+}
+
 const LOAN_STATUS_MAP: Record<string, string> = {
   approve: 'approved',
   reject: 'rejected',
@@ -281,7 +403,7 @@ export async function collectPaymentAction(formData: FormData) {
 
   const { appliedAmount, firstInstallmentId } = await applyPaymentToInstallments(loanId, amount, startInstallmentId || null, paymentDate);
 
-  const receiptNo = generateCode('RCPT');
+  const receiptNo = await nextReceiptNumber('L', 'collections', 'receipt_no');
 
   let collection: any;
   try {
@@ -382,9 +504,10 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
     }
   }
 
+  const receiptNo = await nextReceiptNumber('S', 'savings_transactions', 'receipt_no');
   await sql`
-    INSERT INTO savings_transactions (borrower_id, type, amount, notes, transaction_date, recorded_by)
-    VALUES (${borrowerId}, ${type}, ${amount}, ${notes}, ${transactionDate}, ${admin.adminId})
+    INSERT INTO savings_transactions (borrower_id, receipt_no, type, amount, notes, transaction_date, recorded_by)
+    VALUES (${borrowerId}, ${receiptNo}, ${type}, ${amount}, ${notes}, ${transactionDate}, ${admin.adminId})
   `;
 
   revalidatePath(`/savings/${borrowerId}`);

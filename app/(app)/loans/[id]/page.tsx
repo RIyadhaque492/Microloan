@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
-import { updateLoanStatusAction, deleteLoanAction } from '@/lib/actions';
+import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 
 export const metadata = { title: 'Loan Details - MicroLoan Admin' };
@@ -13,9 +13,10 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
   await refreshOverdueInstallments();
   const data = await getLoan(id);
   if (!data) notFound();
-  const { loan, installments, payments } = data;
+  const { loan, installments } = data;
 
   const paidTotal = (installments as any[]).reduce((s, i) => s + Number(i.paid_amount), 0);
+  const isDraft = loan.status === 'draft';
 
   return (
     <div>
@@ -32,6 +33,12 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {isDraft && (
+            <>
+              <Link href={`/loans/${id}/edit-draft`} className="btn btn-outline">✏️ Edit Draft</Link>
+              <form action={finalizeDraftLoanAction.bind(null, id)}><button className="btn btn-primary">✔ Done — Register Loan</button></form>
+            </>
+          )}
           {loan.status === 'pending' && (
             <>
               <form action={updateLoanStatusAction.bind(null, id, 'approve')}><button className="btn btn-primary !bg-green-600">✅ Approve</button></form>
@@ -41,7 +48,8 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
           {loan.status === 'approved' && (
             <form action={updateLoanStatusAction.bind(null, id, 'activate')}><button className="btn btn-primary">▶ Mark Active / Disburse</button></form>
           )}
-          <Link href={`/collections/${id}`} className="btn btn-outline">💵 Collect Payment</Link>
+          {!isDraft && <Link href={`/collections/${id}`} className="btn btn-outline">💵 Collect Payment</Link>}
+          <Link href="/loans" className="btn btn-outline">✔ Done</Link>
         </div>
       </div>
 
@@ -52,46 +60,50 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(Number(loan.total_payable) - paidTotal)}</div><div className="text-xs text-gray-500">Balance Remaining</div></div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      {isDraft ? (
+        <div className="card p-6 text-center text-gray-500 text-sm">
+          This loan is still a draft — no installment schedule has been generated yet. Click <strong>Edit Draft</strong> to fill in the details, then <strong>Done — Register Loan</strong> to finalize it.
+        </div>
+      ) : (
         <div className="table-wrap">
           <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Installment Schedule</div>
           <table className="app-table">
-            <thead><tr><th>#</th><th>Due</th><th>Amount</th><th>Paid</th><th>Status</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>#</th><th>Date</th><th>Particulars</th><th>Amount</th><th>Total Paid</th>
+                <th>Remaining</th><th>Overdue</th><th>Receipt</th><th>Status</th><th></th>
+              </tr>
+            </thead>
             <tbody>
-              {(installments as any[]).map((i) => (
-                <tr key={i.id}>
-                  <td>{i.installment_no}</td>
-                  <td>{new Date(i.due_date).toLocaleDateString()}</td>
-                  <td>৳{money(i.amount)}</td>
-                  <td>৳{money(i.paid_amount)}</td>
-                  <td><span className={`badge ${statusBadgeClass(i.status)}`}>{i.status}</span></td>
-                  <td>{i.status !== 'paid' && <Link href={`/collections/${id}?installment_id=${i.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Collect</Link>}</td>
-                </tr>
-              ))}
+              {(installments as any[]).map((i) => {
+                const remaining = Number(i.amount) - Number(i.paid_amount);
+                const isOverdue = i.status === 'overdue';
+                return (
+                  <tr key={i.id}>
+                    <td>{i.installment_no}</td>
+                    <td>{new Date(i.due_date).toLocaleDateString()}</td>
+                    <td>
+                      <form action={updateInstallmentParticularsAction.bind(null, id, i.id)} className="flex gap-1">
+                        <input name="particulars" defaultValue={i.particulars || ''} placeholder="Installments" className="input !py-1 !px-2 text-xs w-28" />
+                        <button type="submit" className="text-xs text-teal hover:underline flex-shrink-0">Save</button>
+                      </form>
+                    </td>
+                    <td>৳{money(i.amount)}</td>
+                    <td>৳{money(i.paid_amount)}</td>
+                    <td className="font-semibold">৳{money(remaining)}</td>
+                    <td>{isOverdue ? <span className="text-red-600 font-semibold">Yes</span> : <span className="text-gray-400">No</span>}</td>
+                    <td>{i.receipt_no ? <Link href={`/collections/receipt/${i.receipt_id}`} className="text-teal text-xs">{i.receipt_no}</Link> : '—'}</td>
+                    <td><span className={`badge ${statusBadgeClass(i.status)}`}>{i.status}</span></td>
+                    <td>{i.status !== 'paid' && <Link href={`/collections/${id}?installment_id=${i.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Collect</Link>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      )}
 
-        <div className="table-wrap h-fit">
-          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Payment History</div>
-          <table className="app-table">
-            <thead><tr><th>Receipt</th><th>Date</th><th>Amount</th><th></th></tr></thead>
-            <tbody>
-              {(payments as any[]).length === 0 && <tr><td colSpan={4} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
-              {(payments as any[]).map((p) => (
-                <tr key={p.id}>
-                  <td><Link href={`/collections/receipt/${p.id}`} className="text-teal">{p.receipt_no}</Link></td>
-                  <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                  <td>৳{money(p.amount_paid)}</td>
-                  <td><Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-400 hover:text-teal">Edit</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {loan.status === 'pending' || loan.status === 'rejected' ? (
+      {loan.status === 'pending' || loan.status === 'rejected' || isDraft ? (
         <form action={deleteLoanAction.bind(null, id)} className="mt-4">
           <button className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Delete this loan</button>
         </form>
