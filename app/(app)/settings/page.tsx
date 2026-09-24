@@ -4,7 +4,7 @@ import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Website Settings - MicroLoan Admin' };
 
-export default async function SettingsPage({ searchParams }: { searchParams: { saved?: string } }) {
+export default async function SettingsPage({ searchParams }: { searchParams: { saved?: string; error?: string } }) {
   const settings = await getSiteSettings();
 
   return (
@@ -13,6 +13,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
 
       {searchParams.saved && (
         <div className="mb-4 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2">✅ Settings saved. Your public homepage has been updated.</div>
+      )}
+      {searchParams.error && (
+        <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>
       )}
 
       <p className="text-sm text-gray-500 mb-4">
@@ -30,6 +33,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
         </div>
 
         <h3 className="font-semibold text-sm text-navy pt-2 border-t border-gray-100">Homepage Banner</h3>
+        <div>
+          <label className="label">Banner Image</label>
+          {settings?.banner_image_data ? (
+            <div className="mb-2">
+              <img src="/api/banner-image" alt="Current banner" className="w-full max-w-md h-32 object-cover rounded-lg border border-gray-200" />
+              <label className="flex items-center gap-2 mt-1 text-xs text-red-500">
+                <input type="checkbox" name="remove_banner_image" value="1" className="rounded" /> Remove this banner image
+              </label>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 mb-2">No banner image uploaded yet — the homepage currently uses a plain color background.</p>
+          )}
+          <input name="banner_image" type="file" accept="image/jpeg,image/png,image/webp" className="input" />
+          <p className="text-xs text-gray-400 mt-1">JPG, PNG, or WEBP. Max 3MB. Shown behind the banner heading/subtext on your homepage.</p>
+        </div>
         <div>
           <label className="label">Banner Heading</label>
           <input name="banner_heading" defaultValue={settings?.banner_heading} className="input" />

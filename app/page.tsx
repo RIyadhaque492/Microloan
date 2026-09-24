@@ -14,6 +14,7 @@ export default async function PublicHomePage() {
   const phone = settings?.contact_phone || '';
   const email = settings?.contact_email || '';
   const address = settings?.contact_address || '';
+  const hasBannerImage = !!settings?.banner_image_data;
 
   const mapSrc = address ? `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed` : null;
 
@@ -33,12 +34,15 @@ export default async function PublicHomePage() {
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-navy via-navy to-teal-700 text-white">
-        <div className="max-w-6xl mx-auto px-5 py-16 sm:py-24 text-center">
+      <section
+        className="relative bg-gradient-to-br from-navy via-navy to-teal-700 text-white bg-cover bg-center"
+        style={hasBannerImage ? { backgroundImage: `linear-gradient(to bottom right, rgba(15,42,63,0.82), rgba(20,149,143,0.82)), url(/api/banner-image)` } : undefined}
+      >
+        <div className="max-w-6xl mx-auto px-5 py-16 sm:py-28 text-center">
           {tagline && <p className="uppercase tracking-wide text-teal-200 text-sm font-semibold mb-3">{tagline}</p>}
-          <h1 className="text-3xl sm:text-5xl font-extrabold mb-4 leading-tight">{bannerHeading}</h1>
+          <h1 className="text-3xl sm:text-5xl font-extrabold mb-4 leading-tight drop-shadow-sm">{bannerHeading}</h1>
           {bannerSubtext && <p className="text-teal-50/90 text-base sm:text-lg max-w-2xl mx-auto mb-8">{bannerSubtext}</p>}
-          <a href="#contact" className="btn bg-white text-navy hover:bg-gray-100 font-semibold inline-block">📞 Contact Us</a>
+          <a href="#contact" className="btn bg-white text-navy hover:bg-gray-100 font-semibold inline-block shadow-lg">📞 Contact Us</a>
         </div>
       </section>
 

@@ -234,14 +234,20 @@ export async function getRecentPayments() {
 
 export async function getLoanForCollection(loanId: number) {
   const [loan] = await sql`
-    SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.id AS borrower_id
+    SELECT l.id, l.loan_code, l.status, l.total_payable, b.full_name, b.phone, b.borrower_code, b.id AS borrower_id
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id WHERE l.id = ${loanId}
   `;
   if (!loan) return null;
   const installments = await sql`
     SELECT * FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid' ORDER BY installment_no ASC
   `;
-  return { loan, installments };
+  const [lastPayment] = await sql`
+    SELECT amount_paid, payment_date FROM collections WHERE loan_id = ${loanId} ORDER BY payment_date DESC, id DESC LIMIT 1
+  `;
+  const [{ total_paid }] = await sql`
+    SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_installments WHERE loan_id = ${loanId}
+  `;
+  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid) };
 }
 
 export async function getSiteSettings() {

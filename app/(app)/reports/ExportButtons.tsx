@@ -6,40 +6,47 @@ import {
   shareOrDownloadBlob,
   buildSingleUserPdfBlob,
   buildSingleUserExcelBlob,
+  buildSingleUserWordBlob,
   buildAllUsersPdfBlob,
   buildAllUsersExcelBlob,
+  buildAllUsersWordBlob,
 } from '@/lib/clientExport';
 
 type Props =
-  | { mode: 'single'; borrower: any; payments: any[]; shareText: string }
-  | { mode: 'all'; rows: any[]; shareText: string };
+  | { mode: 'single'; borrower: any; payments: any[]; shareText: string; onDark?: boolean }
+  | { mode: 'all'; rows: any[]; shareText: string; onDark?: boolean };
 
 type Preview =
-  | { kind: 'pdf'; blob: Blob; url: string; filename: string; mimeType: string }
   | { kind: 'excel'; filename: string; mimeType: string }
+  | { kind: 'word'; filename: string; mimeType: string }
   | { kind: 'text' };
 
 export default function ExportButtons(props: Props) {
-  const [loading, setLoading] = useState<null | 'pdf' | 'excel'>(null);
+  const [loading, setLoading] = useState<null | 'pdf' | 'excel' | 'word'>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const btnClass = props.onDark
+    ? 'btn bg-white/15 backdrop-blur border border-white/30 text-white hover:bg-white/25 !py-1.5 !px-3 text-xs'
+    : 'btn btn-outline';
+
   function closePreview() {
-    if (preview?.kind === 'pdf') URL.revokeObjectURL(preview.url);
     setPreview(null);
     setCopied(false);
   }
 
-  async function openPdfPreview() {
+  // PDF opens directly in a new browser tab — the browser's own viewer gives a full-page
+  // preview with native zoom/print/download, which is far better than a cramped in-app iframe.
+  async function openPdfInNewTab() {
     setLoading('pdf');
     try {
       const blob =
         props.mode === 'single'
           ? await buildSingleUserPdfBlob(props.borrower, props.payments)
           : await buildAllUsersPdfBlob(props.rows);
-      const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.pdf` : `all-members-report.pdf`;
       const url = URL.createObjectURL(blob);
-      setPreview({ kind: 'pdf', blob, url, filename, mimeType: 'application/pdf' });
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } finally {
       setLoading(null);
     }
@@ -50,17 +57,17 @@ export default function ExportButtons(props: Props) {
     setPreview({ kind: 'excel', filename, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
 
+  function openWordPreview() {
+    const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.docx` : `all-members-report.docx`;
+    setPreview({ kind: 'word', filename, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  }
+
   function openTextPreview() {
     setPreview({ kind: 'text' });
   }
 
   async function confirmShare() {
     if (!preview) return;
-    if (preview.kind === 'pdf') {
-      await shareOrDownloadBlob(preview.blob, preview.filename, preview.mimeType);
-      closePreview();
-      return;
-    }
     if (preview.kind === 'excel') {
       setLoading('excel');
       try {
@@ -68,6 +75,20 @@ export default function ExportButtons(props: Props) {
           props.mode === 'single'
             ? await buildSingleUserExcelBlob(props.borrower, props.payments)
             : await buildAllUsersExcelBlob(props.rows);
+        await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
+      } finally {
+        setLoading(null);
+        closePreview();
+      }
+      return;
+    }
+    if (preview.kind === 'word') {
+      setLoading('word');
+      try {
+        const blob =
+          props.mode === 'single'
+            ? await buildSingleUserWordBlob(props.borrower, props.payments)
+            : await buildAllUsersWordBlob(props.rows);
         await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
       } finally {
         setLoading(null);
@@ -99,13 +120,16 @@ export default function ExportButtons(props: Props) {
   return (
     <>
       <div className="flex gap-2 flex-wrap">
-        <button onClick={openPdfPreview} disabled={loading === 'pdf'} type="button" className="btn btn-outline">
-          {loading === 'pdf' ? 'Preparing…' : '📄 PDF'}
+        <button onClick={openPdfInNewTab} disabled={loading === 'pdf'} type="button" className={btnClass}>
+          {loading === 'pdf' ? 'Opening…' : '📄 PDF'}
         </button>
-        <button onClick={openExcelPreview} type="button" className="btn btn-outline">
+        <button onClick={openWordPreview} type="button" className={btnClass}>
+          📝 Word
+        </button>
+        <button onClick={openExcelPreview} type="button" className={btnClass}>
           📊 Excel
         </button>
-        <button onClick={openTextPreview} type="button" className="btn btn-outline">
+        <button onClick={openTextPreview} type="button" className={btnClass}>
           💬 Share Text
         </button>
       </div>
@@ -115,20 +139,15 @@ export default function ExportButtons(props: Props) {
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="font-bold text-navy text-sm">
-                {preview.kind === 'pdf' && 'Preview — PDF'}
                 {preview.kind === 'excel' && 'Preview — Excel'}
+                {preview.kind === 'word' && 'Preview — Word'}
                 {preview.kind === 'text' && 'Preview — Message Text'}
               </h3>
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
 
             <div className="flex-1 overflow-auto p-4">
-              {preview.kind === 'pdf' && (
-                <iframe src={preview.url} title="PDF preview" className="w-full h-full min-h-[60vh] border border-gray-200 rounded" />
-              )}
-
-              {preview.kind === 'excel' && <ExcelPreviewTable props={props} />}
-
+              {(preview.kind === 'excel' || preview.kind === 'word') && <TablePreview props={props} />}
               {preview.kind === 'text' && (
                 <pre className="whitespace-pre-wrap text-sm bg-gray-50 rounded-lg p-3 border border-gray-200">{props.shareText}</pre>
               )}
@@ -139,8 +158,8 @@ export default function ExportButtons(props: Props) {
                 <button onClick={handleCopyText} type="button" className="btn btn-outline">{copied ? '✅ Copied' : '📋 Copy'}</button>
               )}
               <button onClick={closePreview} type="button" className="btn btn-outline">Cancel</button>
-              <button onClick={confirmShare} disabled={loading === 'excel'} type="button" className="btn btn-primary">
-                {loading === 'excel' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
+              <button onClick={confirmShare} disabled={loading === 'excel' || loading === 'word'} type="button" className="btn btn-primary">
+                {loading === 'excel' || loading === 'word' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
               </button>
             </div>
           </div>
@@ -150,7 +169,7 @@ export default function ExportButtons(props: Props) {
   );
 }
 
-function ExcelPreviewTable({ props }: { props: Props }) {
+function TablePreview({ props }: { props: Props }) {
   if (props.mode === 'single') {
     const ordered = [...props.payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
     let running = 0;

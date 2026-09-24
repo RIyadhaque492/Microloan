@@ -564,6 +564,33 @@ export async function deleteSavingsTransactionAction(borrowerId: number, transac
 export async function updateSiteSettingsAction(formData: FormData) {
   await requireAdmin();
 
+  const bannerImage = formData.get('banner_image') as File | null;
+  const removeBanner = formData.get('remove_banner_image') === '1';
+
+  if (bannerImage && bannerImage.size > 0) {
+    if (bannerImage.size > 3 * 1024 * 1024) {
+      redirect('/settings?error=' + encodeURIComponent('Banner image is too large. Max size is 3MB.'));
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(bannerImage.type)) {
+      redirect('/settings?error=' + encodeURIComponent('Banner image must be JPG, PNG, or WEBP.'));
+    }
+    const buffer = Buffer.from(await bannerImage.arrayBuffer());
+    const base64 = buffer.toString('base64');
+    try {
+      await sql`
+        UPDATE site_settings SET banner_image_data = ${base64}, banner_image_mime = ${bannerImage.type} WHERE id = 1
+      `;
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('banner_image') && msg.includes('does not exist')) {
+        redirect('/settings?error=' + encodeURIComponent('Banner upload needs a database update first — run migration_add_banner_image.sql, then try again.'));
+      }
+      throw err;
+    }
+  } else if (removeBanner) {
+    await sql`UPDATE site_settings SET banner_image_data = NULL, banner_image_mime = NULL WHERE id = 1`;
+  }
+
   await sql`
     UPDATE site_settings SET
       site_name = ${String(formData.get('site_name') || 'MicroLoan')},

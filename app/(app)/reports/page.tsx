@@ -53,7 +53,7 @@ export default async function ReportsPage({
                 <h2 className="font-bold text-lg">Member Credit / Debt Report</h2>
                 <p className="text-teal-100 text-xs opacity-90">Generated: {new Date().toLocaleString()}</p>
               </div>
-              <ExportButtons mode="single" borrower={selected} payments={payments} shareText={shareText} />
+              <ExportButtons mode="single" borrower={selected} payments={payments} shareText={shareText} onDark />
             </div>
 
             <div className="bg-white p-5">

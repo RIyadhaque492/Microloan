@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken, SESSION_COOKIE_NAME } from './lib/jwt';
 
-const PUBLIC_PATHS = ['/', '/login'];
+const PUBLIC_PATHS = ['/', '/login', '/api/banner-image'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

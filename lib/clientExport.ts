@@ -534,3 +534,112 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
+
+// =====================================================================
+// Word (.docx) exports — built with the `docx` package.
+// =====================================================================
+
+const DOCX_NAVY = '0F2A3F';
+const DOCX_TEAL = '14958F';
+const DOCX_GOLD = 'D99A2B';
+const DOCX_LIGHT = 'F4F8F8';
+
+function docxHeaderCell(Docx: any, text: string, fill: string) {
+  return new Docx.TableCell({
+    shading: { fill, type: Docx.ShadingType.CLEAR, color: 'auto' },
+    children: [new Docx.Paragraph({ children: [new Docx.TextRun({ text, bold: true, color: 'FFFFFF', size: 18 })] })],
+  });
+}
+
+function docxCell(Docx: any, text: string, opts: { bold?: boolean; fill?: string } = {}) {
+  return new Docx.TableCell({
+    shading: opts.fill ? { fill: opts.fill, type: Docx.ShadingType.CLEAR, color: 'auto' } : undefined,
+    children: [new Docx.Paragraph({ children: [new Docx.TextRun({ text, bold: !!opts.bold, size: 18 })] })],
+  });
+}
+
+function docxSummaryTable(Docx: any, headers: string[], rows: string[][], headFill: string) {
+  return new Docx.Table({
+    width: { size: 100, type: Docx.WidthType.PERCENTAGE },
+    rows: [
+      new Docx.TableRow({ children: headers.map((h) => docxHeaderCell(Docx, h, headFill)) }),
+      ...rows.map((r, i) => new Docx.TableRow({ children: r.map((c) => docxCell(Docx, c, { fill: i % 2 === 1 ? DOCX_LIGHT : undefined })) })),
+    ],
+  });
+}
+
+/** Single member report as a Word document — summary table + full payment history. */
+export async function buildSingleUserWordBlob(borrower: any, payments: any[] = []): Promise<Blob> {
+  const Docx = await import('docx');
+
+  const ordered = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+  const totalOwed = Number(borrower.outstanding_balance) + Number(borrower.total_paid);
+  let running = 0;
+  const payRows = ordered.map((p, i) => {
+    running += Number(p.amount_paid);
+    return [String(i + 1), p.receipt_no, p.notes || 'Payment', new Date(p.payment_date).toLocaleDateString(), `Tk ${money(p.amount_paid)}`, `Tk ${money(running)}`, `Tk ${money(totalOwed - running)}`];
+  });
+  if (payRows.length === 0) payRows.push(['', 'No payments recorded.', '', '', '', '', '']);
+  else payRows.push(['', '', '', '', 'TOTAL PAID', `Tk ${money(running)}`, `Tk ${money(totalOwed - running)}`]);
+
+  const doc = new Docx.Document({
+    sections: [
+      {
+        children: [
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'Member Credit / Debt Report', bold: true, size: 32, color: DOCX_NAVY })] }),
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${borrower.full_name}`, italics: true, size: 18, color: '6B7C85' })] }),
+          new Docx.Paragraph({ text: '' }),
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'Member Summary', bold: true, size: 22, color: DOCX_NAVY })] }),
+          docxSummaryTable(Docx, SUMMARY_HEAD, [summaryRow(borrower)], DOCX_NAVY),
+          new Docx.Paragraph({ text: '' }),
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'Payment History', bold: true, size: 22, color: DOCX_TEAL })] }),
+          docxSummaryTable(Docx, ['SL', 'Receipt No.', 'Particulars', 'Date', 'Amount Paid', 'Running Total', 'Remaining Balance'], payRows, DOCX_TEAL),
+          new Docx.Paragraph({ text: '' }),
+          new Docx.Paragraph({
+            children: [
+              new Docx.TextRun({ text: `Total Borrowed: Tk ${money(borrower.total_borrowed)}   `, bold: true }),
+              new Docx.TextRun({ text: `Total Paid: Tk ${money(borrower.total_paid)}   `, bold: true }),
+              new Docx.TextRun({ text: `Outstanding: Tk ${money(borrower.outstanding_balance)}`, bold: true }),
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const buf = await Docx.Packer.toBlob(doc);
+  return buf;
+}
+
+/** All members report as a Word document — one summary table. */
+export async function buildAllUsersWordBlob(rows: any[]): Promise<Blob> {
+  const Docx = await import('docx');
+
+  const totalBorrowed = rows.reduce((s, r) => s + Number(r.total_borrowed), 0);
+  const totalPaid = rows.reduce((s, r) => s + Number(r.total_paid), 0);
+  const totalOutstanding = rows.reduce((s, r) => s + Number(r.outstanding_balance), 0);
+
+  const doc = new Docx.Document({
+    sections: [
+      {
+        children: [
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'All Members - Full Credit Report', bold: true, size: 32, color: DOCX_NAVY })] }),
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${rows.length} member(s)`, italics: true, size: 18, color: '6B7C85' })] }),
+          new Docx.Paragraph({ text: '' }),
+          docxSummaryTable(Docx, SUMMARY_HEAD, rows.map((r) => summaryRow(r)), DOCX_GOLD),
+          new Docx.Paragraph({ text: '' }),
+          new Docx.Paragraph({
+            children: [
+              new Docx.TextRun({ text: `Total Loan Amount: Tk ${money(totalBorrowed)}   `, bold: true }),
+              new Docx.TextRun({ text: `Total Paid: Tk ${money(totalPaid)}   `, bold: true }),
+              new Docx.TextRun({ text: `Total Outstanding: Tk ${money(totalOutstanding)}`, bold: true }),
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const buf = await Docx.Packer.toBlob(doc);
+  return buf;
+}

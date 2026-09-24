@@ -98,6 +98,8 @@ CREATE TABLE IF NOT EXISTS site_settings (
     tagline VARCHAR(255),
     banner_heading VARCHAR(255),
     banner_subtext TEXT,
+    banner_image_data TEXT,
+    banner_image_mime VARCHAR(100),
     about_text TEXT,
     contact_phone VARCHAR(50),
     contact_email VARCHAR(150),

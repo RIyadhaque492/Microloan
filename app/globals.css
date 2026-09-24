@@ -8,24 +8,24 @@ body {
 }
 
 .card {
-  @apply bg-white border border-gray-200 rounded-xl;
+  @apply bg-white border border-gray-200 rounded-xl shadow-[0_1px_3px_rgba(15,42,63,0.06)];
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97];
 }
 .btn-primary {
-  @apply bg-teal text-white hover:bg-teal-700;
+  @apply bg-teal text-white hover:bg-teal-700 shadow-sm hover:shadow-md;
 }
 .btn-outline {
-  @apply border border-gray-300 text-gray-700 hover:bg-gray-50;
+  @apply border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400;
 }
 .btn-danger-outline {
   @apply border border-red-300 text-red-600 hover:bg-red-50;
 }
 
 .input {
-  @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20;
+  @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-shadow focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20;
 }
 .label {
   @apply block text-sm font-semibold text-navy mb-1;
@@ -46,4 +46,11 @@ table.app-table thead th {
 }
 table.app-table td {
   @apply px-4 py-3 border-b border-gray-100;
+}
+table.app-table tbody tr {
+  @apply transition-colors hover:bg-gray-50/70;
+}
+
+::selection {
+  background: #c8ebe8;
 }
