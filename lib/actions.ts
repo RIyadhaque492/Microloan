@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { sql } from './db';
 import { createSession, destroySession, getSession } from './auth';
-import { generateCode, generateScheduleFromInstallment } from './utils';
+import { generateScheduleFromInstallment } from './utils';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -14,18 +14,24 @@ async function requireAdmin() {
 }
 
 /**
- * Receipt numbers use a letter prefix by transaction type, plus a 4-digit
- * sequential number scoped to that type/table: L for loan payments (collections),
- * S for savings, M for member (registration) fees, P for processing fees.
- * Each prefix has its own independent counter.
+ * Sequential codes use a letter prefix by type, plus a 4-digit sequential
+ * number scoped to that type/table: R for loan-payment receipts (collections),
+ * S for savings, M for member (registration) fees, P for processing fees,
+ * L for loan codes. Each prefix has its own independent counter.
  */
-async function nextReceiptNumber(prefix: 'L' | 'S' | 'M' | 'P', table: 'collections' | 'savings_transactions' | 'borrowers', column: 'receipt_no' | 'fee_receipt_no'): Promise<string> {
+async function nextSequentialCode(
+  prefix: 'R' | 'S' | 'M' | 'P' | 'L',
+  table: 'collections' | 'savings_transactions' | 'borrowers' | 'loans',
+  column: 'receipt_no' | 'fee_receipt_no' | 'loan_code'
+): Promise<string> {
   const pattern = `^${prefix}[0-9]{4}$`;
   let row: any;
   if (table === 'collections') {
     [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(receipt_no FROM 2)::int), 0) AS max_n FROM collections WHERE receipt_no ~ ${pattern}`;
   } else if (table === 'savings_transactions') {
     [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(receipt_no FROM 2)::int), 0) AS max_n FROM savings_transactions WHERE receipt_no ~ ${pattern}`;
+  } else if (table === 'loans') {
+    [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(loan_code FROM 2)::int), 0) AS max_n FROM loans WHERE loan_code ~ ${pattern}`;
   } else {
     [row] = await sql`SELECT COALESCE(MAX(SUBSTRING(fee_receipt_no FROM 2)::int), 0) AS max_n FROM borrowers WHERE fee_receipt_no ~ ${pattern}`;
   }
@@ -76,7 +82,7 @@ export async function createBorrowerAction(formData: FormData) {
   }
 
   const regFee = Number(formData.get('registration_fee') || 0);
-  const feeReceiptNo = regFee > 0 ? await nextReceiptNumber('M', 'borrowers', 'fee_receipt_no') : null;
+  const feeReceiptNo = regFee > 0 ? await nextSequentialCode('M', 'borrowers', 'fee_receipt_no') : null;
 
   let row: any;
   try {
@@ -173,20 +179,21 @@ export async function createLoanAction(formData: FormData) {
   const frequency = String(formData.get('repayment_frequency') || 'monthly') as 'daily' | 'weekly' | 'monthly';
   const purpose = String(formData.get('purpose') || '');
   const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const maturityDate = String(formData.get('maturity_date') || '') || null;
 
   if (!borrowerId || amount <= 0 || tenure <= 0 || installmentAmount <= 0) {
     redirect('/loans/new?error=' + encodeURIComponent('Please fill in all required loan fields correctly.'));
   }
 
   const schedule = generateScheduleFromInstallment(amount, installmentAmount, tenure, frequency, disbursed);
-  const code = generateCode('LN');
+  const code = await nextSequentialCode('L', 'loans', 'loan_code');
 
   const [loan] = await sql`
     INSERT INTO loans
-      (loan_code, borrower_id, loan_amount, interest_rate, interest_type, tenure, repayment_frequency, total_payable, installment_amount, purpose, disbursement_date, status, created_by)
+      (loan_code, borrower_id, loan_amount, interest_rate, interest_type, tenure, repayment_frequency, total_payable, installment_amount, purpose, disbursement_date, maturity_date, status, created_by)
     VALUES (
       ${code}, ${borrowerId}, ${amount}, ${schedule.interestRate}, ${interestType}, ${tenure}, ${frequency},
-      ${schedule.totalPayable}, ${schedule.installmentAmount}, ${purpose}, ${disbursed}, 'pending', ${admin.adminId}
+      ${schedule.totalPayable}, ${schedule.installmentAmount}, ${purpose}, ${disbursed}, ${maturityDate}, 'pending', ${admin.adminId}
     )
     RETURNING id
   `;
@@ -219,16 +226,17 @@ export async function saveDraftLoanAction(formData: FormData) {
   const frequency = String(formData.get('repayment_frequency') || 'monthly');
   const purpose = String(formData.get('purpose') || '');
   const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const maturityDate = String(formData.get('maturity_date') || '') || null;
 
   if (!borrowerId) {
     redirect('/loans/new?error=' + encodeURIComponent('Please select a member before saving a draft.'));
   }
 
-  const code = generateCode('LN');
+  const code = await nextSequentialCode('L', 'loans', 'loan_code');
   const [loan] = await sql`
     INSERT INTO loans
-      (loan_code, borrower_id, loan_amount, interest_type, tenure, repayment_frequency, purpose, disbursement_date, installment_amount, status, created_by)
-    VALUES (${code}, ${borrowerId}, ${amount}, ${interestType}, ${tenure}, ${frequency}, ${purpose}, ${disbursed}, ${installmentAmount}, 'draft', ${admin.adminId})
+      (loan_code, borrower_id, loan_amount, interest_type, tenure, repayment_frequency, purpose, disbursement_date, maturity_date, installment_amount, status, created_by)
+    VALUES (${code}, ${borrowerId}, ${amount}, ${interestType}, ${tenure}, ${frequency}, ${purpose}, ${disbursed}, ${maturityDate}, ${installmentAmount}, 'draft', ${admin.adminId})
     RETURNING id
   `;
 
@@ -267,7 +275,7 @@ export async function finalizeDraftLoanAction(id: number) {
 
   revalidatePath('/loans');
   revalidatePath(`/loans/${id}`);
-  redirect(`/loans/${id}`);
+  redirect('/loans');
 }
 
 export async function updateDraftLoanAction(id: number, formData: FormData) {
@@ -281,11 +289,12 @@ export async function updateDraftLoanAction(id: number, formData: FormData) {
   const frequency = String(formData.get('repayment_frequency') || 'monthly');
   const purpose = String(formData.get('purpose') || '');
   const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const maturityDate = String(formData.get('maturity_date') || '') || null;
 
   await sql`
     UPDATE loans SET borrower_id = ${borrowerId}, loan_amount = ${amount}, installment_amount = ${installmentAmount},
       interest_type = ${interestType}, tenure = ${tenure}, repayment_frequency = ${frequency}, purpose = ${purpose},
-      disbursement_date = ${disbursed}
+      disbursement_date = ${disbursed}, maturity_date = ${maturityDate}
     WHERE id = ${id} AND status = 'draft'
   `;
 
@@ -297,6 +306,15 @@ export async function updateInstallmentParticularsAction(loanId: number, install
   await requireAdmin();
   const particulars = String(formData.get('particulars') || '').trim() || null;
   await sql`UPDATE loan_installments SET particulars = ${particulars} WHERE id = ${installmentId} AND loan_id = ${loanId}`;
+  revalidatePath(`/loans/${loanId}`);
+  redirect(`/loans/${loanId}`);
+}
+
+/** Edits the loan's maturity date directly from the loan detail page. */
+export async function updateLoanMaturityDateAction(loanId: number, formData: FormData) {
+  await requireAdmin();
+  const maturityDate = String(formData.get('maturity_date') || '') || null;
+  await sql`UPDATE loans SET maturity_date = ${maturityDate} WHERE id = ${loanId}`;
   revalidatePath(`/loans/${loanId}`);
   redirect(`/loans/${loanId}`);
 }
@@ -403,7 +421,7 @@ export async function collectPaymentAction(formData: FormData) {
 
   const { appliedAmount, firstInstallmentId } = await applyPaymentToInstallments(loanId, amount, startInstallmentId || null, paymentDate);
 
-  const receiptNo = await nextReceiptNumber('L', 'collections', 'receipt_no');
+  const receiptNo = await nextSequentialCode('R', 'collections', 'receipt_no');
 
   let collection: any;
   try {
@@ -504,7 +522,7 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
     }
   }
 
-  const receiptNo = await nextReceiptNumber('S', 'savings_transactions', 'receipt_no');
+  const receiptNo = await nextSequentialCode('S', 'savings_transactions', 'receipt_no');
   await sql`
     INSERT INTO savings_transactions (borrower_id, receipt_no, type, amount, notes, transaction_date, recorded_by)
     VALUES (${borrowerId}, ${receiptNo}, ${type}, ${amount}, ${notes}, ${transactionDate}, ${admin.adminId})
@@ -614,7 +632,10 @@ export async function updateSiteSettingsAction(formData: FormData) {
 // ---------- Documents ----------
 
 const MAX_DOC_SIZE = 3 * 1024 * 1024;
-const ALLOWED_DOC_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+// Includes HEIC/HEIF — the default photo format on iPhones — since a phone camera
+// photo failing this check silently (looking to the member like "upload doesn't
+// work") was a likely real-world cause of upload complaints.
+const ALLOWED_DOC_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
 
 export async function uploadDocumentAction(borrowerId: number, formData: FormData) {
   const admin = await requireAdmin();
@@ -645,7 +666,7 @@ export async function uploadDocumentAction(borrowerId: number, formData: FormDat
   `;
 
   revalidatePath(`/borrowers/${borrowerId}`);
-  redirect(`/borrowers/${borrowerId}#documents`);
+  redirect(`/borrowers/${borrowerId}?uploaded=1#documents`);
 }
 
 export async function deleteDocumentAction(borrowerId: number, docId: number) {

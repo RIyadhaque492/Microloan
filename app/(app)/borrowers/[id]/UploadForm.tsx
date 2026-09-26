@@ -36,7 +36,7 @@ export default function UploadForm({ action }: { action: (formData: FormData) =>
       </div>
       <div>
         <label className="label">File *</label>
-        <input name="file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required className="input" />
+        <input name="file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" required className="input" />
         <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, or PDF. Max 3MB.</p>
       </div>
       <UploadButton />

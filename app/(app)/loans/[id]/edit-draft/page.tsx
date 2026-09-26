@@ -48,6 +48,7 @@ export default async function EditDraftLoanPage({ params, searchParams }: { para
             </select>
           </div>
           <div><label className="label">Disbursement Date</label><input name="disbursement_date" type="date" defaultValue={loan.disbursement_date ? new Date(loan.disbursement_date).toISOString().slice(0, 10) : ''} className="input" /></div>
+          <div><label className="label">Maturity Date</label><input name="maturity_date" type="date" defaultValue={loan.maturity_date ? new Date(loan.maturity_date).toISOString().slice(0, 10) : ''} className="input" /></div>
           <div className="md:col-span-3"><label className="label">Purpose of Loan</label><input name="purpose" defaultValue={loan.purpose} className="input" /></div>
         </div>
 

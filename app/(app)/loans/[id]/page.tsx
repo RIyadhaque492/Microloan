@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
-import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction } from '@/lib/actions';
+import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 
 export const metadata = { title: 'Loan Details - MicroLoan Admin' };
@@ -60,6 +60,21 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
         <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(Number(loan.total_payable) - paidTotal)}</div><div className="text-xs text-gray-500">Balance Remaining</div></div>
       </div>
 
+      {!isDraft && (
+        <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+          <span className="text-xs text-gray-500 font-semibold">📅 Maturity Date:</span>
+          <form action={updateLoanMaturityDateAction.bind(null, id)} className="flex items-center gap-2">
+            <input
+              type="date"
+              name="maturity_date"
+              defaultValue={loan.maturity_date ? new Date(loan.maturity_date).toISOString().slice(0, 10) : ''}
+              className="input !py-1 !px-2 text-sm w-40"
+            />
+            <button type="submit" className="btn btn-outline !py-1 !px-3 text-xs">Save</button>
+          </form>
+        </div>
+      )}
+
       {isDraft ? (
         <div className="card p-6 text-center text-gray-500 text-sm">
           This loan is still a draft — no installment schedule has been generated yet. Click <strong>Edit Draft</strong> to fill in the details, then <strong>Done — Register Loan</strong> to finalize it.
@@ -71,33 +86,38 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
             <thead>
               <tr>
                 <th>#</th><th>Date</th><th>Particulars</th><th>Amount</th><th>Total Paid</th>
-                <th>Remaining</th><th>Overdue</th><th>Receipt</th><th>Status</th><th></th>
+                <th>Remaining Balance</th><th>Receipt</th><th>Status</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {(installments as any[]).map((i) => {
-                const remaining = Number(i.amount) - Number(i.paid_amount);
-                const isOverdue = i.status === 'overdue';
-                return (
-                  <tr key={i.id}>
-                    <td>{i.installment_no}</td>
-                    <td>{new Date(i.due_date).toLocaleDateString()}</td>
-                    <td>
-                      <form action={updateInstallmentParticularsAction.bind(null, id, i.id)} className="flex gap-1">
-                        <input name="particulars" defaultValue={i.particulars || ''} placeholder="Installments" className="input !py-1 !px-2 text-xs w-28" />
-                        <button type="submit" className="text-xs text-teal hover:underline flex-shrink-0">Save</button>
-                      </form>
-                    </td>
-                    <td>৳{money(i.amount)}</td>
-                    <td>৳{money(i.paid_amount)}</td>
-                    <td className="font-semibold">৳{money(remaining)}</td>
-                    <td>{isOverdue ? <span className="text-red-600 font-semibold">Yes</span> : <span className="text-gray-400">No</span>}</td>
-                    <td>{i.receipt_no ? <Link href={`/collections/receipt/${i.receipt_id}`} className="text-teal text-xs">{i.receipt_no}</Link> : '—'}</td>
-                    <td><span className={`badge ${statusBadgeClass(i.status)}`}>{i.status}</span></td>
-                    <td>{i.status !== 'paid' && <Link href={`/collections/${id}?installment_id=${i.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Collect</Link>}</td>
-                  </tr>
-                );
-              })}
+              {(() => {
+                let cumulativePaid = 0;
+                return (installments as any[]).map((i) => {
+                  cumulativePaid += Number(i.paid_amount);
+                  // "Total Paid" and "Remaining Balance" here are running totals for the
+                  // WHOLE loan through this installment — not just this row's own amount —
+                  // so they read the same way a bank passbook does.
+                  const totalRemaining = Math.max(0, Number(loan.total_payable) - cumulativePaid);
+                  return (
+                    <tr key={i.id}>
+                      <td>{i.installment_no}</td>
+                      <td>{new Date(i.due_date).toLocaleDateString()}</td>
+                      <td>
+                        <form action={updateInstallmentParticularsAction.bind(null, id, i.id)} className="flex gap-1">
+                          <input name="particulars" defaultValue={i.particulars || ''} placeholder="Installment" className="input !py-1 !px-2 text-xs w-28" />
+                          <button type="submit" className="text-xs text-teal hover:underline flex-shrink-0">Save</button>
+                        </form>
+                      </td>
+                      <td>৳{money(i.amount)}</td>
+                      <td>৳{money(cumulativePaid)}</td>
+                      <td className="font-semibold">৳{money(totalRemaining)}</td>
+                      <td>{i.receipt_no ? <Link href={`/collections/receipt/${i.receipt_id}`} className="text-teal text-xs">{i.receipt_no}</Link> : '—'}</td>
+                      <td><span className={`badge ${statusBadgeClass(i.status)}`}>{i.status}</span></td>
+                      <td>{i.status !== 'paid' && <Link href={`/collections/${id}?installment_id=${i.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Collect</Link>}</td>
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
         </div>

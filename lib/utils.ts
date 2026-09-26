@@ -80,41 +80,59 @@ export function generateScheduleFromInstallment(
   return { totalPayable, interestRate, installmentAmount: perInstallment, installments };
 }
 
-export function buildSingleUserShareText(borrower: any, loans: any[]): string {
+/** loanRows here are per-LOAN rows for a single member (see getLoanReportRows) —
+ *  a member with two disbursed loans gets two lines. */
+export function buildSingleUserShareText(member: { full_name: string; borrower_code: string; phone: string }, loanRows: any[]): string {
   const lines = [
     `*MicroLoan Credit Report*`,
-    `Member: ${borrower.full_name} (${borrower.borrower_code})`,
-    `Phone: ${borrower.phone}`,
+    `Member: ${member.full_name} (${member.borrower_code})`,
+    `Phone: ${member.phone}`,
     '',
-    `Total Borrowed: ৳${money(borrower.total_borrowed)}`,
-    `Total Paid: ৳${money(borrower.total_paid)}`,
-    `Outstanding: ৳${money(borrower.outstanding_balance)}`,
-    `Status: ${borrower.credit_status}`,
   ];
-  if (loans.length > 0) {
-    lines.push('', 'Loans:');
-    for (const l of loans) {
-      lines.push(`- ${l.loan_code}: ৳${money(l.loan_amount)} (${l.status})`);
+  if (loanRows.length === 0) {
+    lines.push('No disbursed loans.');
+  } else {
+    const totalLoan = loanRows.reduce((s, r) => s + Number(r.loan_amount), 0);
+    const totalPayable = loanRows.reduce((s, r) => s + Number(r.total_payable), 0);
+    const totalPaid = loanRows.reduce((s, r) => s + Number(r.total_paid), 0);
+    const totalRemaining = loanRows.reduce((s, r) => s + Number(r.remaining_balance), 0);
+    lines.push('Loans:');
+    for (const r of loanRows) {
+      lines.push(
+        `- ${r.loan_code}: Loan ৳${money(r.loan_amount)}, Payable ৳${money(r.total_payable)}, Paid ৳${money(r.total_paid)}, Remaining ৳${money(r.remaining_balance)}, Maturity ${r.maturity_date ? new Date(r.maturity_date).toLocaleDateString() : '—'}`
+      );
     }
+    lines.push(
+      '',
+      `TOTAL Loan Amount: ৳${money(totalLoan)}`,
+      `TOTAL Payable: ৳${money(totalPayable)}`,
+      `TOTAL Paid: ৳${money(totalPaid)}`,
+      `TOTAL Remaining: ৳${money(totalRemaining)}`
+    );
   }
   lines.push('', `Generated: ${new Date().toLocaleString()}`);
   return lines.join('\n');
 }
 
+/** rows here are per-LOAN rows across all members (see getLoanReportRows). */
 export function buildAllUsersShareText(rows: any[]): string {
-  const totalBorrowed = rows.reduce((s, r) => s + Number(r.total_borrowed), 0);
+  const totalLoan = rows.reduce((s, r) => s + Number(r.loan_amount), 0);
+  const totalPayable = rows.reduce((s, r) => s + Number(r.total_payable), 0);
   const totalPaid = rows.reduce((s, r) => s + Number(r.total_paid), 0);
-  const totalOutstanding = rows.reduce((s, r) => s + Number(r.outstanding_balance), 0);
+  const totalRemaining = rows.reduce((s, r) => s + Number(r.remaining_balance), 0);
 
-  const lines = [`*MicroLoan - All Members Summary*`, `Generated: ${new Date().toLocaleString()}`, ''];
-  for (const r of rows) {
-    lines.push(`${r.full_name} (${r.borrower_code}): Borrowed ৳${money(r.total_borrowed)}, Paid ৳${money(r.total_paid)}, Due ৳${money(r.outstanding_balance)} [${r.credit_status}]`);
-  }
+  const lines = [`*MicroLoan - All Loans Summary*`, `Generated: ${new Date().toLocaleString()}`, ''];
+  rows.forEach((r, i) => {
+    lines.push(
+      `${i + 1}. ${r.full_name} (${r.borrower_code}) — ${r.loan_code}: Loan ৳${money(r.loan_amount)}, Payable ৳${money(r.total_payable)}, Paid ৳${money(r.total_paid)}, Remaining ৳${money(r.remaining_balance)}`
+    );
+  });
   lines.push(
     '',
-    `TOTAL Borrowed: ৳${money(totalBorrowed)}`,
+    `TOTAL Loan Amount: ৳${money(totalLoan)}`,
+    `TOTAL Payable: ৳${money(totalPayable)}`,
     `TOTAL Paid: ৳${money(totalPaid)}`,
-    `TOTAL Outstanding: ৳${money(totalOutstanding)}`
+    `TOTAL Remaining: ৳${money(totalRemaining)}`
   );
   return lines.join('\n');
 }

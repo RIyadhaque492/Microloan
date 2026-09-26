@@ -13,13 +13,19 @@ import {
 } from '@/lib/clientExport';
 
 type Props =
-  | { mode: 'single'; borrower: any; payments: any[]; shareText: string; onDark?: boolean }
-  | { mode: 'all'; rows: any[]; shareText: string; onDark?: boolean };
+  | { mode: 'single'; member: any; loanRows: any[]; payments: any[]; shareText: string; onDark?: boolean }
+  | { mode: 'all'; loanRows: any[]; shareText: string; onDark?: boolean };
 
 type Preview =
   | { kind: 'excel'; filename: string; mimeType: string }
   | { kind: 'word'; filename: string; mimeType: string }
   | { kind: 'text' };
+
+function fmtDate(d: any) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString();
+}
 
 export default function ExportButtons(props: Props) {
   const [loading, setLoading] = useState<null | 'pdf' | 'excel' | 'word'>(null);
@@ -42,8 +48,8 @@ export default function ExportButtons(props: Props) {
     try {
       const blob =
         props.mode === 'single'
-          ? await buildSingleUserPdfBlob(props.borrower, props.payments)
-          : await buildAllUsersPdfBlob(props.rows);
+          ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments)
+          : await buildAllUsersPdfBlob(props.loanRows);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -53,12 +59,12 @@ export default function ExportButtons(props: Props) {
   }
 
   function openExcelPreview() {
-    const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.xlsx` : `all-members-report.xlsx`;
+    const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.xlsx` : `all-loans-report.xlsx`;
     setPreview({ kind: 'excel', filename, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
 
   function openWordPreview() {
-    const filename = props.mode === 'single' ? `member-${props.borrower.borrower_code}.docx` : `all-members-report.docx`;
+    const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.docx` : `all-loans-report.docx`;
     setPreview({ kind: 'word', filename, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   }
 
@@ -73,8 +79,8 @@ export default function ExportButtons(props: Props) {
       try {
         const blob =
           props.mode === 'single'
-            ? await buildSingleUserExcelBlob(props.borrower, props.payments)
-            : await buildAllUsersExcelBlob(props.rows);
+            ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments)
+            : await buildAllUsersExcelBlob(props.loanRows);
         await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
       } finally {
         setLoading(null);
@@ -87,8 +93,8 @@ export default function ExportButtons(props: Props) {
       try {
         const blob =
           props.mode === 'single'
-            ? await buildSingleUserWordBlob(props.borrower, props.payments)
-            : await buildAllUsersWordBlob(props.rows);
+            ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments)
+            : await buildAllUsersWordBlob(props.loanRows);
         await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
       } finally {
         setLoading(null);
@@ -136,7 +142,7 @@ export default function ExportButtons(props: Props) {
 
       {preview && (
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-3" onClick={closePreview}>
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="font-bold text-navy text-sm">
                 {preview.kind === 'excel' && 'Preview — Excel'}
@@ -170,43 +176,63 @@ export default function ExportButtons(props: Props) {
 }
 
 function TablePreview({ props }: { props: Props }) {
+  const loanRows = props.loanRows;
+
+  const loanTable = (
+    <div className="overflow-x-auto">
+      <table className="app-table text-xs">
+        <thead>
+          <tr>
+            <th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th>
+            <th>Total Payable</th><th>Installment Amt</th><th>Qty</th><th>Total Paid</th>
+            <th>Remaining Balance</th><th>Maturity Date</th><th>Contact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loanRows.length === 0 && <tr><td colSpan={12} className="text-center text-gray-400 py-3">No disbursed loans.</td></tr>}
+          {loanRows.map((r: any, i: number) => (
+            <tr key={r.loan_id}>
+              <td>{i + 1}</td><td>{fmtDate(r.disbursement_date)}</td><td>{r.full_name}</td><td>{r.borrower_code}</td>
+              <td>৳{money(r.loan_amount)}</td><td>৳{money(r.total_payable)}</td><td>৳{money(r.installment_amount)}</td>
+              <td>{r.tenure}</td><td>৳{money(r.total_paid)}</td><td>৳{money(r.remaining_balance)}</td>
+              <td>{fmtDate(r.maturity_date)}</td><td>{r.phone}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   if (props.mode === 'single') {
+    const totalPayable = loanRows.reduce((s, r) => s + Number(r.total_payable), 0);
     const ordered = [...props.payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
     let running = 0;
     return (
       <div className="space-y-4">
-        <table className="app-table">
-          <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>{props.borrower.borrower_code}</td>
-              <td>{props.borrower.full_name}</td>
-              <td>৳{money(props.borrower.total_borrowed)}</td>
-              <td>৳{money(props.borrower.total_paid)}</td>
-              <td>৳{money(props.borrower.outstanding_balance)}</td>
-              <td>{props.borrower.credit_status}</td>
-            </tr>
-          </tbody>
-        </table>
+        <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Loan Register</h4>
+        {loanTable}
         <div>
           <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Payment History ({ordered.length})</h4>
-          <table className="app-table">
-            <thead><tr><th>SL</th><th>Receipt No.</th><th>Date</th><th>Amount Paid</th><th>Running Total</th></tr></thead>
+          <table className="app-table border-2 border-black">
+            <thead><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
             <tbody>
-              {ordered.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
+              {ordered.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
               {ordered.map((p: any, i: number) => {
                 running += Number(p.amount_paid);
+                const remaining = Math.max(0, totalPayable - running);
                 return (
                   <tr key={p.id}>
-                    <td>{i + 1}</td><td>{p.receipt_no}</td><td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                    <td>৳{money(p.amount_paid)}</td><td className="font-semibold">৳{money(running)}</td>
+                    <td className="border border-black">{i + 1}</td><td className="border border-black">{p.receipt_no}</td>
+                    <td className="border border-black">{p.notes || 'Installment'}</td><td className="border border-black">{fmtDate(p.payment_date)}</td>
+                    <td className="border border-black">৳{money(p.amount_paid)}</td><td className="border border-black font-semibold">৳{money(remaining)}</td>
                   </tr>
                 );
               })}
               {ordered.length > 0 && (
                 <tr className="bg-tealight font-bold">
-                  <td colSpan={4} className="text-right">TOTAL PAID</td>
-                  <td>৳{money(running)}</td>
+                  <td colSpan={4} className="text-right border border-black">TOTAL PAID</td>
+                  <td className="border border-black">৳{money(running)}</td>
+                  <td className="border border-black">৳{money(Math.max(0, totalPayable - running))}</td>
                 </tr>
               )}
             </tbody>
@@ -218,15 +244,8 @@ function TablePreview({ props }: { props: Props }) {
 
   return (
     <div className="text-sm">
-      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">{props.rows.length} member(s)</h4>
-      <table className="app-table">
-        <thead><tr><th>Member ID</th><th>Name</th><th>Loan Amount</th><th>Paid</th><th>Remaining Balance</th><th>Status</th></tr></thead>
-        <tbody>
-          {props.rows.map((r: any) => (
-            <tr key={r.id}><td>{r.borrower_code}</td><td>{r.full_name}</td><td>৳{money(r.total_borrowed)}</td><td>৳{money(r.total_paid)}</td><td>৳{money(r.outstanding_balance)}</td><td>{r.credit_status}</td></tr>
-          ))}
-        </tbody>
-      </table>
+      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">{loanRows.length} loan(s)</h4>
+      {loanTable}
     </div>
   );
 }

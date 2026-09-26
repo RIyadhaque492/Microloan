@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS loans (
     installment_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
     purpose VARCHAR(255),
     disbursement_date DATE,
+    maturity_date DATE,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     approved_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,

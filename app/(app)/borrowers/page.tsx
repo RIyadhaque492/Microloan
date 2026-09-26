@@ -21,7 +21,7 @@ export default async function BorrowersPage({ searchParams }: { searchParams: { 
 
       <div className="table-wrap">
         <table className="app-table">
-          <thead><tr><th>Code</th><th>Name</th><th>Phone</th><th>Loans</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Loans</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {borrowers.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-10">No members found.</td></tr>}
             {borrowers.map((b) => (

@@ -27,14 +27,22 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
 
       <div className="table-wrap">
         <table className="app-table">
-          <thead><tr><th>Loan Code</th><th>Member</th><th>Amount</th><th>Tenure</th><th>Progress</th><th>Status</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>Loan Code</th><th>Member</th><th>Loan Amount</th><th>Total Payable</th><th>Total Paid</th>
+              <th>Remaining Balance</th><th>Tenure</th><th>Progress</th><th>Status</th><th></th>
+            </tr>
+          </thead>
           <tbody>
-            {loans.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-10">No loans found.</td></tr>}
+            {loans.length === 0 && <tr><td colSpan={10} className="text-center text-gray-400 py-10">No loans found.</td></tr>}
             {loans.map((l) => (
               <tr key={l.id}>
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
-                <td>{l.full_name}<div className="text-xs text-gray-400">{l.phone}</div></td>
+                <td>{l.full_name} <span className="text-xs text-gray-400">({l.borrower_code})</span><div className="text-xs text-gray-400">{l.phone}</div></td>
                 <td>৳{money(l.loan_amount)}</td>
+                <td>৳{money(l.total_payable)}</td>
+                <td>৳{money(l.total_paid)}</td>
+                <td className="font-semibold">৳{money(l.remaining_balance)}</td>
                 <td>{l.tenure} {frequencyShortLabel(l.repayment_frequency)}</td>
                 <td>{l.paid_count}/{l.total_count} paid</td>
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>

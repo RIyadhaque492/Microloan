@@ -1,4 +1,4 @@
-import { getNextMemberId } from '@/lib/data';
+import { getNextMemberId, getPresentAddressSuggestions, getMonthlyIncomeSuggestions } from '@/lib/data';
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
   const suggestedId = await getNextMemberId();
+  const [addressSuggestions, incomeSuggestions] = await Promise.all([
+    getPresentAddressSuggestions(),
+    getMonthlyIncomeSuggestions(),
+  ]);
 
   return (
     <div>
@@ -31,9 +35,23 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
           <div><label className="label">Phone *</label><input name="phone" required className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" className="input" /></div>
-          <div className="md:col-span-2"><label className="label">Present Address</label><textarea name="present_address" className="input" rows={2} /></div>
+          <div className="md:col-span-2">
+            <label className="label">Present Address</label>
+            {/* A <datalist> for autosuggest only works on <input>, not <textarea>, so this
+                is a single-line text input rather than the old multi-line textarea. */}
+            <input type="text" name="present_address" list="present-address-suggestions" className="input" />
+            <datalist id="present-address-suggestions">
+              {addressSuggestions.map((a) => <option key={a} value={a} />)}
+            </datalist>
+          </div>
           <div><label className="label">Occupation</label><input name="occupation" className="input" /></div>
-          <div><label className="label">Monthly Income</label><input name="monthly_income" type="number" step="0.01" className="input" /></div>
+          <div>
+            <label className="label">Monthly Income</label>
+            <input name="monthly_income" type="number" step="0.01" list="monthly-income-suggestions" className="input" />
+            <datalist id="monthly-income-suggestions">
+              {incomeSuggestions.map((v) => <option key={v} value={v} />)}
+            </datalist>
+          </div>
           <div><label className="label">Guarantor Name</label><input name="guarantor_name" className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" className="input" /></div>
           <div>

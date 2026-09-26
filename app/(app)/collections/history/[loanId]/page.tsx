@@ -38,17 +38,35 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
       <div className="table-wrap">
         <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">All Transactions</div>
         <table className="app-table">
-          <thead><tr><th>Receipt No.</th><th>Date</th><th>Amount</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>SL</th><th>Receipt No.</th><th>Date</th><th>Particulars</th><th>Method</th>
+              <th>Amount Paid</th><th>Total Paid</th><th>Remaining Balance</th><th></th>
+            </tr>
+          </thead>
           <tbody>
-            {(payments as any[]).length === 0 && <tr><td colSpan={4} className="text-center text-gray-400 py-8">No payments recorded.</td></tr>}
-            {(payments as any[]).map((p) => (
-              <tr key={p.id}>
-                <td><Link href={`/collections/receipt/${p.id}`} className="text-teal">{p.receipt_no}</Link></td>
-                <td>{new Date(p.payment_date).toLocaleDateString()}</td>
-                <td>৳{money(p.amount_paid)}</td>
-                <td><Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-400 hover:text-teal">Edit</Link></td>
-              </tr>
-            ))}
+            {(payments as any[]).length === 0 && <tr><td colSpan={9} className="text-center text-gray-400 py-8">No payments recorded.</td></tr>}
+            {(() => {
+              const ordered = [...(payments as any[])].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+              let cumulativePaid = 0;
+              return ordered.map((p, i) => {
+                cumulativePaid += Number(p.amount_paid);
+                const rowRemaining = Math.max(0, Number(loan.total_payable) - cumulativePaid);
+                return (
+                  <tr key={p.id}>
+                    <td>{i + 1}</td>
+                    <td><Link href={`/collections/receipt/${p.id}`} className="text-teal">{p.receipt_no}</Link></td>
+                    <td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td>{p.notes || 'Installment'}</td>
+                    <td className="capitalize">{String(p.payment_method || '').replace('_', ' ')}</td>
+                    <td>৳{money(p.amount_paid)}</td>
+                    <td>৳{money(cumulativePaid)}</td>
+                    <td className="font-semibold">৳{money(rowRemaining)}</td>
+                    <td><Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-400 hover:text-teal">Edit</Link></td>
+                  </tr>
+                );
+              });
+            })()}
           </tbody>
         </table>
       </div>

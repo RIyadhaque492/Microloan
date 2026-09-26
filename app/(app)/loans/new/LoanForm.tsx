@@ -84,6 +84,11 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
           <label className="label">Disbursement Date</label>
           <input name="disbursement_date" type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
+        <div>
+          <label className="label">Maturity Date</label>
+          <input name="maturity_date" type="date" className="input" />
+          <p className="text-xs text-gray-400 mt-1">Editable later from the loan detail page.</p>
+        </div>
         <div className="md:col-span-3">
           <label className="label">Purpose of Loan</label>
           <input name="purpose" className="input" placeholder="e.g. Small business" />

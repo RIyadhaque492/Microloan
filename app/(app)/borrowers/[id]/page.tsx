@@ -5,6 +5,7 @@ import { money, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 import UploadForm from './UploadForm';
+import UploadSuccessToast from './UploadSuccessToast';
 
 export const metadata = { title: 'Member Profile - MicroLoan Admin' };
 
@@ -18,7 +19,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-export default async function BorrowerViewPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string } }) {
+export default async function BorrowerViewPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string; uploaded?: string } }) {
   const id = Number(params.id);
   if (!id || isNaN(id)) notFound();
   const borrower = await getBorrower(id);
@@ -31,6 +32,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
 
   return (
     <div>
+      {searchParams.uploaded === '1' && <UploadSuccessToast />}
       <PageHeader
         title={borrower.full_name}
         action={
@@ -122,10 +124,12 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
               {documents.map((d) => (
                 <div key={d.id} className="border border-gray-200 rounded-lg overflow-hidden">
                   <a href={`/api/documents/${d.id}`} target="_blank" rel="noopener noreferrer">
-                    {d.mime_type.startsWith('image/') ? (
+                    {d.mime_type.startsWith('image/') && d.mime_type !== 'image/heic' && d.mime_type !== 'image/heif' ? (
                       <img src={`/api/documents/${d.id}`} alt={d.doc_title} className="w-full h-24 object-cover" />
                     ) : (
-                      <div className="w-full h-24 bg-gray-50 flex items-center justify-center text-3xl">📄</div>
+                      <div className="w-full h-24 bg-gray-50 flex items-center justify-center text-3xl">
+                        {d.mime_type === 'image/heic' || d.mime_type === 'image/heif' ? '🖼️' : '📄'}
+                      </div>
                     )}
                   </a>
                   <div className="p-2">

@@ -40,7 +40,15 @@ export default async function CollectPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-5 border-t border-white/15">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-5 pt-5 border-t border-white/15">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Principal</div>
+              <div className="font-bold">৳{money(loan.loan_amount)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Total Payable</div>
+              <div className="font-bold">৳{money(loan.total_payable)}</div>
+            </div>
             <div>
               <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Last Payment</div>
               <div className="font-bold">{lastPayment ? `৳${money(lastPayment.amount_paid)}` : '—'}</div>

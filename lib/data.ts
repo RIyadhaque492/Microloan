@@ -116,6 +116,29 @@ export async function getNextMemberId(): Promise<string> {
   return String(Number(row.max_id) + 1);
 }
 
+/** Distinct present addresses already on file, most recently used first — powers the
+ *  autosuggest datalist on the Add Member form so repeat addresses (same village/area)
+ *  don't need retyping from scratch. */
+export async function getPresentAddressSuggestions(): Promise<string[]> {
+  const rows = (await sql`
+    SELECT DISTINCT present_address FROM borrowers
+    WHERE present_address IS NOT NULL AND present_address != ''
+    ORDER BY present_address ASC LIMIT 100
+  `) as any[];
+  return rows.map((r) => r.present_address);
+}
+
+/** Distinct monthly income values already on file — powers the autosuggest datalist
+ *  on the Add Member form so common income bands are one click away. */
+export async function getMonthlyIncomeSuggestions(): Promise<string[]> {
+  const rows = (await sql`
+    SELECT DISTINCT monthly_income FROM borrowers
+    WHERE monthly_income IS NOT NULL AND monthly_income > 0
+    ORDER BY monthly_income ASC LIMIT 100
+  `) as any[];
+  return rows.map((r) => String(Number(r.monthly_income)));
+}
+
 export async function getBorrowers(search?: string) {
   if (search) {
     const like = `%${search}%`;
@@ -143,43 +166,22 @@ export async function getLoansForBorrower(borrowerId: number) {
 
 export async function getLoans(search?: string, status?: string) {
   const like = search ? `%${search}%` : null;
-  if (like && status) {
-    return sql`
-      SELECT l.*, b.full_name, b.phone,
-        (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-        (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count
-      FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-      WHERE (b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like}) AND l.status = ${status}
-      ORDER BY l.created_at DESC
-    `;
-  }
-  if (like) {
-    return sql`
-      SELECT l.*, b.full_name, b.phone,
-        (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-        (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count
-      FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-      WHERE b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like}
-      ORDER BY l.created_at DESC
-    `;
-  }
-  if (status) {
-    return sql`
-      SELECT l.*, b.full_name, b.phone,
-        (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-        (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count
-      FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-      WHERE l.status = ${status}
-      ORDER BY l.created_at DESC
-    `;
-  }
-  return sql`
-    SELECT l.*, b.full_name, b.phone,
+  const rows = (await sql`
+    SELECT l.*, b.full_name, b.phone, b.borrower_code,
       (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count,
+      COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id
+    WHERE (${like}::text IS NULL OR b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like})
+      AND (${status || null}::text IS NULL OR l.status = ${status || null})
     ORDER BY l.created_at DESC
-  `;
+  `) as any[];
+
+  return rows.map((r) => ({
+    ...r,
+    total_paid: Number(r.total_paid),
+    remaining_balance: Math.max(0, Number(r.total_payable) - Number(r.total_paid)),
+  }));
 }
 
 export async function getLoan(id: number) {
@@ -234,7 +236,7 @@ export async function getRecentPayments() {
 
 export async function getLoanForCollection(loanId: number) {
   const [loan] = await sql`
-    SELECT l.id, l.loan_code, l.status, l.total_payable, b.full_name, b.phone, b.borrower_code, b.id AS borrower_id
+    SELECT l.id, l.loan_code, l.status, l.loan_amount, l.total_payable, b.full_name, b.phone, b.borrower_code, b.id AS borrower_id
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id WHERE l.id = ${loanId}
   `;
   if (!loan) return null;
@@ -309,6 +311,48 @@ export async function getCreditSummary(search?: string) {
     const outstanding = Math.max(0, Number(r.total_payable) - Number(r.total_paid));
     const creditStatus = r.overdue_count > 0 ? 'Overdue' : outstanding > 0 ? 'Active Debt' : 'Clear';
     return { ...r, outstanding_balance: outstanding, credit_status: creditStatus };
+  });
+}
+
+/** Every member, id/code/name only — used to populate the member picker on the
+ *  Single Member report (independent of whether they have any loans yet). */
+export async function getBorrowersBasic() {
+  return sql`SELECT id, borrower_code, full_name, phone FROM borrowers ORDER BY full_name ASC`;
+}
+
+/**
+ * One row PER LOAN (not per member) — a member with two disbursed loans produces two
+ * rows. Only loans that have actually been disbursed (active, completed, defaulted)
+ * are included, matching the existing "borrowed" definition used elsewhere in the app.
+ * This is the shared data source for both the Single Member and All Members reports,
+ * which now use the same unified column set (Opening, SL, Name, Member ID, Loan
+ * Amount, Total Payable, Installment Amount, Installment Quantity, Total Paid,
+ * Remaining Balance, Maturity Date, Contact Number).
+ */
+export async function getLoanReportRows(opts: { search?: string; borrowerId?: number } = {}) {
+  const { search, borrowerId } = opts;
+  const like = search ? `%${search}%` : null;
+  const bId = borrowerId || null;
+
+  const rows = (await sql`
+    SELECT
+      l.id AS loan_id, l.loan_code, l.status AS loan_status,
+      l.disbursement_date, l.maturity_date, l.loan_amount, l.total_payable,
+      l.installment_amount, l.tenure,
+      b.id AS borrower_id, b.borrower_code, b.full_name, b.phone,
+      COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid
+    FROM loans l
+    JOIN borrowers b ON b.id = l.borrower_id
+    WHERE l.status IN ('active', 'completed', 'defaulted')
+      AND (${bId}::int IS NULL OR b.id = ${bId})
+      AND (${like}::text IS NULL OR b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like})
+    ORDER BY b.full_name ASC, l.created_at ASC
+  `) as any[];
+
+  return rows.map((r) => {
+    const totalPaid = Number(r.total_paid);
+    const totalPayable = Number(r.total_payable);
+    return { ...r, total_paid: totalPaid, remaining_balance: Math.max(0, totalPayable - totalPaid) };
   });
 }
 
