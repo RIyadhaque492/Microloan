@@ -48,8 +48,11 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
           {loan.status === 'approved' && (
             <form action={updateLoanStatusAction.bind(null, id, 'activate')}><button className="btn btn-primary">▶ Mark Active / Disburse</button></form>
           )}
+          {loan.status === 'rejected' && (
+            <form action={updateLoanStatusAction.bind(null, id, 'approve')}><button className="btn btn-primary !bg-green-600">✅ Give Loan (Approve)</button></form>
+          )}
           {!isDraft && <Link href={`/collections/${id}`} className="btn btn-outline">💵 Collect Payment</Link>}
-          <Link href="/loans" className="btn btn-outline">✔ Done</Link>
+          <Link href="/loans" prefetch={false} className="btn btn-outline">✔ Done</Link>
         </div>
       </div>
 
@@ -125,7 +128,8 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
 
       {loan.status === 'pending' || loan.status === 'rejected' || isDraft ? (
         <form action={deleteLoanAction.bind(null, id)} className="mt-4">
-          <button className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Delete this loan</button>
+          <button className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Remove this loan</button>
+          <p className="text-xs text-gray-400 mt-1">Moves it to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
         </form>
       ) : null}
     </div>

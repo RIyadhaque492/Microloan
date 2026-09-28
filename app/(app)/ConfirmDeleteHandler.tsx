@@ -8,7 +8,7 @@ export default function ConfirmDeleteHandler() {
       const target = (e.target as HTMLElement)?.closest('.confirm-delete');
       if (!target) return;
       const label = target.textContent?.replace(/[🗑✔]/g, '').trim() || 'this item';
-      if (!window.confirm(`Are you sure you want to delete ${label}? This cannot be undone.`)) {
+      if (!window.confirm(`Are you sure you want to ${label.toLowerCase().startsWith('remove') ? label.toLowerCase() : 'delete ' + label}?`)) {
         e.preventDefault();
         e.stopPropagation();
       }

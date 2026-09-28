@@ -53,7 +53,13 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
 
         <div className="flex flex-col gap-2">
           <ReceiptExportButtons receipt={p} shareText={shareText} />
-          <Link href={`/loans/${p.loan_id}`} className="btn btn-outline w-full mt-2">Back to Loan</Link>
+          {/* Lets the admin recheck this payment (amount, date, method, notes) before
+              printing/sharing the receipt, without having to hunt for the Edit link
+              elsewhere — and a clear Done to confirm it's correct and move on. */}
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <Link href={`/collections/edit/${p.id}`} className="btn btn-outline w-full">✏️ Edit</Link>
+            <Link href="/collections" prefetch={false} className="btn btn-primary w-full">✔ Done</Link>
+          </div>
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
 
   return (
     <div>
-      <PageHeader title="Transaction History" action={<Link href="/collections" className="btn btn-primary">✔ Done</Link>} />
+      <PageHeader title="Transaction History" action={<Link href="/collections" prefetch={false} className="btn btn-primary">✔ Done</Link>} />
 
       <div className="card p-5 mb-4">
         <h2 className="font-bold text-navy">{loan.full_name} ({loan.borrower_code})</h2>

@@ -42,7 +42,23 @@ table.app-table {
   @apply w-full text-sm min-w-[560px];
 }
 table.app-table thead th {
-  @apply bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 px-4 py-3 border-b border-gray-200;
+  @apply text-left text-xs font-semibold uppercase tracking-wide text-white px-4 py-3 border-b border-gray-200;
+  background: linear-gradient(135deg, #0f2a3f 0%, #0d7d72 100%);
+}
+table.app-table thead th:first-child {
+  border-top-left-radius: 0.25rem;
+}
+table.app-table thead th:last-child {
+  border-top-right-radius: 0.25rem;
+}
+tr.row-overdue {
+  @apply bg-red-50;
+}
+tr.row-overdue:hover {
+  @apply bg-red-100/70;
+}
+tr.row-overdue td:first-child {
+  @apply border-l-4 border-l-red-500;
 }
 table.app-table td {
   @apply px-4 py-3 border-b border-gray-100;

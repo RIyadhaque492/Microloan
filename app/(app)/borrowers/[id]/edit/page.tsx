@@ -57,8 +57,8 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
       </form>
 
       <form action={deleteBorrowerAction.bind(null, id)} className="max-w-3xl mt-3">
-        <button type="submit" className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Delete this member</button>
-        <p className="text-xs text-gray-400 mt-1">Only possible if this member has no loans on record.</p>
+        <button type="submit" className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Remove this member</button>
+        <p className="text-xs text-gray-400 mt-1">Moves the member (and their loans) to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
       </form>
     </div>
   );

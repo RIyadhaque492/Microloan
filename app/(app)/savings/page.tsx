@@ -4,6 +4,7 @@ import { money } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
+export const dynamic = 'force-dynamic';
 
 export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string } }) {
   const rows = await getAllMembersSavings(searchParams.q);
@@ -31,15 +32,16 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
 
       <div className="table-wrap">
         <table className="app-table">
-          <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Receipts</th><th>Net Balance</th><th></th></tr></thead>
+          <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Receipts</th><th>Last Savings Date</th><th>Net Balance</th><th></th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-10">No members found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-10">No members found.</td></tr>}
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.borrower_code}</td>
                 <td>{r.full_name}</td>
                 <td>{r.phone}</td>
                 <td>{r.transaction_count}</td>
+                <td>{r.last_savings_date ? new Date(r.last_savings_date).toLocaleDateString() : '—'}</td>
                 <td className="font-semibold">৳{money(r.balance)}</td>
                 <td><Link href={`/savings/${r.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Manage</Link></td>
               </tr>

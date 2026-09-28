@@ -4,6 +4,7 @@ import { money, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'All Loans - MicroLoan Admin' };
+export const dynamic = 'force-dynamic';
 
 const STATUSES = ['pending', 'approved', 'active', 'completed', 'rejected', 'defaulted'];
 

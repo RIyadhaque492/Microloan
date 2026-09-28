@@ -22,6 +22,7 @@ function currentPageTitle(pathname: string): string {
   if (pathname === '/reports') return 'Reports';
   if (pathname === '/notifications') return 'Notifications';
   if (pathname === '/settings') return 'Website Settings';
+  if (pathname === '/bin') return 'Bin';
   if (pathname.startsWith('/savings/')) return 'Member Savings';
   if (pathname === '/savings') return 'Savings';
   return 'MicroLoan';
@@ -49,6 +50,7 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
   const isReports = pathname.startsWith('/reports');
   const isNotifications = pathname.startsWith('/notifications');
   const isSettings = pathname.startsWith('/settings');
+  const isBin = pathname.startsWith('/bin');
 
   return (
     <>
@@ -76,34 +78,41 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
         </div>
 
         <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto" onClick={() => setOpen(false)}>
-          <Link href="/dashboard" className={linkClass(isDashboard)}>📊 Dashboard</Link>
+          {/* prefetch={false} on every list/dashboard link below: Next.js otherwise
+              prefetches these in the background and caches that snapshot on the
+              client, so after adding/removing something elsewhere and getting
+              redirected back, the sidebar's own cached copy of the destination
+              page could get shown instead of fresh data — looking like the
+              change "didn't work" until a manual reload. */}
+          <Link href="/dashboard" prefetch={false} className={linkClass(isDashboard)}>📊 Dashboard</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Members</div>
-          <Link href="/borrowers" className={linkClass(isBorrowersList)}>👥 All Members</Link>
+          <Link href="/borrowers" prefetch={false} className={linkClass(isBorrowersList)}>👥 All Members</Link>
           <Link href="/borrowers/new" className={linkClass(isBorrowersNew)}>➕ Add Member</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Loans</div>
-          <Link href="/loans" className={linkClass(isLoansList)}>📄 All Loans</Link>
+          <Link href="/loans" prefetch={false} className={linkClass(isLoansList)}>📄 All Loans</Link>
           <Link href="/loans/new" className={linkClass(isLoansNew)}>🆕 Loan Registration</Link>
           <Link href="/calculator" className={linkClass(isCalculator)}>🧮 Installment Calculator</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Collections</div>
-          <Link href="/collections" className={linkClass(isCollections)}>💵 Loan Collection</Link>
+          <Link href="/collections" prefetch={false} className={linkClass(isCollections)}>💵 Loan Collection</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Savings</div>
-          <Link href="/savings" className={linkClass(isSavings)}>🏦 Member Savings</Link>
+          <Link href="/savings" prefetch={false} className={linkClass(isSavings)}>🏦 Member Savings</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Reports</div>
-          <Link href="/reports" className={linkClass(isReports)}>📑 Credit Reports</Link>
+          <Link href="/reports" prefetch={false} className={linkClass(isReports)}>📑 Credit Reports</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Alerts</div>
-          <Link href="/notifications" className={linkClass(isNotifications, 'justify-between')}>
+          <Link href="/notifications" prefetch={false} className={linkClass(isNotifications, 'justify-between')}>
             <span>🔔 Notifications</span>
             {unread > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{unread}</span>}
           </Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Admin</div>
           <Link href="/settings" className={linkClass(isSettings)}>⚙️ Website Settings</Link>
+          <Link href="/bin" prefetch={false} className={linkClass(isBin)}>🗑 Bin</Link>
         </nav>
 
         <div className="p-4 border-t border-white/10">

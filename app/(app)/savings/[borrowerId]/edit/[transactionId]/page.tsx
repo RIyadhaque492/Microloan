@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { editSavingsTransactionAction } from '@/lib/actions';
+import { getSavingsNotesSuggestions } from '@/lib/data';
 import PageHeader from '../../../../PageHeader';
 
 export const metadata = { title: 'Edit Savings Transaction - MicroLoan Admin' };
@@ -22,6 +23,7 @@ export default async function EditSavingsTransactionPage({
   if (!transaction) notFound();
 
   const updateAction = editSavingsTransactionAction.bind(null, borrowerId, transactionId);
+  const notesSuggestions = await getSavingsNotesSuggestions();
 
   return (
     <div>
@@ -46,7 +48,10 @@ export default async function EditSavingsTransactionPage({
         </div>
         <div>
           <label className="label">Notes</label>
-          <input name="notes" defaultValue={transaction.notes} className="input" />
+          <input name="notes" defaultValue={transaction.notes} className="input" list="savings-notes-suggestions" />
+          <datalist id="savings-notes-suggestions">
+            {notesSuggestions.map((n) => <option key={n} value={n} />)}
+          </datalist>
         </div>
         <button type="submit" className="btn btn-primary">Save Changes</button>
       </form>

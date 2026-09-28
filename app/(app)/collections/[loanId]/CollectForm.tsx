@@ -15,7 +15,19 @@ function SubmitButton() {
   );
 }
 
-export default function CollectForm({ loanId, installments, preselectId }: { loanId: number; installments: Installment[]; preselectId: number }) {
+export default function CollectForm({
+  loanId,
+  installments,
+  preselectId,
+  defaultPaymentMethod = 'cash',
+  notesSuggestions = [],
+}: {
+  loanId: number;
+  installments: Installment[];
+  preselectId: number;
+  defaultPaymentMethod?: string;
+  notesSuggestions?: string[];
+}) {
   const initial = installments.find((i) => i.id === preselectId) || installments[0];
   const [selectedId, setSelectedId] = useState<number | ''>(initial?.id ?? '');
   const [amount, setAmount] = useState(initial ? (Number(initial.amount) - Number(initial.paid_amount)).toFixed(2) : '');
@@ -49,12 +61,13 @@ export default function CollectForm({ loanId, installments, preselectId }: { loa
         </div>
         <div>
           <label className="label">Payment Method</label>
-          <select name="payment_method" className="input" defaultValue="cash">
+          <select name="payment_method" className="input" defaultValue={defaultPaymentMethod}>
             <option value="cash">Cash</option>
             <option value="bank">Bank Transfer</option>
             <option value="mobile_banking">Mobile Banking</option>
             <option value="other">Other</option>
           </select>
+          <p className="text-xs text-gray-400 mt-1">Defaulted to the last method used for this loan — editable.</p>
         </div>
         <div>
           <label className="label">Payment Date</label>
@@ -62,7 +75,10 @@ export default function CollectForm({ loanId, installments, preselectId }: { loa
         </div>
         <div>
           <label className="label">Notes</label>
-          <input name="notes" className="input" placeholder="Optional" />
+          <input name="notes" className="input" defaultValue="Installment" list="notes-suggestions" />
+          <datalist id="notes-suggestions">
+            {notesSuggestions.map((n) => <option key={n} value={n} />)}
+          </datalist>
         </div>
       </div>
       <div className="mt-5">

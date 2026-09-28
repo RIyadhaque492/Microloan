@@ -6,7 +6,7 @@ export const metadata = { title: 'Loan Registration - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
 export default async function NewLoanPage({ searchParams }: { searchParams: { borrower_id?: string; error?: string } }) {
-  const borrowers = await sql`SELECT id, full_name, borrower_code, phone FROM borrowers WHERE status = 'active' ORDER BY full_name`;
+  const borrowers = await sql`SELECT id, full_name, borrower_code, phone FROM borrowers WHERE status = 'active' AND deleted_at IS NULL ORDER BY full_name`;
   const today = new Date().toISOString().slice(0, 10);
 
   return (

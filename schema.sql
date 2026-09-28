@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS borrowers (
     fee_receipt_no VARCHAR(20),
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS loans (
@@ -53,7 +54,8 @@ CREATE TABLE IF NOT EXISTS loans (
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     approved_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS loan_installments (

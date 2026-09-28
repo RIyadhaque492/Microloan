@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { updateCollectionAction } from '@/lib/actions';
+import { getCollectionNotesSuggestions } from '@/lib/data';
 import PageHeader from '../../../PageHeader';
 
 export const metadata = { title: 'Edit Payment - MicroLoan Admin' };
@@ -18,6 +20,7 @@ export default async function EditCollectionPage({ params, searchParams }: { par
   if (!collection) notFound();
 
   const updateAction = updateCollectionAction.bind(null, id);
+  const notesSuggestions = await getCollectionNotesSuggestions();
 
   return (
     <div>
@@ -54,9 +57,15 @@ export default async function EditCollectionPage({ params, searchParams }: { par
         </div>
         <div>
           <label className="label">Notes</label>
-          <textarea name="notes" defaultValue={collection.notes} className="input" rows={2} />
+          <input name="notes" defaultValue={collection.notes || 'Installment'} className="input" list="notes-suggestions" />
+          <datalist id="notes-suggestions">
+            {notesSuggestions.map((n) => <option key={n} value={n} />)}
+          </datalist>
         </div>
-        <button type="submit" className="btn btn-primary">Save & Recalculate</button>
+        <div className="flex gap-2">
+          <button type="submit" className="btn btn-primary">Save & Recalculate</button>
+          <Link href={`/collections/receipt/${id}`} className="btn btn-outline">✔ Done (no changes)</Link>
+        </div>
       </form>
     </div>
   );

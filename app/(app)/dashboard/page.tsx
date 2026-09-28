@@ -4,6 +4,7 @@ import { money, statusBadgeClass } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Dashboard - MicroLoan Admin' };
+export const dynamic = 'force-dynamic';
 
 const COLORS = {
   teal: { chip: 'bg-teal-100 text-teal-700', border: 'border-l-teal-500' },
@@ -57,25 +58,26 @@ export default async function DashboardPage() {
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="navy" />
-        <Link href="/calculator" className="card p-4 flex items-center justify-center bg-navy text-white font-semibold hover:bg-navydark transition-colors">
-          🧮 Loan Calculator
+        <Link href="/calculator" className="card p-4 flex items-center justify-center !bg-navy !text-white font-semibold hover:!bg-navydark transition-colors">
+          🧮 Installment Calculator
         </Link>
       </div>
 
       <div className="table-wrap">
         <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between">
-          Recent Loans <Link href="/loans" className="text-teal text-xs font-normal">View all</Link>
+          Recent Loans <Link href="/loans" prefetch={false} className="text-teal text-xs font-normal">View all</Link>
         </div>
         <table className="app-table">
-          <thead><tr><th>Loan Code</th><th>Member</th><th>Amount</th><th>Status</th></tr></thead>
+          <thead><tr><th>Loan Code</th><th>Member</th><th>Disbursement Date</th><th>Amount</th><th>Status</th></tr></thead>
           <tbody>
             {(stats.recentLoans as any[]).length === 0 && (
-              <tr><td colSpan={4} className="text-center text-gray-400 py-6">No loans yet.</td></tr>
+              <tr><td colSpan={5} className="text-center text-gray-400 py-6">No loans yet.</td></tr>
             )}
             {(stats.recentLoans as any[]).map((l) => (
               <tr key={l.id}>
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
                 <td>{l.full_name}</td>
+                <td>{l.disbursement_date ? new Date(l.disbursement_date).toLocaleDateString() : '—'}</td>
                 <td>৳{money(l.loan_amount)}</td>
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
               </tr>

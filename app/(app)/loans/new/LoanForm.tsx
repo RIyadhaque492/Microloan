@@ -29,6 +29,8 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
   const [tenure, setTenure] = useState<number>(0);
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [startDate, setStartDate] = useState(today);
+  const [maturityDate, setMaturityDate] = useState('');
+  const [maturityTouched, setMaturityTouched] = useState(false);
 
   const preview = useMemo(() => {
     if (amount <= 0 || installmentAmount <= 0 || tenure <= 0 || !startDate) return null;
@@ -38,6 +40,19 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
       return null;
     }
   }, [amount, installmentAmount, tenure, frequency, startDate]);
+
+  // Auto-calculate the maturity date from the disbursement date + number of
+  // installments + repayment frequency (the due date of the final installment)
+  // — but only while the admin hasn't overridden it by hand, so a manual edit
+  // always wins over the auto-calculation.
+  const autoMaturityDate = preview && preview.installments.length > 0
+    ? preview.installments[preview.installments.length - 1].dueDate
+    : '';
+  if (!maturityTouched && autoMaturityDate && autoMaturityDate !== maturityDate) {
+    // Safe to set state during render here (React "derived state" pattern) since
+    // it only fires when the computed value actually changes.
+    setMaturityDate(autoMaturityDate);
+  }
 
   return (
     <form action={createLoanAction} className="card p-6 max-w-3xl space-y-5">
@@ -86,8 +101,19 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
         </div>
         <div>
           <label className="label">Maturity Date</label>
-          <input name="maturity_date" type="date" className="input" />
-          <p className="text-xs text-gray-400 mt-1">Editable later from the loan detail page.</p>
+          <input
+            name="maturity_date"
+            type="date"
+            className="input"
+            value={maturityDate}
+            onChange={(e) => { setMaturityTouched(true); setMaturityDate(e.target.value); }}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Auto-calculated from tenure + repayment frequency — still editable
+            {maturityTouched && autoMaturityDate && (
+              <> · <button type="button" className="text-teal underline" onClick={() => { setMaturityTouched(false); setMaturityDate(autoMaturityDate); }}>reset to auto</button></>
+            )}
+          </p>
         </div>
         <div className="md:col-span-3">
           <label className="label">Purpose of Loan</label>

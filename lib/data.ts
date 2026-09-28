@@ -1,22 +1,24 @@
 import { sql } from './db';
 
 export async function getDashboardStats() {
-  const [borrowerCount] = await sql`SELECT COUNT(*)::int AS c FROM borrowers`;
-  const [activeLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'active'`;
-  const [disbursed] = await sql`SELECT COALESCE(SUM(loan_amount),0) AS s FROM loans WHERE status IN ('active','completed','defaulted')`;
+  const [borrowerCount] = await sql`SELECT COUNT(*)::int AS c FROM borrowers WHERE deleted_at IS NULL`;
+  const [activeLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'active' AND deleted_at IS NULL`;
+  const [disbursed] = await sql`SELECT COALESCE(SUM(loan_amount),0) AS s FROM loans WHERE status IN ('active','completed','defaulted') AND deleted_at IS NULL`;
   const [collected] = await sql`SELECT COALESCE(SUM(amount_paid),0) AS s FROM collections`;
-  const [overdueCount] = await sql`SELECT COUNT(*)::int AS c FROM loan_installments WHERE status = 'overdue'`;
-  const [pendingLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'pending'`;
+  const [overdueCount] = await sql`SELECT COUNT(*)::int AS c FROM loan_installments li JOIN loans l ON l.id = li.loan_id WHERE li.status = 'overdue' AND l.deleted_at IS NULL`;
+  const [pendingLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'pending' AND deleted_at IS NULL`;
   const [outstanding] = await sql`
-    SELECT COALESCE(SUM(amount - paid_amount),0) AS s FROM loan_installments WHERE status IN ('pending','partial','overdue')
+    SELECT COALESCE(SUM(li.amount - li.paid_amount),0) AS s FROM loan_installments li JOIN loans l ON l.id = li.loan_id
+    WHERE li.status IN ('pending','partial','overdue') AND l.deleted_at IS NULL
   `;
   const [savingsTotal] = await sql`
     SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS s FROM savings_transactions
   `;
-  const [otherRevenue] = await sql`SELECT COALESCE(SUM(registration_fee), 0) AS s FROM borrowers`;
+  const [otherRevenue] = await sql`SELECT COALESCE(SUM(registration_fee), 0) AS s FROM borrowers WHERE deleted_at IS NULL`;
 
   const recentLoans = await sql`
     SELECT l.*, b.full_name FROM loans l JOIN borrowers b ON b.id = l.borrower_id
+    WHERE l.deleted_at IS NULL
     ORDER BY l.created_at DESC LIMIT 6
   `;
 
@@ -122,7 +124,7 @@ export async function getNextMemberId(): Promise<string> {
 export async function getPresentAddressSuggestions(): Promise<string[]> {
   const rows = (await sql`
     SELECT DISTINCT present_address FROM borrowers
-    WHERE present_address IS NOT NULL AND present_address != ''
+    WHERE present_address IS NOT NULL AND present_address != '' AND deleted_at IS NULL
     ORDER BY present_address ASC LIMIT 100
   `) as any[];
   return rows.map((r) => r.present_address);
@@ -133,25 +135,51 @@ export async function getPresentAddressSuggestions(): Promise<string[]> {
 export async function getMonthlyIncomeSuggestions(): Promise<string[]> {
   const rows = (await sql`
     SELECT DISTINCT monthly_income FROM borrowers
-    WHERE monthly_income IS NOT NULL AND monthly_income > 0
+    WHERE monthly_income IS NOT NULL AND monthly_income > 0 AND deleted_at IS NULL
     ORDER BY monthly_income ASC LIMIT 100
   `) as any[];
   return rows.map((r) => String(Number(r.monthly_income)));
+}
+
+/** Distinct payment/collection notes already on file — powers autosuggest datalists
+ *  on Notes fields across the app (Collect Payment, Edit Payment, etc.). */
+export async function getCollectionNotesSuggestions(): Promise<string[]> {
+  const rows = (await sql`
+    SELECT DISTINCT notes FROM collections
+    WHERE notes IS NOT NULL AND notes != ''
+    ORDER BY notes ASC LIMIT 100
+  `) as any[];
+  return rows.map((r) => r.notes);
+}
+
+/** Distinct savings transaction notes already on file — powers the autosuggest
+ *  datalist on the Savings deposit/withdrawal form. */
+export async function getSavingsNotesSuggestions(): Promise<string[]> {
+  const rows = (await sql`
+    SELECT DISTINCT notes FROM savings_transactions
+    WHERE notes IS NOT NULL AND notes != ''
+    ORDER BY notes ASC LIMIT 100
+  `) as any[];
+  return rows.map((r) => r.notes);
 }
 
 export async function getBorrowers(search?: string) {
   if (search) {
     const like = `%${search}%`;
     return sql`
-      SELECT b.*, (SELECT COUNT(*)::int FROM loans l WHERE l.borrower_id = b.id) AS loan_count
+      SELECT b.*, (SELECT COUNT(*)::int FROM loans l WHERE l.borrower_id = b.id) AS loan_count,
+        (SELECT COUNT(*)::int FROM loan_installments li JOIN loans l ON l.id = li.loan_id
+           WHERE l.borrower_id = b.id AND li.status = 'overdue') AS overdue_count
       FROM borrowers b
-      WHERE b.full_name ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.nid_number ILIKE ${like}
+      WHERE b.deleted_at IS NULL AND (b.full_name ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.nid_number ILIKE ${like})
       ORDER BY b.created_at DESC
     `;
   }
   return sql`
-    SELECT b.*, (SELECT COUNT(*)::int FROM loans l WHERE l.borrower_id = b.id) AS loan_count
-    FROM borrowers b ORDER BY b.created_at DESC
+    SELECT b.*, (SELECT COUNT(*)::int FROM loans l WHERE l.borrower_id = b.id) AS loan_count,
+      (SELECT COUNT(*)::int FROM loan_installments li JOIN loans l ON l.id = li.loan_id
+         WHERE l.borrower_id = b.id AND li.status = 'overdue') AS overdue_count
+    FROM borrowers b WHERE b.deleted_at IS NULL ORDER BY b.created_at DESC
   `;
 }
 
@@ -161,7 +189,21 @@ export async function getBorrower(id: number) {
 }
 
 export async function getLoansForBorrower(borrowerId: number) {
-  return sql`SELECT * FROM loans WHERE borrower_id = ${borrowerId} ORDER BY created_at DESC`;
+  return sql`SELECT * FROM loans WHERE borrower_id = ${borrowerId} AND deleted_at IS NULL ORDER BY created_at DESC`;
+}
+
+/** Soft-deleted members and loans — the "Bin". Restoring puts them straight back
+ *  into every normal list, since nothing about them is ever actually destroyed. */
+export async function getBinContents() {
+  const borrowers = await sql`
+    SELECT * FROM borrowers WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC
+  `;
+  const loans = await sql`
+    SELECT l.*, b.full_name, b.borrower_code, b.deleted_at AS borrower_deleted_at
+    FROM loans l JOIN borrowers b ON b.id = l.borrower_id
+    WHERE l.deleted_at IS NOT NULL ORDER BY l.deleted_at DESC
+  `;
+  return { borrowers, loans };
 }
 
 export async function getLoans(search?: string, status?: string) {
@@ -172,7 +214,8 @@ export async function getLoans(search?: string, status?: string) {
       (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-    WHERE (${like}::text IS NULL OR b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like})
+    WHERE l.deleted_at IS NULL
+      AND (${like}::text IS NULL OR b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like})
       AND (${status || null}::text IS NULL OR l.status = ${status || null})
     ORDER BY l.created_at DESC
   `) as any[];
@@ -244,7 +287,7 @@ export async function getLoanForCollection(loanId: number) {
     SELECT * FROM loan_installments WHERE loan_id = ${loanId} AND status != 'paid' ORDER BY installment_no ASC
   `;
   const [lastPayment] = await sql`
-    SELECT amount_paid, payment_date FROM collections WHERE loan_id = ${loanId} ORDER BY payment_date DESC, id DESC LIMIT 1
+    SELECT amount_paid, payment_date, payment_method, notes FROM collections WHERE loan_id = ${loanId} ORDER BY payment_date DESC, id DESC LIMIT 1
   `;
   const [{ total_paid }] = await sql`
     SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_installments WHERE loan_id = ${loanId}
@@ -293,7 +336,7 @@ export async function getCreditSummary(search?: string) {
           (SELECT COUNT(*)::int FROM loans l3 WHERE l3.borrower_id = b.id) AS loan_count,
           (SELECT COUNT(*)::int FROM loan_installments li2 JOIN loans l4 ON l4.id = li2.loan_id WHERE l4.borrower_id = b.id AND li2.status = 'overdue') AS overdue_count
         FROM borrowers b
-        WHERE b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.phone ILIKE ${like}
+        WHERE b.deleted_at IS NULL AND (b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.phone ILIKE ${like})
         ORDER BY b.full_name ASC
       `
     : await sql`
@@ -304,6 +347,7 @@ export async function getCreditSummary(search?: string) {
           (SELECT COUNT(*)::int FROM loans l3 WHERE l3.borrower_id = b.id) AS loan_count,
           (SELECT COUNT(*)::int FROM loan_installments li2 JOIN loans l4 ON l4.id = li2.loan_id WHERE l4.borrower_id = b.id AND li2.status = 'overdue') AS overdue_count
         FROM borrowers b
+        WHERE b.deleted_at IS NULL
         ORDER BY b.full_name ASC
       `;
 
@@ -317,7 +361,7 @@ export async function getCreditSummary(search?: string) {
 /** Every member, id/code/name only — used to populate the member picker on the
  *  Single Member report (independent of whether they have any loans yet). */
 export async function getBorrowersBasic() {
-  return sql`SELECT id, borrower_code, full_name, phone FROM borrowers ORDER BY full_name ASC`;
+  return sql`SELECT id, borrower_code, full_name, phone FROM borrowers WHERE deleted_at IS NULL ORDER BY full_name ASC`;
 }
 
 /**
@@ -344,6 +388,7 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
     FROM loans l
     JOIN borrowers b ON b.id = l.borrower_id
     WHERE l.status IN ('active', 'completed', 'defaulted')
+      AND l.deleted_at IS NULL AND b.deleted_at IS NULL
       AND (${bId}::int IS NULL OR b.id = ${bId})
       AND (${like}::text IS NULL OR b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like})
     ORDER BY b.full_name ASC, l.created_at ASC
@@ -392,16 +437,19 @@ export async function getAllMembersSavings(search?: string) {
     ? await sql`
         SELECT b.id, b.borrower_code, b.full_name, b.phone,
           COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS balance,
-          (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count
+          (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count,
+          (SELECT MAX(st3.transaction_date) FROM savings_transactions st3 WHERE st3.borrower_id = b.id) AS last_savings_date
         FROM borrowers b
-        WHERE b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.phone ILIKE ${like}
+        WHERE b.deleted_at IS NULL AND (b.full_name ILIKE ${like} OR b.borrower_code ILIKE ${like} OR b.phone ILIKE ${like})
         ORDER BY b.full_name ASC
       `
     : await sql`
         SELECT b.id, b.borrower_code, b.full_name, b.phone,
           COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS balance,
-          (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count
+          (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count,
+          (SELECT MAX(st3.transaction_date) FROM savings_transactions st3 WHERE st3.borrower_id = b.id) AS last_savings_date
         FROM borrowers b
+        WHERE b.deleted_at IS NULL
         ORDER BY b.full_name ASC
       `;
   return rows as any[];

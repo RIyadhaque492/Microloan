@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getLoanForCollection } from '@/lib/data';
+import { getLoanForCollection, getCollectionNotesSuggestions } from '@/lib/data';
 import { money } from '@/lib/utils';
 import PageHeader from '../../PageHeader';
 import CollectForm from './CollectForm';
@@ -18,6 +18,7 @@ export default async function CollectPage({
   const data = await getLoanForCollection(loanId);
   if (!data) notFound();
   const { loan, installments, lastPayment, totalPaid } = data;
+  const notesSuggestions = await getCollectionNotesSuggestions();
 
   const installmentsArr = installments as any[];
   const preselectId = Number(searchParams.installment_id) || installmentsArr[0]?.id || 0;
@@ -75,7 +76,13 @@ export default async function CollectPage({
         {installmentsArr.length === 0 ? (
           <div className="card p-5 text-gray-400 text-sm">This loan has no outstanding installments.</div>
         ) : (
-          <CollectForm loanId={loanId} installments={installmentsArr as any} preselectId={preselectId} />
+          <CollectForm
+            loanId={loanId}
+            installments={installmentsArr as any}
+            preselectId={preselectId}
+            defaultPaymentMethod={lastPayment?.payment_method || 'cash'}
+            notesSuggestions={notesSuggestions}
+          />
         )}
       </div>
     </div>

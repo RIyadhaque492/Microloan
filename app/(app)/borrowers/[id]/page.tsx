@@ -38,7 +38,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         action={
           <div className="flex gap-2">
             <Link href={`/borrowers/${id}/edit`} className="btn btn-outline">✏️ Edit</Link>
-            <Link href="/borrowers" className="btn btn-primary">✔ Done</Link>
+            <Link href="/borrowers" prefetch={false} className="btn btn-primary">✔ Done</Link>
           </div>
         }
       />

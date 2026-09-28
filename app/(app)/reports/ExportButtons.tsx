@@ -19,6 +19,7 @@ type Props =
 type Preview =
   | { kind: 'excel'; filename: string; mimeType: string }
   | { kind: 'word'; filename: string; mimeType: string }
+  | { kind: 'pdf'; filename: string; blob: Blob; blobUrl: string }
   | { kind: 'text' };
 
 function fmtDate(d: any) {
@@ -37,22 +38,25 @@ export default function ExportButtons(props: Props) {
     : 'btn btn-outline';
 
   function closePreview() {
+    if (preview?.kind === 'pdf') URL.revokeObjectURL(preview.blobUrl);
     setPreview(null);
     setCopied(false);
   }
 
-  // PDF opens directly in a new browser tab — the browser's own viewer gives a full-page
-  // preview with native zoom/print/download, which is far better than a cramped in-app iframe.
-  async function openPdfInNewTab() {
+  // Shows the PDF in an in-app preview (so it can be checked on-screen first) with
+  // its own Share/Download button, the same "view, then share" flow as Excel/Word —
+  // rather than window.open'ing a new tab, which mobile browsers can silently block
+  // as a popup, making it look like nothing happened.
+  async function openPdfPreview() {
     setLoading('pdf');
     try {
       const blob =
         props.mode === 'single'
           ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments)
           : await buildAllUsersPdfBlob(props.loanRows);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : `all-loans-report.pdf`;
+      const blobUrl = URL.createObjectURL(blob);
+      setPreview({ kind: 'pdf', filename, blob, blobUrl });
     } finally {
       setLoading(null);
     }
@@ -102,6 +106,16 @@ export default function ExportButtons(props: Props) {
       }
       return;
     }
+    if (preview.kind === 'pdf') {
+      setLoading('pdf');
+      try {
+        await shareOrDownloadBlob(preview.blob, preview.filename, 'application/pdf');
+      } finally {
+        setLoading(null);
+        closePreview();
+      }
+      return;
+    }
     if (preview.kind === 'text') {
       const nav = navigator as any;
       if (nav.share) {
@@ -126,8 +140,8 @@ export default function ExportButtons(props: Props) {
   return (
     <>
       <div className="flex gap-2 flex-wrap">
-        <button onClick={openPdfInNewTab} disabled={loading === 'pdf'} type="button" className={btnClass}>
-          {loading === 'pdf' ? 'Opening…' : '📄 PDF'}
+        <button onClick={openPdfPreview} disabled={loading === 'pdf'} type="button" className={btnClass}>
+          {loading === 'pdf' ? 'Preparing…' : '📄 PDF'}
         </button>
         <button onClick={openWordPreview} type="button" className={btnClass}>
           📝 Word
@@ -147,13 +161,17 @@ export default function ExportButtons(props: Props) {
               <h3 className="font-bold text-navy text-sm">
                 {preview.kind === 'excel' && 'Preview — Excel'}
                 {preview.kind === 'word' && 'Preview — Word'}
+                {preview.kind === 'pdf' && 'Preview — PDF'}
                 {preview.kind === 'text' && 'Preview — Message Text'}
               </h3>
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
 
-            <div className="flex-1 overflow-auto p-4">
+            <div className={`flex-1 overflow-auto ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {(preview.kind === 'excel' || preview.kind === 'word') && <TablePreview props={props} />}
+              {preview.kind === 'pdf' && (
+                <iframe src={preview.blobUrl} title="PDF preview" className="w-full h-full min-h-[70vh] border-0" />
+              )}
               {preview.kind === 'text' && (
                 <pre className="whitespace-pre-wrap text-sm bg-gray-50 rounded-lg p-3 border border-gray-200">{props.shareText}</pre>
               )}
@@ -164,8 +182,8 @@ export default function ExportButtons(props: Props) {
                 <button onClick={handleCopyText} type="button" className="btn btn-outline">{copied ? '✅ Copied' : '📋 Copy'}</button>
               )}
               <button onClick={closePreview} type="button" className="btn btn-outline">Cancel</button>
-              <button onClick={confirmShare} disabled={loading === 'excel' || loading === 'word'} type="button" className="btn btn-primary">
-                {loading === 'excel' || loading === 'word' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
+              <button onClick={confirmShare} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-primary">
+                {loading === 'excel' || loading === 'word' || loading === 'pdf' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
               </button>
             </div>
           </div>

@@ -152,15 +152,27 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
   redirect(`/borrowers/${id}`);
 }
 
+// Removing a member moves them (and all their loans) to the Bin instead of
+// deleting anything for real — nothing is destroyed, and everything can be
+// restored together later from /bin.
 export async function deleteBorrowerAction(id: number) {
   await requireAdmin();
-  const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE borrower_id = ${id}`;
-  if (c > 0) {
-    redirect('/borrowers?error=' + encodeURIComponent('Cannot delete a member with existing loans. Deactivate them instead.'));
-  }
-  await sql`DELETE FROM borrowers WHERE id = ${id}`;
+  await sql`UPDATE borrowers SET deleted_at = now() WHERE id = ${id}`;
+  await sql`UPDATE loans SET deleted_at = now() WHERE borrower_id = ${id} AND deleted_at IS NULL`;
   revalidatePath('/borrowers');
+  revalidatePath('/loans');
+  revalidatePath('/bin');
   redirect('/borrowers');
+}
+
+export async function restoreBorrowerAction(id: number) {
+  await requireAdmin();
+  await sql`UPDATE borrowers SET deleted_at = NULL WHERE id = ${id}`;
+  await sql`UPDATE loans SET deleted_at = NULL WHERE borrower_id = ${id}`;
+  revalidatePath('/borrowers');
+  revalidatePath('/loans');
+  revalidatePath('/bin');
+  redirect('/bin');
 }
 
 // ---------- Loans ----------
@@ -337,15 +349,35 @@ export async function updateLoanStatusAction(id: number, action: string): Promis
   revalidatePath('/loans');
 }
 
+// Moves the loan to the Bin (soft delete) instead of destroying it — it can be
+// restored later from /bin. Loans that already have payment history are still
+// not removable this way, since hiding money that's already been collected
+// would make reports inconsistent.
 export async function deleteLoanAction(id: number) {
   await requireAdmin();
   const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM collections WHERE loan_id = ${id}`;
   if (c > 0) {
     redirect('/loans?error=' + encodeURIComponent('Cannot delete a loan with recorded payments.'));
   }
-  await sql`DELETE FROM loans WHERE id = ${id}`;
+  await sql`UPDATE loans SET deleted_at = now() WHERE id = ${id}`;
   revalidatePath('/loans');
+  revalidatePath('/bin');
   redirect('/loans');
+}
+
+export async function restoreLoanAction(id: number) {
+  await requireAdmin();
+  const [loan] = await sql`SELECT borrower_id FROM loans WHERE id = ${id}`;
+  await sql`UPDATE loans SET deleted_at = NULL WHERE id = ${id}`;
+  if (loan) {
+    // If the loan's member is also in the Bin, bring them back too — an active
+    // loan shouldn't end up attached to a still-hidden member.
+    await sql`UPDATE borrowers SET deleted_at = NULL WHERE id = ${loan.borrower_id} AND deleted_at IS NOT NULL`;
+  }
+  revalidatePath('/loans');
+  revalidatePath('/borrowers');
+  revalidatePath('/bin');
+  redirect('/bin');
 }
 
 // ---------- Collections ----------
@@ -636,6 +668,16 @@ const MAX_DOC_SIZE = 3 * 1024 * 1024;
 // photo failing this check silently (looking to the member like "upload doesn't
 // work") was a likely real-world cause of upload complaints.
 const ALLOWED_DOC_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+// Many phone browsers (older Android WebViews, some camera-roll pickers) send a
+// blank or generic file.type ('', 'application/octet-stream') for photos instead
+// of the real image MIME type. Relying on file.type alone silently rejected real
+// photos on those phones — this maps the file's extension as a fallback so the
+// same photo that works on one phone isn't randomly refused on another.
+const ALLOWED_DOC_EXTENSIONS: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  heic: 'image/heic', heif: 'image/heif', pdf: 'application/pdf',
+};
+const GENERIC_MIME_TYPES = ['', 'application/octet-stream', 'application/octet stream'];
 
 export async function uploadDocumentAction(borrowerId: number, formData: FormData) {
   const admin = await requireAdmin();
@@ -653,16 +695,24 @@ export async function uploadDocumentAction(borrowerId: number, formData: FormDat
   if (file.size > MAX_DOC_SIZE) {
     redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('File is too large. Max size is 3MB — try a smaller photo or a compressed PDF.'));
   }
-  if (!ALLOWED_DOC_TYPES.includes(file.type)) {
-    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('Only JPG, PNG, WEBP, or PDF files are allowed.'));
+
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const extMimeType = ALLOWED_DOC_EXTENSIONS[ext];
+  const typeIsAllowed = ALLOWED_DOC_TYPES.includes(file.type);
+  const typeIsGenericButExtensionKnown = GENERIC_MIME_TYPES.includes(file.type) && !!extMimeType;
+  if (!typeIsAllowed && !typeIsGenericButExtensionKnown) {
+    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent('Only JPG, PNG, WEBP, HEIC, or PDF files are allowed.'));
   }
+  // Store a real MIME type even when the browser handed us a blank/generic one,
+  // so the document viewer later on can render it correctly.
+  const resolvedMimeType = typeIsAllowed ? file.type : extMimeType;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString('base64');
 
   await sql`
     INSERT INTO borrower_documents (borrower_id, doc_title, doc_type, file_name, mime_type, file_size, file_data, uploaded_by)
-    VALUES (${borrowerId}, ${docTitle}, ${docType}, ${file.name}, ${file.type}, ${file.size}, ${base64}, ${admin.adminId})
+    VALUES (${borrowerId}, ${docTitle}, ${docType}, ${file.name}, ${resolvedMimeType}, ${file.size}, ${base64}, ${admin.adminId})
   `;
 
   revalidatePath(`/borrowers/${borrowerId}`);

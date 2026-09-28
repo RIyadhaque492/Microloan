@@ -9,6 +9,18 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '4mb',
     },
+    // The App Router's client-side Router Cache otherwise keeps a page's data
+    // around for up to 30s after visiting it, even on a "dynamic" route — so
+    // after adding/removing/editing something and getting redirected back to a
+    // list (e.g. Collect Payment -> Loan Collection, or removing a loan/member
+    // to the Bin), the list could still show the OLD data for a little while,
+    // looking to a member/admin like the change "didn't work" until they
+    // manually reloaded. Setting both staleTimes to 0 makes every navigation
+    // re-fetch fresh data from the server instead.
+    staleTimes: {
+      dynamic: 0,
+      static: 0,
+    },
   },
 };
 
