@@ -384,7 +384,8 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
       l.disbursement_date, l.maturity_date, l.loan_amount, l.total_payable,
       l.installment_amount, l.tenure,
       b.id AS borrower_id, b.borrower_code, b.full_name, b.phone,
-      COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid
+      COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,
+      (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date
     FROM loans l
     JOIN borrowers b ON b.id = l.borrower_id
     WHERE l.status IN ('active', 'completed', 'defaulted')

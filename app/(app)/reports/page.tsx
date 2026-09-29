@@ -76,11 +76,11 @@ export default async function ReportsPage({
                     <tr>
                       <th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th>
                       <th>Total Payable</th><th>Installment Amt</th><th>Qty</th><th>Total Paid</th>
-                      <th>Remaining Balance</th><th>Maturity Date</th><th>Contact</th>
+                      <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {loanRows.length === 0 && <tr><td colSpan={12} className="text-center text-gray-400 py-6">No disbursed loans.</td></tr>}
+                    {loanRows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-400 py-6">No disbursed loans.</td></tr>}
                     {loanRows.map((r: any, i: number) => (
                       <tr key={r.loan_id}>
                         <td>{i + 1}</td>
@@ -94,6 +94,7 @@ export default async function ReportsPage({
                         <td>৳{money(r.total_paid)}</td>
                         <td className="font-semibold">৳{money(r.remaining_balance)}</td>
                         <td>{fmtDate(r.maturity_date)}</td>
+                        <td>{fmtDate(r.last_payment_date)}</td>
                         <td>{r.phone}</td>
                       </tr>
                     ))}
@@ -107,7 +108,7 @@ export default async function ReportsPage({
                         <td colSpan={2}></td>
                         <td>৳{money(totals.totalPaid)}</td>
                         <td>৳{money(totals.remaining)}</td>
-                        <td colSpan={2}></td>
+                        <td colSpan={3}></td>
                       </tr>
                     </tfoot>
                   )}
@@ -136,13 +137,20 @@ export default async function ReportsPage({
                       );
                     });
                   })()}
-                  {orderedPayments.length > 0 && (
-                    <tr className="bg-tealight font-bold">
-                      <td colSpan={4} className="text-right border border-black">TOTAL PAID</td>
-                      <td className="border border-black">৳{money(orderedPayments.reduce((s, p) => s + Number(p.amount_paid), 0))}</td>
-                      <td className="border border-black">৳{money(totals.remaining)}</td>
-                    </tr>
-                  )}
+                  {orderedPayments.length > 0 && (() => {
+                    const totalPaid = orderedPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
+                    const finalRemaining = Math.max(0, totals.totalPayable - totalPaid);
+                    return (
+                      <tr className="bg-tealight font-bold">
+                        <td className="border border-black"></td>
+                        <td className="border border-black"></td>
+                        <td className="border border-black">TOTAL PAID</td>
+                        <td className="border border-black"></td>
+                        <td className="border border-black">৳{money(totalPaid)}</td>
+                        <td className="border border-black">৳{money(finalRemaining)}</td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
 
@@ -206,11 +214,11 @@ export default async function ReportsPage({
               <tr>
                 <th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th>
                 <th>Total Payable</th><th>Installment Amt</th><th>Qty</th><th>Total Paid</th>
-                <th>Remaining Balance</th><th>Maturity Date</th><th>Contact</th><th></th>
+                <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {loanRows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-400 py-10">No disbursed loans found.</td></tr>}
+              {loanRows.length === 0 && <tr><td colSpan={14} className="text-center text-gray-400 py-10">No disbursed loans found.</td></tr>}
               {loanRows.map((r: any, i: number) => (
                 <tr key={r.loan_id}>
                   <td>{i + 1}</td>
@@ -224,6 +232,7 @@ export default async function ReportsPage({
                   <td>৳{money(r.total_paid)}</td>
                   <td className="font-semibold">৳{money(r.remaining_balance)}</td>
                   <td>{fmtDate(r.maturity_date)}</td>
+                  <td>{fmtDate(r.last_payment_date)}</td>
                   <td>{r.phone}</td>
                   <td className="whitespace-nowrap">
                     <Link href={`/reports?mode=single&borrower=${r.borrower_id}`} className="text-xs text-teal hover:underline mr-2">View</Link>
@@ -241,7 +250,7 @@ export default async function ReportsPage({
                   <td colSpan={2}></td>
                   <td>৳{money(totals.totalPaid)}</td>
                   <td>৳{money(totals.remaining)}</td>
-                  <td colSpan={3}></td>
+                  <td colSpan={4}></td>
                 </tr>
               </tfoot>
             )}
