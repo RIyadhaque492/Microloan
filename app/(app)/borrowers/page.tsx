@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { getBorrowers } from '@/lib/data';
 import { statusBadgeClass } from '@/lib/utils';
-import { deleteBorrowerAction } from '@/lib/actions';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'All Members - MicroLoan Admin' };
@@ -39,9 +38,6 @@ export default async function BorrowersPage({ searchParams }: { searchParams: { 
                 </td>
                 <td className="text-right whitespace-nowrap">
                   <Link href={`/borrowers/${b.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link>
-                  <form action={deleteBorrowerAction.bind(null, b.id)} className="inline">
-                    <button className="btn btn-danger-outline !py-1 !px-2 text-xs ml-1 confirm-delete">🗑 Remove</button>
-                  </form>
                 </td>
               </tr>
             ))}

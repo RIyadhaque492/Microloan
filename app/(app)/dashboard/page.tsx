@@ -57,7 +57,8 @@ export default async function DashboardPage() {
         <StatCard icon="🏦" label="Total Savings" value={`৳${money(stats.savingsTotal)}`} color="teal" />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="navy" />
+        <StatCard icon="🧮" label="Total Payable" value={`৳${money(stats.totalPayable)}`} color="navy" />
+        <StatCard icon="⏳" label="Outstanding Balance" value={`৳${money(stats.outstanding)}`} color="red" />
         <Link href="/calculator" className="card p-4 flex items-center justify-center !bg-navy !text-white font-semibold hover:!bg-navydark transition-colors">
           🧮 Installment Calculator
         </Link>

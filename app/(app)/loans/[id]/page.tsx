@@ -4,10 +4,11 @@ import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
 import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
+import RegisteredToast from './RegisteredToast';
 
 export const metadata = { title: 'Loan Details - MicroLoan Admin' };
 
-export default async function LoanViewPage({ params }: { params: { id: string } }) {
+export default async function LoanViewPage({ params, searchParams }: { params: { id: string }; searchParams: { registered?: string } }) {
   const id = Number(params.id);
   if (!id || isNaN(id)) notFound();
   await refreshOverdueInstallments();
@@ -20,6 +21,7 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
 
   return (
     <div>
+      {searchParams.registered === '1' && <RegisteredToast />}
       <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
         <div className="flex items-center gap-3">
           <BackLink />
@@ -33,6 +35,7 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {!isDraft && <Link href={`/loans/${id}/edit`} className="btn btn-outline">✏️ Edit</Link>}
           {isDraft && (
             <>
               <Link href={`/loans/${id}/edit-draft`} className="btn btn-outline">✏️ Edit Draft</Link>
@@ -56,12 +59,16 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(loan.loan_amount)}</div><div className="text-xs text-gray-500">Principal</div></div>
-        <div className="card p-4"><div className="text-lg font-bold text-navy">{loan.interest_rate}%</div><div className="text-xs text-gray-500">{loan.interest_type} Interest (calculated)</div></div>
-        <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(loan.total_payable)}</div><div className="text-xs text-gray-500">Total Payable</div></div>
-        <div className="card p-4"><div className="text-lg font-bold text-navy">৳{money(Number(loan.total_payable) - paidTotal)}</div><div className="text-xs text-gray-500">Balance Remaining</div></div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(loan.loan_amount)}</div><div className="text-xs text-sky-700">Loan Amount</div></div>
+        <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">{loan.disbursement_date ? new Date(loan.disbursement_date).toLocaleDateString() : '—'}</div><div className="text-xs text-purple-700">Disbursement Date</div></div>
+        <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(loan.total_payable)}</div><div className="text-xs text-amber-700">Total Payable</div></div>
+        <div className="card p-4 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(paidTotal)}</div><div className="text-xs text-green-700">Total Paid</div></div>
+        <div className="card p-4 border-l-4 border-l-red-500 bg-red-50 col-span-2 lg:col-span-1"><div className="text-lg font-bold text-red-800">৳{money(Math.max(0, Number(loan.total_payable) - paidTotal))}</div><div className="text-xs text-red-700">Balance Remaining</div></div>
       </div>
+      {Number(loan.processing_fee) > 0 && (
+        <p className="text-xs text-gray-500 -mt-2 mb-4">Processing fee: <strong>৳{money(loan.processing_fee)}</strong></p>
+      )}
 
       {!isDraft && (
         <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
@@ -126,12 +133,10 @@ export default async function LoanViewPage({ params }: { params: { id: string } 
         </div>
       )}
 
-      {loan.status === 'pending' || loan.status === 'rejected' || isDraft ? (
-        <form action={deleteLoanAction.bind(null, id)} className="mt-4">
-          <button className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Remove this loan</button>
-          <p className="text-xs text-gray-400 mt-1">Moves it to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
-        </form>
-      ) : null}
+      <form action={deleteLoanAction.bind(null, id)} className="mt-4">
+        <button className="btn btn-danger-outline confirm-delete">🗑 Remove this loan</button>
+        <p className="text-xs text-gray-400 mt-1">Moves it to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
+      </form>
     </div>
   );
 }

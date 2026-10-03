@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { generateScheduleFromInstallment } from '@/lib/utils';
 
-export default function EditDraftForm({ loan, borrowers, updateAction }: { loan: any; borrowers: any[]; updateAction: (formData: FormData) => void | Promise<void> }) {
+export default function EditDraftForm({ loan, borrowers, updateAction, submitLabel = 'Save Draft Changes' }: { loan: any; borrowers: any[]; updateAction: (formData: FormData) => void | Promise<void>; submitLabel?: string }) {
   const [amount, setAmount] = useState<number>(Number(loan.loan_amount) || 0);
   const [installmentAmount, setInstallmentAmount] = useState<number>(Number(loan.installment_amount) || 0);
   const [tenure, setTenure] = useState<number>(Number(loan.tenure) || 0);
@@ -11,6 +11,7 @@ export default function EditDraftForm({ loan, borrowers, updateAction }: { loan:
   const [startDate, setStartDate] = useState(loan.disbursement_date ? new Date(loan.disbursement_date).toISOString().slice(0, 10) : '');
   const [maturityDate, setMaturityDate] = useState(loan.maturity_date ? new Date(loan.maturity_date).toISOString().slice(0, 10) : '');
   const [maturityTouched, setMaturityTouched] = useState(!!loan.maturity_date);
+  const [processingFee, setProcessingFee] = useState(String(Number(loan.processing_fee) || (Number(loan.loan_amount) ? (Math.round(Number(loan.loan_amount) * 2) / 100).toFixed(2) : '')));
 
   const preview = useMemo(() => {
     if (amount <= 0 || installmentAmount <= 0 || tenure <= 0 || !startDate) return null;
@@ -85,11 +86,23 @@ export default function EditDraftForm({ loan, borrowers, updateAction }: { loan:
             )}
           </p>
         </div>
+        <div>
+          <label className="label">Processing Fee (৳)</label>
+          <input name="processing_fee" type="number" step="0.01" value={processingFee} onChange={(e) => setProcessingFee(e.target.value)} className="input bg-amber-50" />
+          <p className="text-xs text-gray-400 mt-1">2% of loan amount by default — editable.</p>
+        </div>
         <div className="md:col-span-3"><label className="label">Purpose of Loan</label><input name="purpose" defaultValue={loan.purpose} className="input" /></div>
       </div>
 
+      {preview && (
+        <div className="rounded-lg bg-tealight border border-teal-100 p-3 text-sm flex flex-wrap gap-x-6 gap-y-1">
+          <span>Total Payable: <strong>৳{preview.totalPayable.toFixed(2)}</strong></span>
+          <span>Interest rate: <strong>{preview.interestRate}%</strong></span>
+        </div>
+      )}
+
       <div className="flex gap-2">
-        <button type="submit" className="btn btn-primary">Save Draft Changes</button>
+        <button type="submit" className="btn btn-primary">{submitLabel}</button>
       </div>
     </form>
   );

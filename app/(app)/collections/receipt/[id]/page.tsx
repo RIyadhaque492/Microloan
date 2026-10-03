@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import { money } from '@/lib/utils';
 import ReceiptExportButtons from './ReceiptExportButtons';
 import PageHeader from '../../../PageHeader';
+import { deleteCollectionAction } from '@/lib/actions';
 
 export const metadata = { title: 'Payment Receipt - MicroLoan Admin' };
 
@@ -56,6 +57,9 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           {/* Lets the admin recheck this payment (amount, date, method, notes) before
               printing/sharing the receipt, without having to hunt for the Edit link
               elsewhere — and a clear Done to confirm it's correct and move on. */}
+          <form action={deleteCollectionAction.bind(null, p.id)}>
+            <button className="btn btn-danger-outline w-full confirm-delete">🗑 Delete Receipt</button>
+          </form>
           <div className="grid grid-cols-2 gap-2 mt-2">
             <Link href={`/collections/edit/${p.id}`} className="btn btn-outline w-full">✏️ Edit</Link>
             <Link href="/collections" prefetch={false} className="btn btn-primary w-full">✔ Done</Link>

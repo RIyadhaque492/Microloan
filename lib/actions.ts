@@ -81,16 +81,17 @@ export async function createBorrowerAction(formData: FormData) {
     redirect('/borrowers/new?error=' + encodeURIComponent('Member ID is required.'));
   }
 
-  const regFee = Number(formData.get('registration_fee') || 0);
+  const regFeeRaw = formData.get('registration_fee');
+  const regFee = regFeeRaw === null || regFeeRaw === '' ? 150 : Number(regFeeRaw);
   const feeReceiptNo = regFee > 0 ? await nextSequentialCode('M', 'borrowers', 'fee_receipt_no') : null;
 
   let row: any;
   try {
     [row] = await sql`
       INSERT INTO borrowers
-        (borrower_code, full_name, father_name, gender, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, fee_receipt_no, status, created_by)
+        (borrower_code, full_name, father_name, gender, age, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, fee_receipt_no, status, created_by)
       VALUES (
-        ${memberId}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')},
+        ${memberId}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')}, ${Number(formData.get('age')) || null},
         ${phone}, ${String(formData.get('email') || '')}, ${String(formData.get('nid_number') || '')},
         ${String(formData.get('present_address') || '')}, ${String(formData.get('occupation') || '')},
         ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')},
@@ -126,6 +127,7 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
         full_name = ${String(formData.get('full_name') || '')},
         father_name = ${String(formData.get('father_name') || '')},
         gender = ${String(formData.get('gender') || 'male')},
+        age = ${Number(formData.get('age')) || null},
         phone = ${String(formData.get('phone') || '')},
         email = ${String(formData.get('email') || '')},
         nid_number = ${String(formData.get('nid_number') || '')},
@@ -192,6 +194,9 @@ export async function createLoanAction(formData: FormData) {
   const purpose = String(formData.get('purpose') || '');
   const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
   const maturityDate = String(formData.get('maturity_date') || '') || null;
+  const processingFee = Number(formData.get('processing_fee')) >= 0 && formData.get('processing_fee') !== null && formData.get('processing_fee') !== ''
+    ? Number(formData.get('processing_fee'))
+    : Math.round(amount * 2) / 100;
 
   if (!borrowerId || amount <= 0 || tenure <= 0 || installmentAmount <= 0) {
     redirect('/loans/new?error=' + encodeURIComponent('Please fill in all required loan fields correctly.'));
@@ -202,10 +207,10 @@ export async function createLoanAction(formData: FormData) {
 
   const [loan] = await sql`
     INSERT INTO loans
-      (loan_code, borrower_id, loan_amount, interest_rate, interest_type, tenure, repayment_frequency, total_payable, installment_amount, purpose, disbursement_date, maturity_date, status, created_by)
+      (loan_code, borrower_id, loan_amount, interest_rate, interest_type, tenure, repayment_frequency, total_payable, installment_amount, processing_fee, purpose, disbursement_date, maturity_date, status, created_by)
     VALUES (
       ${code}, ${borrowerId}, ${amount}, ${schedule.interestRate}, ${interestType}, ${tenure}, ${frequency},
-      ${schedule.totalPayable}, ${schedule.installmentAmount}, ${purpose}, ${disbursed}, ${maturityDate}, 'pending', ${admin.adminId}
+      ${schedule.totalPayable}, ${schedule.installmentAmount}, ${processingFee}, ${purpose}, ${disbursed}, ${maturityDate}, 'pending', ${admin.adminId}
     )
     RETURNING id
   `;
@@ -218,7 +223,8 @@ export async function createLoanAction(formData: FormData) {
   }
 
   revalidatePath('/loans');
-  redirect(`/loans/${loan.id}`);
+  revalidatePath('/dashboard');
+  redirect(`/loans/${loan.id}?registered=1`);
 }
 
 /**
@@ -247,8 +253,8 @@ export async function saveDraftLoanAction(formData: FormData) {
   const code = await nextSequentialCode('L', 'loans', 'loan_code');
   const [loan] = await sql`
     INSERT INTO loans
-      (loan_code, borrower_id, loan_amount, interest_type, tenure, repayment_frequency, purpose, disbursement_date, maturity_date, installment_amount, status, created_by)
-    VALUES (${code}, ${borrowerId}, ${amount}, ${interestType}, ${tenure}, ${frequency}, ${purpose}, ${disbursed}, ${maturityDate}, ${installmentAmount}, 'draft', ${admin.adminId})
+      (loan_code, borrower_id, loan_amount, interest_type, tenure, repayment_frequency, purpose, disbursement_date, maturity_date, installment_amount, processing_fee, status, created_by)
+    VALUES (${code}, ${borrowerId}, ${amount}, ${interestType}, ${tenure}, ${frequency}, ${purpose}, ${disbursed}, ${maturityDate}, ${installmentAmount}, ${Number(formData.get('processing_fee')) || Math.round(amount * 2) / 100}, 'draft', ${admin.adminId})
     RETURNING id
   `;
 
@@ -306,7 +312,7 @@ export async function updateDraftLoanAction(id: number, formData: FormData) {
   await sql`
     UPDATE loans SET borrower_id = ${borrowerId}, loan_amount = ${amount}, installment_amount = ${installmentAmount},
       interest_type = ${interestType}, tenure = ${tenure}, repayment_frequency = ${frequency}, purpose = ${purpose},
-      disbursement_date = ${disbursed}, maturity_date = ${maturityDate}
+      disbursement_date = ${disbursed}, maturity_date = ${maturityDate}, processing_fee = ${Number(formData.get('processing_fee')) || 0}
     WHERE id = ${id} AND status = 'draft'
   `;
 
@@ -355,14 +361,72 @@ export async function updateLoanStatusAction(id: number, action: string): Promis
 // would make reports inconsistent.
 export async function deleteLoanAction(id: number) {
   await requireAdmin();
-  const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM collections WHERE loan_id = ${id}`;
-  if (c > 0) {
-    redirect('/loans?error=' + encodeURIComponent('Cannot delete a loan with recorded payments.'));
-  }
   await sql`UPDATE loans SET deleted_at = now() WHERE id = ${id}`;
   revalidatePath('/loans');
+  revalidatePath('/collections');
+  revalidatePath('/dashboard');
   revalidatePath('/bin');
   redirect('/loans');
+}
+
+/** Same as deleteLoanAction, but returns to the member's profile (used by the Remove > Loan option). */
+export async function removeLoanFromMemberAction(borrowerId: number, loanId: number) {
+  await requireAdmin();
+  await sql`UPDATE loans SET deleted_at = now() WHERE id = ${loanId} AND borrower_id = ${borrowerId}`;
+  revalidatePath('/loans');
+  revalidatePath('/collections');
+  revalidatePath('/dashboard');
+  revalidatePath('/bin');
+  revalidatePath(`/borrowers/${borrowerId}`);
+  redirect(`/borrowers/${borrowerId}`);
+}
+
+/**
+ * Edits a registered loan. The installment schedule is rebuilt from the new values and every
+ * existing payment is replayed onto it oldest-first (FIFO), so nothing collected is lost.
+ */
+export async function updateLoanAction(id: number, formData: FormData) {
+  await requireAdmin();
+  const [loan] = await sql`SELECT * FROM loans WHERE id = ${id}`;
+  if (!loan) redirect('/loans?error=' + encodeURIComponent('Loan not found.'));
+
+  const borrowerId = Number(formData.get('borrower_id')) || loan.borrower_id;
+  const amount = Number(formData.get('loan_amount'));
+  const installmentAmount = Number(formData.get('installment_amount'));
+  const interestType = String(formData.get('interest_type') || 'flat');
+  const tenure = Number(formData.get('tenure'));
+  const frequency = String(formData.get('repayment_frequency') || 'monthly') as 'daily' | 'weekly' | 'monthly';
+  const purpose = String(formData.get('purpose') || '');
+  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const maturityDate = String(formData.get('maturity_date') || '') || null;
+  const processingFee = Number(formData.get('processing_fee')) || 0;
+
+  if (amount <= 0 || tenure <= 0 || installmentAmount <= 0) {
+    redirect(`/loans/${id}/edit?error=` + encodeURIComponent('Please fill in all required loan fields correctly.'));
+  }
+
+  const schedule = generateScheduleFromInstallment(amount, installmentAmount, tenure, frequency, disbursed);
+
+  await sql`
+    UPDATE loans SET borrower_id = ${borrowerId}, loan_amount = ${amount}, interest_rate = ${schedule.interestRate},
+      interest_type = ${interestType}, tenure = ${tenure}, repayment_frequency = ${frequency},
+      total_payable = ${schedule.totalPayable}, installment_amount = ${schedule.installmentAmount},
+      processing_fee = ${processingFee}, purpose = ${purpose}, disbursement_date = ${disbursed}, maturity_date = ${maturityDate}
+    WHERE id = ${id}
+  `;
+  await sql`UPDATE collections SET borrower_id = ${borrowerId} WHERE loan_id = ${id}`;
+
+  await sql`DELETE FROM loan_installments WHERE loan_id = ${id}`;
+  for (const inst of schedule.installments) {
+    await sql`INSERT INTO loan_installments (loan_id, installment_no, due_date, amount) VALUES (${id}, ${inst.installmentNo}, ${inst.dueDate}, ${inst.amount})`;
+  }
+  await replayLoanPayments(id);
+
+  revalidatePath(`/loans/${id}`);
+  revalidatePath('/loans');
+  revalidatePath('/collections');
+  revalidatePath('/dashboard');
+  redirect(`/loans/${id}`);
 }
 
 export async function restoreLoanAction(id: number) {
@@ -432,6 +496,34 @@ async function recomputeLoanCompletionStatus(loanId: number) {
   } else if (remainingUnpaid > 0 && loan.status === 'completed') {
     await sql`UPDATE loans SET status = 'active' WHERE id = ${loanId}`;
   }
+}
+
+/** Rebuilds every installment on a loan by replaying all its payments oldest-first (FIFO). */
+async function replayLoanPayments(loanId: number) {
+  await sql`UPDATE loan_installments SET paid_amount = 0, status = 'pending', paid_date = NULL WHERE loan_id = ${loanId}`;
+  const allCollections = (await sql`
+    SELECT * FROM collections WHERE loan_id = ${loanId} ORDER BY payment_date ASC, id ASC
+  `) as any[];
+  for (const c of allCollections) {
+    const dateStr = c.payment_date instanceof Date ? c.payment_date.toISOString().slice(0, 10) : String(c.payment_date).slice(0, 10);
+    await applyPaymentToInstallments(loanId, Number(c.amount_paid), c.installment_id ?? null, dateStr);
+  }
+  await sql`UPDATE loan_installments SET status = 'overdue' WHERE status = 'pending' AND due_date < CURRENT_DATE`;
+  await recomputeLoanCompletionStatus(loanId);
+}
+
+/** Deletes a payment receipt and recalculates the loan's installments. */
+export async function deleteCollectionAction(id: number) {
+  await requireAdmin();
+  const [collection] = await sql`SELECT loan_id FROM collections WHERE id = ${id}`;
+  if (!collection) redirect('/collections?error=' + encodeURIComponent('Payment record not found.'));
+  const loanId = collection.loan_id;
+  await sql`DELETE FROM collections WHERE id = ${id}`;
+  await replayLoanPayments(loanId);
+  revalidatePath(`/loans/${loanId}`);
+  revalidatePath('/collections');
+  revalidatePath('/dashboard');
+  redirect(`/collections/history/${loanId}`);
 }
 
 export async function collectPaymentAction(formData: FormData) {
@@ -504,23 +596,7 @@ export async function updateCollectionAction(id: number, formData: FormData) {
     WHERE id = ${id}
   `;
 
-  // Recompute every installment on this loan from scratch by replaying every
-  // payment in chronological order — the only reliable way to handle an edited
-  // historical payment correctly (fragile incremental patching risks drifting
-  // out of sync with reality).
-  await sql`UPDATE loan_installments SET paid_amount = 0, status = 'pending', paid_date = NULL WHERE loan_id = ${loanId}`;
-
-  const allCollections = (await sql`
-    SELECT * FROM collections WHERE loan_id = ${loanId} ORDER BY payment_date ASC, id ASC
-  `) as any[];
-
-  for (const c of allCollections) {
-    const dateStr = c.payment_date instanceof Date ? c.payment_date.toISOString().slice(0, 10) : String(c.payment_date).slice(0, 10);
-    await applyPaymentToInstallments(loanId, Number(c.amount_paid), c.installment_id ?? null, dateStr);
-  }
-
-  await sql`UPDATE loan_installments SET status = 'overdue' WHERE status = 'pending' AND due_date < CURRENT_DATE`;
-  await recomputeLoanCompletionStatus(loanId);
+  await replayLoanPayments(loanId);
 
   revalidatePath(`/loans/${loanId}`);
   revalidatePath('/collections');
@@ -710,10 +786,18 @@ export async function uploadDocumentAction(borrowerId: number, formData: FormDat
   const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString('base64');
 
-  await sql`
-    INSERT INTO borrower_documents (borrower_id, doc_title, doc_type, file_name, mime_type, file_size, file_data, uploaded_by)
-    VALUES (${borrowerId}, ${docTitle}, ${docType}, ${file.name}, ${resolvedMimeType}, ${file.size}, ${base64}, ${admin.adminId})
-  `;
+  try {
+    await sql`
+      INSERT INTO borrower_documents (borrower_id, doc_title, doc_type, file_name, mime_type, file_size, file_data, uploaded_by)
+      VALUES (${borrowerId}, ${docTitle}, ${docType}, ${file.name}, ${resolvedMimeType}, ${file.size}, ${base64}, ${admin.adminId})
+    `;
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    const hint = msg.includes('borrower_documents') && msg.includes('does not exist')
+      ? 'The documents table is missing — run migration_add_documents.sql in Neon.'
+      : 'Could not save the file. Try a smaller file.';
+    redirect(`/borrowers/${borrowerId}?error=` + encodeURIComponent(hint));
+  }
 
   revalidatePath(`/borrowers/${borrowerId}`);
   redirect(`/borrowers/${borrowerId}?uploaded=1#documents`);

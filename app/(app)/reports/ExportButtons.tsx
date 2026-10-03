@@ -177,7 +177,7 @@ export default function ExportButtons(props: Props) {
             <div className={`flex-1 overflow-auto min-h-0 ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {(preview.kind === 'excel' || preview.kind === 'word') && <TablePreview props={props} />}
               {preview.kind === 'pdf' && (
-                <iframe src={preview.blobUrl} title="PDF preview" className="w-full h-full border-0" />
+                <iframe src={`${preview.blobUrl}#view=Fit`} title="PDF preview" className="w-full h-full border-0" />
               )}
               {preview.kind === 'text' && (
                 <pre className="whitespace-pre-wrap text-sm bg-gray-50 rounded-lg p-3 border border-gray-200">{props.shareText}</pre>
@@ -208,7 +208,9 @@ function TablePreview({ props }: { props: Props }) {
       <table className="app-table text-xs">
         <thead>
           <tr>
-            <th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th>
+            {props.mode === 'single'
+              ? <><th>SL</th><th>Name</th><th>Member ID</th><th>Loan Amount</th><th>Disbursement Date</th></>
+              : <><th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th></>}
             <th>Total Payable</th><th>Installment Amt</th><th>Qty</th><th>Total Paid</th>
             <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th>
           </tr>
@@ -217,8 +219,10 @@ function TablePreview({ props }: { props: Props }) {
           {loanRows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-400 py-3">No disbursed loans.</td></tr>}
           {loanRows.map((r: any, i: number) => (
             <tr key={r.loan_id}>
-              <td>{i + 1}</td><td>{fmtDate(r.disbursement_date)}</td><td>{r.full_name}</td><td>{r.borrower_code}</td>
-              <td>৳{money(r.loan_amount)}</td><td>৳{money(r.total_payable)}</td><td>৳{money(r.installment_amount)}</td>
+              {props.mode === 'single'
+                ? <><td>{i + 1}</td><td>{r.full_name}</td><td>{r.borrower_code}</td><td>৳{money(r.loan_amount)}</td><td>{fmtDate(r.disbursement_date)}</td></>
+                : <><td>{i + 1}</td><td>{fmtDate(r.disbursement_date)}</td><td>{r.full_name}</td><td>{r.borrower_code}</td><td>৳{money(r.loan_amount)}</td></>}
+              <td>৳{money(r.total_payable)}</td><td>৳{money(r.installment_amount)}</td>
               <td>{r.tenure}</td><td>৳{money(r.total_paid)}</td><td>৳{money(r.remaining_balance)}</td>
               <td>{fmtDate(r.maturity_date)}</td><td>{fmtDate(r.last_payment_date)}</td><td>{r.phone}</td>
             </tr>

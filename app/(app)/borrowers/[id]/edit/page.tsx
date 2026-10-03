@@ -32,6 +32,7 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
               <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
             </select>
           </div>
+          <div><label className="label">Age</label><input name="age" type="number" min="0" max="120" inputMode="numeric" defaultValue={borrower.age ?? ''} className="input" /></div>
           <div><label className="label">Phone *</label><input name="phone" required defaultValue={borrower.phone} className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" defaultValue={borrower.email} className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" defaultValue={borrower.nid_number} className="input" /></div>

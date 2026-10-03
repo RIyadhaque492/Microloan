@@ -4,7 +4,9 @@ export async function getDashboardStats() {
   const [borrowerCount] = await sql`SELECT COUNT(*)::int AS c FROM borrowers WHERE deleted_at IS NULL`;
   const [activeLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'active' AND deleted_at IS NULL`;
   const [disbursed] = await sql`SELECT COALESCE(SUM(loan_amount),0) AS s FROM loans WHERE status IN ('active','completed','defaulted') AND deleted_at IS NULL`;
-  const [collected] = await sql`SELECT COALESCE(SUM(amount_paid),0) AS s FROM collections`;
+  const [collected] = await sql`SELECT COALESCE(SUM(c.amount_paid),0) AS s FROM collections c JOIN loans l ON l.id = c.loan_id WHERE l.deleted_at IS NULL`;
+  const [payableRow] = await sql`SELECT COALESCE(SUM(total_payable),0) AS s FROM loans WHERE status IN ('active','completed','defaulted') AND deleted_at IS NULL`;
+  const [procFees] = await sql`SELECT COALESCE(SUM(processing_fee),0) AS s FROM loans WHERE deleted_at IS NULL AND status != 'draft'`;
   const [overdueCount] = await sql`SELECT COUNT(*)::int AS c FROM loan_installments li JOIN loans l ON l.id = li.loan_id WHERE li.status = 'overdue' AND l.deleted_at IS NULL`;
   const [pendingLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'pending' AND deleted_at IS NULL`;
   const [outstanding] = await sql`
@@ -39,7 +41,8 @@ export async function getDashboardStats() {
     pendingLoans: pendingLoans.c,
     outstanding: Number(outstanding.s),
     savingsTotal: Number(savingsTotal.s),
-    otherRevenue: Number(otherRevenue.s),
+    otherRevenue: Number(otherRevenue.s) + Number(procFees.s),
+    totalPayable: Number(payableRow.s),
     recentLoans,
     upcoming,
   };
@@ -239,34 +242,50 @@ export async function getLoan(id: number) {
     LEFT JOIN collections c ON c.installment_id = li.id
     WHERE li.loan_id = ${id} ORDER BY li.installment_no ASC
   `;
-  const payments = await sql`SELECT * FROM collections WHERE loan_id = ${id} ORDER BY payment_date DESC`;
+  const payments = await sql`SELECT * FROM collections WHERE loan_id = ${id} ORDER BY id ASC`;
   return { loan, installments, payments };
 }
 
-export async function getActiveLoansWithBalance(search?: string) {
+/**
+ * Loan Collection list. Each row carries `due_now` (installments already due and unpaid)
+ * so the page can show a RED Collect button, which turns GREEN once everything due
+ * has been collected and goes RED again when the next due date arrives.
+ * Sorted FIFO: loans that need collecting first (oldest due date first), collected last.
+ * `date` (YYYY-MM-DD) limits the list to loans that received a payment on that day.
+ */
+export async function getActiveLoansWithBalance(search?: string, date?: string) {
   const like = search ? `%${search}%` : null;
-  const rows = like
-    ? await sql`
-        SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.borrower_code,
-          (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS due_count,
-          (SELECT COALESCE(SUM(li.amount - li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS balance,
-          (SELECT COALESCE(SUM(li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id) AS total_paid,
-          (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
-          (SELECT MIN(li.due_date) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS next_due
-        FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-        WHERE l.status = 'active' AND (b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like})
-      `
-    : await sql`
-        SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.borrower_code,
-          (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS due_count,
-          (SELECT COALESCE(SUM(li.amount - li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS balance,
-          (SELECT COALESCE(SUM(li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id) AS total_paid,
-          (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
-          (SELECT MIN(li.due_date) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS next_due
-        FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-        WHERE l.status = 'active'
-      `;
-  return (rows as any[]).filter((r) => r.due_count > 0).sort((a, b) => (a.next_due > b.next_due ? 1 : -1));
+  const d = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  const rows = (await sql`
+    SELECT l.id, l.loan_code, l.status, b.full_name, b.phone, b.borrower_code,
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS due_count,
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial') AND li.due_date <= CURRENT_DATE) AS due_now,
+      (SELECT COALESCE(SUM(li.amount - li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS balance,
+      (SELECT COALESCE(SUM(li.paid_amount),0) FROM loan_installments li WHERE li.loan_id = l.id) AS total_paid,
+      (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
+      (SELECT c.amount_paid FROM collections c WHERE c.loan_id = l.id ORDER BY c.payment_date DESC, c.id DESC LIMIT 1) AS last_payment_amount,
+      (SELECT COALESCE(SUM(c.amount_paid),0) FROM collections c WHERE c.loan_id = l.id AND c.payment_date = ${d}::date) AS collected_on_date,
+      (SELECT MIN(li.due_date) FROM loan_installments li WHERE li.loan_id = l.id AND li.status IN ('pending','overdue','partial')) AS next_due
+    FROM loans l JOIN borrowers b ON b.id = l.borrower_id
+    WHERE l.deleted_at IS NULL AND b.deleted_at IS NULL
+      AND (l.status = 'active' OR (${d}::date IS NOT NULL AND l.status = 'completed'))
+      AND (${like}::text IS NULL OR b.full_name ILIKE ${like} OR l.loan_code ILIKE ${like} OR b.phone ILIKE ${like} OR b.borrower_code ILIKE ${like})
+      AND (${d}::date IS NULL OR EXISTS (SELECT 1 FROM collections c2 WHERE c2.loan_id = l.id AND c2.payment_date = ${d}::date))
+  `) as any[];
+
+  const mapped = rows
+    .filter((r) => d || r.due_count > 0)
+    .map((r) => {
+      const needsCollection = !d && (r.due_now > 0 || !r.last_payment_date);
+      return { ...r, needs_collection: needsCollection };
+    });
+
+  const t = (v: any) => (v ? new Date(v).getTime() : 0);
+  return mapped.sort((a, b) => {
+    if (a.needs_collection !== b.needs_collection) return a.needs_collection ? -1 : 1;
+    if (a.needs_collection) return t(a.next_due) - t(b.next_due); // FIFO: oldest due first
+    return t(b.last_payment_date) - t(a.last_payment_date); // collected: newest last-payment first
+  });
 }
 
 export async function getRecentPayments() {
@@ -279,7 +298,7 @@ export async function getRecentPayments() {
 
 export async function getLoanForCollection(loanId: number) {
   const [loan] = await sql`
-    SELECT l.id, l.loan_code, l.status, l.loan_amount, l.total_payable, b.full_name, b.phone, b.borrower_code, b.id AS borrower_id
+    SELECT l.id, l.loan_code, l.status, l.loan_amount, l.total_payable, l.disbursement_date, b.full_name, b.phone, b.borrower_code, b.id AS borrower_id
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id WHERE l.id = ${loanId}
   `;
   if (!loan) return null;

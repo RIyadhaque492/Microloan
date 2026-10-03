@@ -82,8 +82,8 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
       </div>
 
       {preview && (
-        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-3" onClick={closePreview}>
-          <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className={`fixed inset-0 z-[100] bg-black/60 flex items-center justify-center ${preview.kind === 'pdf' ? '' : 'p-3'}`} onClick={closePreview}>
+          <div className={preview.kind === 'pdf' ? 'bg-white w-full h-full flex flex-col overflow-hidden' : 'bg-white rounded-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden'} onClick={(e) => e.stopPropagation()}>
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="font-bold text-navy text-sm">
                 {preview.kind === 'pdf' && 'Preview — PDF'}
@@ -93,9 +93,9 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
 
-            <div className="flex-1 overflow-auto p-4">
+            <div className={`flex-1 min-h-0 overflow-auto ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {preview.kind === 'pdf' && (
-                <iframe src={preview.url} title="PDF preview" className="w-full h-full min-h-[60vh] border border-gray-200 rounded" />
+                <iframe src={`${preview.url}#view=Fit&toolbar=0`} title="PDF preview" className="w-full h-full border-0" />
               )}
               {preview.kind === 'excel' && (
                 <table className="app-table text-sm">

@@ -8,9 +8,19 @@ import { generateScheduleFromInstallment, money } from '@/lib/utils';
 function RegisterButton() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="btn btn-primary disabled:opacity-60">
-      {pending ? 'Registering…' : '✅ Register Loan'}
-    </button>
+    <>
+      <button type="submit" disabled={pending} className="btn btn-primary disabled:opacity-60">
+        {pending ? 'Registering…' : '✅ Register Loan'}
+      </button>
+      {pending && (
+        <div className="fixed inset-0 z-[200] bg-black/30 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl px-8 py-7 text-center">
+            <div className="w-20 h-20 rounded-full bg-green-500 text-white text-5xl flex items-center justify-center mx-auto mb-3">✓</div>
+            <div className="text-lg font-bold text-green-700">Registered successfully</div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -31,6 +41,8 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
   const [startDate, setStartDate] = useState(today);
   const [maturityDate, setMaturityDate] = useState('');
   const [maturityTouched, setMaturityTouched] = useState(false);
+  const [feeTouched, setFeeTouched] = useState(false);
+  const [processingFee, setProcessingFee] = useState('');
 
   const preview = useMemo(() => {
     if (amount <= 0 || installmentAmount <= 0 || tenure <= 0 || !startDate) return null;
@@ -53,6 +65,10 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
     // it only fires when the computed value actually changes.
     setMaturityDate(autoMaturityDate);
   }
+
+  // Processing fee shows 2% of the loan amount automatically — editable, and stays as typed once edited.
+  const autoFee = amount > 0 ? (Math.round(amount * 2) / 100).toFixed(2) : '';
+  if (!feeTouched && autoFee !== processingFee) setProcessingFee(autoFee);
 
   return (
     <form action={createLoanAction} className="card p-6 max-w-3xl space-y-5">
@@ -114,6 +130,18 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
               <> · <button type="button" className="text-teal underline" onClick={() => { setMaturityTouched(false); setMaturityDate(autoMaturityDate); }}>reset to auto</button></>
             )}
           </p>
+        </div>
+        <div>
+          <label className="label">Processing Fee (৳)</label>
+          <input
+            name="processing_fee"
+            type="number"
+            step="0.01"
+            className="input bg-amber-50"
+            value={processingFee}
+            onChange={(e) => { setFeeTouched(true); setProcessingFee(e.target.value); }}
+          />
+          <p className="text-xs text-gray-400 mt-1">2% of the loan amount — editable.</p>
         </div>
         <div className="md:col-span-3">
           <label className="label">Purpose of Loan</label>

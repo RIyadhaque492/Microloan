@@ -32,6 +32,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
               <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
             </select>
           </div>
+          <div><label className="label">Age</label><input name="age" type="number" min="0" max="120" inputMode="numeric" className="input" /></div>
           <div><label className="label">Phone *</label><input name="phone" required className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" className="input" /></div>
@@ -56,8 +57,8 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" className="input" /></div>
           <div>
             <label className="label">Registration Fee (৳)</label>
-            <input name="registration_fee" type="number" step="0.01" defaultValue={0} className="input" />
-            <p className="text-xs text-gray-400 mt-1">One-time membership fee collected at sign-up, if any.</p>
+            <input name="registration_fee" type="number" step="0.01" defaultValue={150} className="input" />
+            <p className="text-xs text-gray-400 mt-1">Always starts at ৳150 — you can change it.</p>
           </div>
         </div>
         <div className="flex gap-2">

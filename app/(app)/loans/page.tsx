@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getLoans } from '@/lib/data';
-import { money, statusBadgeClass, frequencyShortLabel } from '@/lib/utils';
+import { money, statusBadgeClass } from '@/lib/utils';
+import { deleteLoanAction } from '@/lib/actions';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'All Loans - MicroLoan Admin' };
@@ -30,8 +31,8 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
         <table className="app-table">
           <thead>
             <tr>
-              <th>Loan Code</th><th>Member</th><th>Loan Amount</th><th>Total Payable</th><th>Total Paid</th>
-              <th>Remaining Balance</th><th>Tenure</th><th>Progress</th><th>Status</th><th></th>
+              <th>Loan Code</th><th>Member</th><th>Loan Amount</th><th>Disbursement Date</th><th>Total Payable</th><th>Total Paid</th>
+              <th>Remaining Balance</th><th>Tenure</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -40,14 +41,19 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
               <tr key={l.id}>
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
                 <td>{l.full_name} <span className="text-xs text-gray-400">({l.borrower_code})</span><div className="text-xs text-gray-400">{l.phone}</div></td>
-                <td>৳{money(l.loan_amount)}</td>
+                <td className="font-semibold text-navy">৳{money(l.loan_amount)}</td>
+                <td>{l.disbursement_date ? new Date(l.disbursement_date).toLocaleDateString() : '—'}</td>
                 <td>৳{money(l.total_payable)}</td>
-                <td>৳{money(l.total_paid)}</td>
-                <td className="font-semibold">৳{money(l.remaining_balance)}</td>
-                <td>{l.tenure} {frequencyShortLabel(l.repayment_frequency)}</td>
+                <td className="text-green-700 font-semibold">৳{money(l.total_paid)}</td>
+                <td className="font-semibold text-red-600">৳{money(l.remaining_balance)}</td>
                 <td>{l.paid_count}/{l.total_count} paid</td>
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
-                <td><Link href={`/loans/${l.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link></td>
+                <td className="whitespace-nowrap text-right">
+                  <Link href={`/loans/${l.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link>
+                  <form action={deleteLoanAction.bind(null, l.id)} className="inline">
+                    <button className="btn btn-danger-outline !py-1 !px-2 text-xs ml-1 confirm-delete">🗑 Remove</button>
+                  </form>
+                </td>
               </tr>
             ))}
           </tbody>

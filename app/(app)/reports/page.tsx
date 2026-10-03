@@ -74,7 +74,7 @@ export default async function ReportsPage({
                 <table className="app-table text-xs">
                   <thead>
                     <tr>
-                      <th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th>
+                      <th>SL</th><th>Name</th><th>Member ID</th><th>Loan Amount</th><th>Disbursement Date</th>
                       <th>Total Payable</th><th>Installment Amt</th><th>Qty</th><th>Total Paid</th>
                       <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th>
                     </tr>
@@ -84,10 +84,10 @@ export default async function ReportsPage({
                     {loanRows.map((r: any, i: number) => (
                       <tr key={r.loan_id}>
                         <td>{i + 1}</td>
-                        <td>{fmtDate(r.disbursement_date)}</td>
                         <td>{r.full_name}</td>
                         <td>{r.borrower_code}</td>
                         <td>৳{money(r.loan_amount)}</td>
+                        <td>{fmtDate(r.disbursement_date)}</td>
                         <td>৳{money(r.total_payable)}</td>
                         <td>৳{money(r.installment_amount)}</td>
                         <td>{r.tenure}</td>
@@ -102,8 +102,9 @@ export default async function ReportsPage({
                   {loanRows.length > 0 && (
                     <tfoot>
                       <tr className="bg-tealight font-bold">
-                        <td colSpan={4} className="text-right">TOTAL</td>
+                        <td colSpan={3} className="text-right">TOTAL</td>
                         <td>৳{money(totals.loanAmount)}</td>
+                        <td></td>
                         <td>৳{money(totals.totalPayable)}</td>
                         <td colSpan={2}></td>
                         <td>৳{money(totals.totalPaid)}</td>

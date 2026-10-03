@@ -6,6 +6,7 @@ import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 import UploadForm from './UploadForm';
 import UploadSuccessToast from './UploadSuccessToast';
+import RemoveMenu from './RemoveMenu';
 
 export const metadata = { title: 'Member Profile - MicroLoan Admin' };
 
@@ -38,6 +39,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         action={
           <div className="flex gap-2">
             <Link href={`/borrowers/${id}/edit`} className="btn btn-outline">✏️ Edit</Link>
+            <RemoveMenu borrowerId={id} memberName={borrower.full_name} loans={loans.map((l) => ({ id: l.id, loan_code: l.loan_code, loan_amount: l.loan_amount, status: l.status }))} />
             <Link href="/borrowers" prefetch={false} className="btn btn-primary">✔ Done</Link>
           </div>
         }
@@ -67,6 +69,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm border-t border-gray-100 pt-4">
+          <div><div className="text-xs text-gray-400">Age</div><div>🎂 {borrower.age ?? '—'}</div></div>
           <div><div className="text-xs text-gray-400">Phone</div><div>📞 {borrower.phone}</div></div>
           <div><div className="text-xs text-gray-400">Email</div><div>✉️ {borrower.email || '—'}</div></div>
           <div><div className="text-xs text-gray-400">NID</div><div>🪪 {borrower.nid_number || '—'}</div></div>
@@ -98,13 +101,14 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         <div className="table-wrap">
           <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Loan History</div>
           <table className="app-table">
-            <thead><tr><th>Loan Code</th><th>Amount</th><th>Tenure</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Loan Code</th><th>Amount</th><th>Disbursed</th><th>Tenure</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {loans.length === 0 && <tr><td colSpan={5} className="text-center text-gray-400 py-8">No loans yet.</td></tr>}
+              {loans.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-8">No loans yet.</td></tr>}
               {loans.map((l) => (
                 <tr key={l.id}>
                   <td>{l.loan_code}</td>
                   <td>৳{money(l.loan_amount)}</td>
+                  <td>{l.disbursement_date ? new Date(l.disbursement_date).toLocaleDateString() : '—'}</td>
                   <td>{l.tenure} {frequencyShortLabel(l.repayment_frequency)}</td>
                   <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
                   <td><Link href={`/loans/${l.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link></td>
