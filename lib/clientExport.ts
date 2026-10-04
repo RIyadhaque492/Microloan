@@ -300,7 +300,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
   const y = boxY + boxH + 8;
   drawSectionHeader(doc, 'All Loans Register', X, y, W, RGB_GOLD);
 
-  const bodyRows = loanRows.length ? loanRows.map((r, i) => loanReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
+  const bodyRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
   const footFigures: [string, string][] = [
     ['Total Loan', `Tk ${money(totals.loanAmount)}`],
     ['Total Payable', `Tk ${money(totals.totalPayable)}`],
@@ -310,13 +310,13 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
 
   autoTable(doc, {
     startY: y + 7,
-    head: [LOAN_REPORT_HEAD],
+    head: [SINGLE_REPORT_HEAD],
     body: bodyRows,
-    foot: loanRows.length ? [['', '', '', 'TOTAL', `Tk ${money(totals.loanAmount)}`, `Tk ${money(totals.totalPayable)}`, '', '', `Tk ${money(totals.totalPaid)}`, `Tk ${money(totals.remaining)}`, '', '', '']] : undefined,
+    foot: loanRows.length ? [['', 'TOTAL', '', `Tk ${money(totals.loanAmount)}`, '', `Tk ${money(totals.totalPayable)}`, '', '', '', `Tk ${money(totals.totalPaid)}`, `Tk ${money(totals.remaining)}`, '', '', '']] : undefined,
     headStyles: { fillColor: RGB_GOLD, fontSize: 6.5 },
     footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.5 },
     styles: { fontSize: 6.5 },
-    columnStyles: LOAN_REPORT_COL_STYLES,
+    columnStyles: SINGLE_REPORT_COL_STYLES,
     margin: { left: X, right: X, bottom: 24 },
     // The bottom-total footer bar is drawn on EVERY page (not just the last), so a
     // multi-page loan register never loses its running grand totals off the bottom
@@ -519,27 +519,27 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
     views: [{ state: 'frozen', ySplit: 4 }],
     pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
   });
-  titleRow(summary, 'MicroLoan Admin — All Loans Register', EXCEL_LOAN_HEADERS.length);
-  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`, EXCEL_LOAN_HEADERS.length);
+  titleRow(summary, 'MicroLoan Admin — All Loans Register', EXCEL_SINGLE_HEADERS.length);
+  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`, EXCEL_SINGLE_HEADERS.length);
   summary.addRow([]);
-  const headerRow = summary.addRow(EXCEL_LOAN_HEADERS);
+  const headerRow = summary.addRow(EXCEL_SINGLE_HEADERS);
   styleHeaderRow(headerRow);
 
-  loanRows.forEach((r, i) => addLoanReportRow(summary, r, i + 1, i % 2 === 1));
+  loanRows.forEach((r, i) => addSingleReportRow(summary, r, i + 1, i % 2 === 1));
 
   const totals = loanReportTotals(loanRows);
-  const totalRow = summary.addRow(['', '', 'TOTAL', '', totals.loanAmount, totals.totalPayable, '', '', '', totals.totalPaid, totals.remaining, '', '', '']);
+  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', '', totals.totalPaid, totals.remaining, '', '', '']);
   totalRow.eachCell((cell: any) => {
     cell.font = { bold: true };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
     cell.border = { top: { style: 'thin', color: { argb: BRAND_TEAL } } };
   });
-  totalRow.getCell(5).numFmt = MONEY_FMT;
+  totalRow.getCell(4).numFmt = MONEY_FMT;
   totalRow.getCell(6).numFmt = MONEY_FMT;
   totalRow.getCell(10).numFmt = MONEY_FMT;
   totalRow.getCell(11).numFmt = MONEY_FMT;
 
-  autoWidth(summary, EXCEL_LOAN_HEADERS.length, EXCEL_LOAN_COL_WIDTHS, 4);
+  autoWidth(summary, EXCEL_SINGLE_HEADERS.length, [6, 22, 12, 16, 16, 16, 16, 8, 10, 16, 18, 12, 14, 16], 4);
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -755,7 +755,7 @@ export async function buildAllUsersWordBlob(loanRows: any[]): Promise<Blob> {
   const Docx = await import('docx');
 
   const totals = loanReportTotals(loanRows);
-  const loanTableRows = loanRows.length ? loanRows.map((r, i) => loanReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
+  const loanTableRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
 
   const doc = new Docx.Document({
     sections: [
@@ -764,7 +764,7 @@ export async function buildAllUsersWordBlob(loanRows: any[]): Promise<Blob> {
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'All Loans - Full Register', bold: true, size: 32, color: DOCX_NAVY })] }),
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`, italics: true, size: 18, color: '6B7C85' })] }),
           new Docx.Paragraph({ text: '' }),
-          docxSummaryTable(Docx, LOAN_REPORT_HEAD, loanTableRows, DOCX_GOLD),
+          docxSummaryTable(Docx, SINGLE_REPORT_HEAD, loanTableRows, DOCX_GOLD),
           new Docx.Paragraph({ text: '' }),
           new Docx.Paragraph({
             children: [
