@@ -155,6 +155,16 @@ export async function getCollectionNotesSuggestions(): Promise<string[]> {
   return rows.map((r) => r.notes);
 }
 
+/** Loan purposes already used — powers the suggestion list on Loan Registration. */
+export async function getLoanPurposeSuggestions(): Promise<string[]> {
+  const rows = (await sql`
+    SELECT purpose, COUNT(*) AS n FROM loans
+    WHERE purpose IS NOT NULL AND purpose != ''
+    GROUP BY purpose ORDER BY n DESC, purpose ASC LIMIT 50
+  `) as any[];
+  return rows.map((r) => r.purpose);
+}
+
 /** Distinct savings transaction notes already on file — powers the autosuggest
  *  datalist on the Savings deposit/withdrawal form. */
 export async function getSavingsNotesSuggestions(): Promise<string[]> {
@@ -192,7 +202,15 @@ export async function getBorrower(id: number) {
 }
 
 export async function getLoansForBorrower(borrowerId: number) {
-  return sql`SELECT * FROM loans WHERE borrower_id = ${borrowerId} AND deleted_at IS NULL ORDER BY created_at DESC`;
+  const rows = (await sql`
+    SELECT l.*,
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count,
+      COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,
+      (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date
+    FROM loans l WHERE l.borrower_id = ${borrowerId} AND l.deleted_at IS NULL ORDER BY l.created_at DESC
+  `) as any[];
+  return rows.map((r) => ({ ...r, total_paid: Number(r.total_paid), remaining_balance: Math.max(0, Number(r.total_payable) - Number(r.total_paid)) }));
 }
 
 /** Soft-deleted members and loans — the "Bin". Restoring puts them straight back
@@ -311,7 +329,9 @@ export async function getLoanForCollection(loanId: number) {
   const [{ total_paid }] = await sql`
     SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_installments WHERE loan_id = ${loanId}
   `;
-  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid) };
+  const [anyLast] = await sql`SELECT payment_method FROM collections ORDER BY id DESC LIMIT 1`;
+  const lastMethod = lastPayment?.payment_method || anyLast?.payment_method || 'cash';
+  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid), lastMethod };
 }
 
 export async function getSiteSettings() {
@@ -404,7 +424,9 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
       l.installment_amount, l.tenure,
       b.id AS borrower_id, b.borrower_code, b.full_name, b.phone,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,
-      (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date
+      (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
+      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count
     FROM loans l
     JOIN borrowers b ON b.id = l.borrower_id
     WHERE l.status IN ('active', 'completed', 'defaulted')

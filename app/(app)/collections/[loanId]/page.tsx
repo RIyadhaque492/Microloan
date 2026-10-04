@@ -17,7 +17,7 @@ export default async function CollectPage({
   if (!loanId || isNaN(loanId)) notFound();
   const data = await getLoanForCollection(loanId);
   if (!data) notFound();
-  const { loan, installments, lastPayment, totalPaid } = data;
+  const { loan, installments, lastPayment, totalPaid, lastMethod } = data;
   const notesSuggestions = await getCollectionNotesSuggestions();
 
   const installmentsArr = installments as any[];
@@ -28,44 +28,25 @@ export default async function CollectPage({
     <div>
       <PageHeader title="Collect Payment" />
 
-      <div className="rounded-2xl overflow-hidden shadow-lg mb-5 max-w-4xl">
-        <div className="bg-gradient-to-r from-navy via-navy to-teal-700 text-white px-6 py-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="w-14 h-14 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-xl font-bold flex-shrink-0 border border-white/20">
+      <div className="rounded-xl overflow-hidden shadow mb-3 max-w-4xl">
+        <div className="bg-gradient-to-r from-navy via-navy to-teal-700 text-white px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-base font-bold flex-shrink-0 border border-white/20">
               {loan.full_name.charAt(0)}
             </div>
-            <div className="flex-1 min-w-[180px]">
-              <h2 className="font-bold text-lg leading-tight">{loan.full_name}</h2>
-              <p className="text-teal-100 text-sm opacity-90">{loan.phone} · Member ID: {loan.borrower_code}</p>
-              <p className="text-teal-100 text-xs opacity-75 mt-0.5">Loan Code: {loan.loan_code}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-bold leading-tight truncate">{loan.full_name}</h2>
+              <p className="text-teal-100 text-xs opacity-90 truncate">{loan.phone} · {loan.borrower_code} · {loan.loan_code}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-5 pt-5 border-t border-white/15">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Principal</div>
-              <div className="font-bold">৳{money(loan.loan_amount)}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Total Payable</div>
-              <div className="font-bold">৳{money(loan.total_payable)}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Last Payment</div>
-              <div className="font-bold">{lastPayment ? `৳${money(lastPayment.amount_paid)}` : '—'}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Payment Date</div>
-              <div className="font-bold">{lastPayment ? new Date(lastPayment.payment_date).toLocaleDateString() : '—'}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Total Paid</div>
-              <div className="font-bold">৳{money(totalPaid)}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Remaining Balance</div>
-              <div className="font-bold">৳{money(remaining)}</div>
-            </div>
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-x-3 gap-y-2 mt-3 pt-3 border-t border-white/15 text-xs">
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Principal</div><div className="font-bold">৳{money(loan.loan_amount)}</div></div>
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Total Payable</div><div className="font-bold">৳{money(loan.total_payable)}</div></div>
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Total Paid</div><div className="font-bold">৳{money(totalPaid)}</div></div>
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Remaining</div><div className="font-bold">৳{money(remaining)}</div></div>
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Last Payment</div><div className="font-bold">{lastPayment ? `৳${money(lastPayment.amount_paid)}` : '—'}</div></div>
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Last Date · Method</div><div className="font-bold">{lastPayment ? `${new Date(lastPayment.payment_date).toLocaleDateString()} · ${String(lastPayment.payment_method || '').replace('_', ' ')}` : '—'}</div></div>
           </div>
         </div>
       </div>
@@ -80,7 +61,7 @@ export default async function CollectPage({
             loanId={loanId}
             installments={installmentsArr as any}
             preselectId={preselectId}
-            defaultPaymentMethod={lastPayment?.payment_method || 'cash'}
+            defaultPaymentMethod={lastMethod}
             notesSuggestions={notesSuggestions}
           />
         )}

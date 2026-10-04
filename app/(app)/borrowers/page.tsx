@@ -20,7 +20,7 @@ export default async function BorrowersPage({ searchParams }: { searchParams: { 
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <div className="table-wrap">
+      <div className="table-wrap !max-h-[calc(100dvh-17rem)] lg:!max-h-[calc(100dvh-15rem)] overflow-y-auto [&_thead_th]:sticky [&_thead_th]:top-0">
         <table className="app-table">
           <thead><tr><th>Member ID</th><th>Joining Date</th><th>Name</th><th>Phone</th><th>Loans</th><th>Status</th><th></th></tr></thead>
           <tbody>

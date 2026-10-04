@@ -33,11 +33,13 @@ function DraftButton({ formAction }: { formAction: any }) {
   );
 }
 
-export default function LoanForm({ borrowers, preselectBorrowerId, today }: { borrowers: any[]; preselectBorrowerId: number; today: string }) {
+export default function LoanForm({ borrowers, preselectBorrowerId, today, purposeSuggestions = [] }: { borrowers: any[]; preselectBorrowerId: number; today: string; purposeSuggestions?: string[] }) {
   const [amount, setAmount] = useState<number>(0);
   const [installmentAmount, setInstallmentAmount] = useState<number>(0);
-  const [tenure, setTenure] = useState<number>(0);
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [installmentTouched, setInstallmentTouched] = useState(false);
+  // Suggested defaults: 116 installments, paid daily — all still editable.
+  const [tenure, setTenure] = useState<number>(116);
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [startDate, setStartDate] = useState(today);
   const [maturityDate, setMaturityDate] = useState('');
   const [maturityTouched, setMaturityTouched] = useState(false);
@@ -66,6 +68,10 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
     setMaturityDate(autoMaturityDate);
   }
 
+  // Installment amount suggests 1% of the loan amount until the admin types their own.
+  const autoInstallment = amount > 0 ? Math.round(amount) / 100 : 0;
+  if (!installmentTouched && autoInstallment !== installmentAmount) setInstallmentAmount(autoInstallment);
+
   // Processing fee shows 2% of the loan amount automatically — editable, and stays as typed once edited.
   const autoFee = amount > 0 ? (Math.round(amount * 2) / 100).toFixed(2) : '';
   if (!feeTouched && autoFee !== processingFee) setProcessingFee(autoFee);
@@ -89,12 +95,12 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
         </div>
         <div>
           <label className="label">Installment Amount (৳) *</label>
-          <input name="installment_amount" type="number" step="0.01" required className="input" value={installmentAmount || ''} onChange={(e) => setInstallmentAmount(Number(e.target.value))} />
-          <p className="text-xs text-gray-400 mt-1">How much the member pays per installment.</p>
+          <input name="installment_amount" type="number" step="0.01" required className="input" value={installmentAmount || ''} onChange={(e) => { setInstallmentTouched(true); setInstallmentAmount(Number(e.target.value)); }} />
+          <p className="text-xs text-gray-400 mt-1">Suggested 1% of loan amount — editable.{installmentTouched && amount > 0 && <> · <button type="button" className="text-teal underline" onClick={() => setInstallmentTouched(false)}>reset</button></>}</p>
         </div>
         <div>
           <label className="label">Number of Installments *</label>
-          <input name="tenure" type="number" required className="input" placeholder="e.g. 12" value={tenure || ''} onChange={(e) => setTenure(Number(e.target.value))} />
+          <input name="tenure" type="number" required className="input" placeholder="e.g. 116" value={tenure || ''} onChange={(e) => setTenure(Number(e.target.value))} />
         </div>
         <div>
           <label className="label">Repayment Frequency</label>
@@ -145,7 +151,10 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today }: { bo
         </div>
         <div className="md:col-span-3">
           <label className="label">Purpose of Loan</label>
-          <input name="purpose" className="input" placeholder="e.g. Small business" />
+          <input name="purpose" list="purpose-suggestions" className="input" placeholder="e.g. Small business" />
+          <datalist id="purpose-suggestions">
+            {["Small business", "Agriculture", "Livestock", "Shop / trading", "Education", "Housing repair", ...purposeSuggestions].filter((v, i, a) => a.indexOf(v) === i).map((v) => <option key={v} value={v} />)}
+          </datalist>
         </div>
       </div>
 

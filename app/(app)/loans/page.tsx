@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { getLoans } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
-import { deleteLoanAction } from '@/lib/actions';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'All Loans - MicroLoan Admin' };
@@ -27,7 +26,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <div className="table-wrap">
+      <div className="table-wrap !max-h-[calc(100dvh-17rem)] lg:!max-h-[calc(100dvh-15rem)] overflow-y-auto [&_thead_th]:sticky [&_thead_th]:top-0">
         <table className="app-table">
           <thead>
             <tr>
@@ -50,9 +49,6 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
                 <td className="whitespace-nowrap text-right">
                   <Link href={`/loans/${l.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link>
-                  <form action={deleteLoanAction.bind(null, l.id)} className="inline">
-                    <button className="btn btn-danger-outline !py-1 !px-2 text-xs ml-1 confirm-delete">🗑 Remove</button>
-                  </form>
                 </td>
               </tr>
             ))}

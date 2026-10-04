@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="lg:flex min-h-screen">
       <ConfirmDeleteHandler />
       <Sidebar name={session?.name} role={session?.role} unread={unread} />
-      <main className="flex-1 lg:ml-64">
+      <main className="flex-1 lg:ml-64 transition-[margin] duration-200 main-shift">
         <div className="p-4 lg:p-6">{children}</div>
       </main>
     </div>

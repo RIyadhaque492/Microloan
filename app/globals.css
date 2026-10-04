@@ -67,6 +67,13 @@ table.app-table tbody tr {
   @apply transition-colors hover:bg-gray-50/70;
 }
 
+html[data-sidebar='closed'] .main-shift {
+  margin-left: 0;
+}
+@media (min-width: 1024px) {
+  html[data-sidebar='closed'] .main-shift > div { padding-left: 3.5rem; }
+}
+
 ::selection {
   background: #c8ebe8;
 }

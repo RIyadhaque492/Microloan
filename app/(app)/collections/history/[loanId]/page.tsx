@@ -53,10 +53,10 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
         </div>
       </div>
 
-      <div className="table-wrap flex-1 min-h-0 flex flex-col !overflow-hidden">
+      <div className="table-wrap flex-1 min-h-0 flex flex-col !overflow-hidden border-2 !border-gray-700">
         <div className="px-4 py-2 border-b border-gray-100 font-semibold text-sm flex-shrink-0">All Transactions</div>
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="app-table">
+          <table className="app-table border-collapse [&_td]:border [&_td]:border-gray-400 [&_th]:border [&_th]:border-gray-500">
             <thead className="sticky top-0">
               <tr>
                 <th>SL</th><th>Receipt No.</th><th>Date</th><th>Particulars</th><th>Method</th>

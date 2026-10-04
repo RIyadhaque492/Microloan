@@ -45,7 +45,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         )}
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap !max-h-[calc(100dvh-17rem)] lg:!max-h-[calc(100dvh-15rem)] overflow-y-auto [&_thead_th]:sticky [&_thead_th]:top-0">
         <table className="app-table">
           <thead><tr><th>Member ID</th><th>Name</th><th>Last Payment Date</th><th>Total Paid</th><th>Remaining Balance</th><th>Collect</th><th></th></tr></thead>
           <tbody>

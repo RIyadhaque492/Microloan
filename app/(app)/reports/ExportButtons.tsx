@@ -20,7 +20,8 @@ type Preview =
   | { kind: 'excel'; filename: string; mimeType: string }
   | { kind: 'word'; filename: string; mimeType: string }
   | { kind: 'pdf'; filename: string; blob: Blob; blobUrl: string }
-  | { kind: 'text' };
+  | { kind: 'text' }
+  | { kind: 'view' };
 
 function fmtDate(d: any) {
   if (!d) return '—';
@@ -140,6 +141,9 @@ export default function ExportButtons(props: Props) {
   return (
     <>
       <div className="flex gap-2 flex-wrap">
+        <button onClick={() => setPreview({ kind: 'view' })} type="button" className={btnClass}>
+          👁 View
+        </button>
         <button onClick={openPdfPreview} disabled={loading === 'pdf'} type="button" className={btnClass}>
           {loading === 'pdf' ? 'Preparing…' : '📄 PDF'}
         </button>
@@ -155,10 +159,10 @@ export default function ExportButtons(props: Props) {
       </div>
 
       {preview && (
-        <div className={`fixed inset-0 z-[100] bg-black/60 flex items-center justify-center ${preview.kind === 'pdf' ? '' : 'p-3'}`} onClick={closePreview}>
+        <div className={`fixed inset-0 z-[100] bg-black/60 flex items-center justify-center ${preview.kind === 'pdf' || preview.kind === 'view' ? '' : 'p-3'}`} onClick={closePreview}>
           <div
             className={
-              preview.kind === 'pdf'
+              preview.kind === 'pdf' || preview.kind === 'view'
                 ? 'bg-white w-full h-full flex flex-col overflow-hidden'
                 : 'bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden'
             }
@@ -169,13 +173,14 @@ export default function ExportButtons(props: Props) {
                 {preview.kind === 'excel' && 'Preview — Excel'}
                 {preview.kind === 'word' && 'Preview — Word'}
                 {preview.kind === 'pdf' && 'Preview — PDF'}
+                {preview.kind === 'view' && 'Report — Full View'}
                 {preview.kind === 'text' && 'Preview — Message Text'}
               </h3>
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
 
             <div className={`flex-1 overflow-auto min-h-0 ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
-              {(preview.kind === 'excel' || preview.kind === 'word') && <TablePreview props={props} />}
+              {(preview.kind === 'excel' || preview.kind === 'word' || preview.kind === 'view') && <TablePreview props={props} />}
               {preview.kind === 'pdf' && (
                 <iframe src={`${preview.blobUrl}#view=Fit`} title="PDF preview" className="w-full h-full border-0" />
               )}
@@ -188,10 +193,10 @@ export default function ExportButtons(props: Props) {
               {preview.kind === 'text' && (
                 <button onClick={handleCopyText} type="button" className="btn btn-outline">{copied ? '✅ Copied' : '📋 Copy'}</button>
               )}
-              <button onClick={closePreview} type="button" className="btn btn-outline">Cancel</button>
-              <button onClick={confirmShare} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-primary">
+              <button onClick={closePreview} type="button" className="btn btn-outline">{preview.kind === 'view' ? '✔ Close' : 'Cancel'}</button>
+              {preview.kind !== 'view' && <button onClick={confirmShare} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-primary">
                 {loading === 'excel' || loading === 'word' || loading === 'pdf' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
-              </button>
+              </button>}
             </div>
           </div>
         </div>
@@ -211,19 +216,19 @@ function TablePreview({ props }: { props: Props }) {
             {props.mode === 'single'
               ? <><th>SL</th><th>Name</th><th>Member ID</th><th>Loan Amount</th><th>Disbursement Date</th></>
               : <><th>SL</th><th>Opening</th><th>Name</th><th>Member ID</th><th>Loan Amount</th></>}
-            <th>Total Payable</th><th>Installment Amt</th><th>Qty</th><th>Total Paid</th>
+            <th>Total Payable</th><th>Installment Amt</th><th>Tenure</th><th>Progress</th><th>Total Paid</th>
             <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th>
           </tr>
         </thead>
         <tbody>
-          {loanRows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-400 py-3">No disbursed loans.</td></tr>}
+          {loanRows.length === 0 && <tr><td colSpan={14} className="text-center text-gray-400 py-3">No disbursed loans.</td></tr>}
           {loanRows.map((r: any, i: number) => (
             <tr key={r.loan_id}>
               {props.mode === 'single'
                 ? <><td>{i + 1}</td><td>{r.full_name}</td><td>{r.borrower_code}</td><td>৳{money(r.loan_amount)}</td><td>{fmtDate(r.disbursement_date)}</td></>
                 : <><td>{i + 1}</td><td>{fmtDate(r.disbursement_date)}</td><td>{r.full_name}</td><td>{r.borrower_code}</td><td>৳{money(r.loan_amount)}</td></>}
               <td>৳{money(r.total_payable)}</td><td>৳{money(r.installment_amount)}</td>
-              <td>{r.tenure}</td><td>৳{money(r.total_paid)}</td><td>৳{money(r.remaining_balance)}</td>
+              <td>{r.tenure}</td><td><span className="inline-block rounded-full bg-teal-50 text-teal-700 px-2 text-[11px] font-semibold">{r.paid_count ?? 0}/{r.total_count || r.tenure}</span></td><td>৳{money(r.total_paid)}</td><td>৳{money(r.remaining_balance)}</td>
               <td>{fmtDate(r.maturity_date)}</td><td>{fmtDate(r.last_payment_date)}</td><td>{r.phone}</td>
             </tr>
           ))}

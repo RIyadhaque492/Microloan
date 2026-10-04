@@ -69,6 +69,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm border-t border-gray-100 pt-4">
+          <div><div className="text-xs text-gray-400">Joined</div><div>📅 {new Date(borrower.created_at).toLocaleDateString()}</div></div>
           <div><div className="text-xs text-gray-400">Age</div><div>🎂 {borrower.age ?? '—'}</div></div>
           <div><div className="text-xs text-gray-400">Phone</div><div>📞 {borrower.phone}</div></div>
           <div><div className="text-xs text-gray-400">Email</div><div>✉️ {borrower.email || '—'}</div></div>
@@ -97,19 +98,44 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         </div>
       </div>
 
+      {(() => {
+        const live = loans.filter((l) => ['active', 'completed', 'defaulted'].includes(l.status));
+        const borrowed = live.reduce((s, l) => s + Number(l.loan_amount), 0);
+        const payable = live.reduce((s, l) => s + Number(l.total_payable), 0);
+        const paid = loans.reduce((s, l) => s + Number(l.total_paid), 0);
+        const outstanding = Math.max(0, payable - paid);
+        const lastPay = loans.map((l) => l.last_payment_date).filter(Boolean).sort().pop();
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+            <div className="card p-3 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(borrowed)}</div><div className="text-xs text-sky-700">Total Borrowed</div></div>
+            <div className="card p-3 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(payable)}</div><div className="text-xs text-amber-700">Total Payable</div></div>
+            <div className="card p-3 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(paid)}</div><div className="text-xs text-green-700">Total Paid</div></div>
+            <div className="card p-3 border-l-4 border-l-red-500 bg-red-50"><div className="text-lg font-bold text-red-800">৳{money(outstanding)}</div><div className="text-xs text-red-700">Outstanding</div></div>
+            <div className="card p-3 border-l-4 border-l-purple-500 bg-purple-50 col-span-2 lg:col-span-1"><div className="text-lg font-bold text-purple-800">{lastPay ? new Date(lastPay).toLocaleDateString() : '—'}</div><div className="text-xs text-purple-700">Last Payment</div></div>
+          </div>
+        );
+      })()}
+
       <div className="space-y-4">
         <div className="table-wrap">
           <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Loan History</div>
           <table className="app-table">
-            <thead><tr><th>Loan Code</th><th>Amount</th><th>Disbursed</th><th>Tenure</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Loan Code</th><th>Amount</th><th>Disbursed</th><th>Tenure</th><th>Paid</th><th>Remaining</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {loans.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-8">No loans yet.</td></tr>}
+              {loans.length === 0 && <tr><td colSpan={8} className="text-center text-gray-400 py-8">No loans yet.</td></tr>}
               {loans.map((l) => (
                 <tr key={l.id}>
                   <td>{l.loan_code}</td>
                   <td>৳{money(l.loan_amount)}</td>
                   <td>{l.disbursement_date ? new Date(l.disbursement_date).toLocaleDateString() : '—'}</td>
-                  <td>{l.tenure} {frequencyShortLabel(l.repayment_frequency)}</td>
+                  <td className="min-w-[130px]">
+                    <div className="text-xs font-semibold text-navy">{l.paid_count}/{l.total_count || l.tenure} <span className="text-gray-400 font-normal">{frequencyShortLabel(l.repayment_frequency)}</span></div>
+                    <div className="h-1.5 rounded-full bg-gray-200 mt-1 overflow-hidden">
+                      <div className="h-full bg-green-500" style={{ width: `${Math.min(100, Math.round(((l.paid_count || 0) / (l.total_count || l.tenure || 1)) * 100))}%` }} />
+                    </div>
+                  </td>
+                  <td className="text-green-700 font-semibold">৳{money(l.total_paid)}</td>
+                  <td className="text-red-600 font-semibold">৳{money(l.remaining_balance)}</td>
                   <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
                   <td><Link href={`/loans/${l.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link></td>
                 </tr>

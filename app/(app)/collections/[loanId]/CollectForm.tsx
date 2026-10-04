@@ -39,12 +39,11 @@ export default function CollectForm({
   }
 
   return (
-    <form action={collectPaymentAction} className="card p-6 shadow-sm">
+    <form action={collectPaymentAction} className="card p-4 shadow-sm">
       <input type="hidden" name="loan_id" value={loanId} />
-      <h3 className="font-semibold text-navy text-sm mb-4">Record a Payment</h3>
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div className="md:col-span-2">
-          <label className="label">Apply Starting From Installment</label>
+          <label className="label !mb-0.5">Apply Starting From Installment</label>
           <select name="installment_id" className="input" value={selectedId} onChange={(e) => onSelectChange(Number(e.target.value))}>
             {installments.map((i) => (
               <option key={i.id} value={i.id}>
@@ -52,36 +51,33 @@ export default function CollectForm({
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-400 mt-1">Overpayment automatically rolls into the next unpaid installment.</p>
         </div>
         <div>
-          <label className="label">Amount Paid (৳) *</label>
-          <input name="amount_paid" type="number" step="0.01" required className="input" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <p className="text-xs text-gray-400 mt-1">Auto-filled — edit for a different amount.</p>
+          <label className="label !mb-0.5">Amount Paid (৳) *</label>
+          <input name="amount_paid" type="number" step="0.01" required className="input font-bold text-base !border-amber-300" style={{ backgroundColor: '#FFF6DC' }} value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
         <div>
-          <label className="label">Payment Method</label>
+          <label className="label !mb-0.5">Payment Method</label>
           <select name="payment_method" className="input" defaultValue={defaultPaymentMethod}>
             <option value="cash">Cash</option>
             <option value="bank">Bank Transfer</option>
             <option value="mobile_banking">Mobile Banking</option>
             <option value="other">Other</option>
           </select>
-          <p className="text-xs text-gray-400 mt-1">Defaulted to the last method used for this loan — editable.</p>
         </div>
         <div>
-          <label className="label">Payment Date</label>
+          <label className="label !mb-0.5">Payment Date</label>
           <input name="payment_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
-          <label className="label">Notes</label>
+          <label className="label !mb-0.5">Notes</label>
           <input name="notes" className="input" defaultValue="Installment" list="notes-suggestions" />
           <datalist id="notes-suggestions">
             {notesSuggestions.map((n) => <option key={n} value={n} />)}
           </datalist>
         </div>
       </div>
-      <div className="mt-5">
+      <div className="mt-3">
         <SubmitButton />
       </div>
     </form>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logoutAction } from '@/lib/actions';
@@ -30,7 +30,13 @@ function currentPageTitle(pathname: string): string {
 
 export default function Sidebar({ name, role, unread }: { name?: string; role?: string; unread: number }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+
+  // Tell the layout when the desktop sidebar is hidden so the content can use the full width.
+  useEffect(() => {
+    document.documentElement.dataset.sidebar = collapsed ? 'closed' : 'open';
+  }, [collapsed]);
 
   function linkClass(active: boolean, extra = '') {
     const base = 'flex items-center gap-2.5 px-5 py-2 text-sm rounded-r-lg mx-0 pl-4 border-l-[3px]';
@@ -65,12 +71,21 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
         </Link>
       </div>
 
+      {/* Desktop open/close handle */}
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        aria-label={collapsed ? 'Open sidebar' : 'Close sidebar'}
+        className={`hidden lg:flex fixed top-3 z-[60] w-8 h-8 items-center justify-center rounded-lg bg-navy text-white shadow-md hover:bg-navydark transition-all duration-200 ${collapsed ? 'left-3' : 'left-[15.25rem]'}`}
+      >
+        {collapsed ? '☰' : '◀'}
+      </button>
+
       {open && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setOpen(false)} />}
 
       <aside
         className={`w-64 bg-gradient-to-b from-navy to-navydark text-white flex flex-col fixed inset-y-0 z-50
           transition-transform duration-200 ease-in-out
-          ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+          ${open ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}
       >
         <div className="px-5 py-5 text-lg font-bold border-b border-white/10 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">💰 MicroLoan</Link>
