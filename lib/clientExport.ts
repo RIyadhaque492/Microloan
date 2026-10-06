@@ -174,16 +174,18 @@ function loanReportRow(r: any, sl: number): string[] {
 // Single-member report: same as above, but Disbursement Date sits right after Loan Amount.
 const SINGLE_REPORT_HEAD = [
   'SL', 'Name', 'Member ID', 'Loan Amount', 'Disbursement Date', 'Total Payable',
-  'Installment Amt', 'Tenure', 'Progress', 'Total Paid', 'Remaining Balance', 'Maturity Date', 'Last Payment Date', 'Contact',
+  'Installment Amt', 'Tenure', 'Total Paid', 'Remaining Balance', 'Maturity Date', 'Last Payment Date', 'Contact',
 ];
 const SINGLE_REPORT_COL_STYLES: Record<number, any> = {
-  0: { cellWidth: 7, halign: 'center' }, 1: { cellWidth: 19 }, 2: { cellWidth: 12 }, 3: { cellWidth: 14 },
-  4: { cellWidth: 15 }, 5: { cellWidth: 14 }, 6: { cellWidth: 12 }, 7: { cellWidth: 10, halign: 'center' },
-  8: { cellWidth: 12, halign: 'center' }, 9: { cellWidth: 14 }, 10: { cellWidth: 14 }, 11: { cellWidth: 14 }, 12: { cellWidth: 14 }, 13: { cellWidth: 15 },
+  0: { cellWidth: 7, halign: 'center' }, 1: { cellWidth: 21 }, 2: { cellWidth: 13 }, 3: { cellWidth: 15 },
+  4: { cellWidth: 16 }, 5: { cellWidth: 15 }, 6: { cellWidth: 13 }, 7: { cellWidth: 13, halign: 'center' },
+  8: { cellWidth: 15 }, 9: { cellWidth: 15 }, 10: { cellWidth: 15 }, 11: { cellWidth: 15 }, 12: { cellWidth: 17 },
 };
 function singleReportRow(r: any, sl: number): string[] {
   const row = loanReportRow(r, sl); // [SL, Opening, Name, MemberID, LoanAmt, ...]
-  return [row[0], row[2], row[3], row[4], row[1], ...row.slice(5)];
+  // row: [SL, Opening, Name, MemberID, LoanAmt, Payable, Inst, Tenure(number), Tenure(progress), Paid, ...]
+  // We keep only the progress column and call it "Tenure".
+  return [row[0], row[2], row[3], row[4], row[1], row[5], row[6], row[8], ...row.slice(9)];
 }
 
 function loanReportTotals(rows: any[]) {
@@ -220,7 +222,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
   autoTable(doc, {
     startY: y + 7,
     head: [SINGLE_REPORT_HEAD],
-    body: loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']],
+    body: loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '']],
     headStyles: { fillColor: RGB_NAVY, fontSize: 6.5 },
     styles: { fontSize: 6.5 },
     columnStyles: SINGLE_REPORT_COL_STYLES,
@@ -300,7 +302,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
   const y = boxY + boxH + 8;
   drawSectionHeader(doc, 'All Loans Register', X, y, W, RGB_GOLD);
 
-  const bodyRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
+  const bodyRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '']];
   const footFigures: [string, string][] = [
     ['Total Loan', `Tk ${money(totals.loanAmount)}`],
     ['Total Payable', `Tk ${money(totals.totalPayable)}`],
@@ -312,7 +314,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
     startY: y + 7,
     head: [SINGLE_REPORT_HEAD],
     body: bodyRows,
-    foot: loanRows.length ? [['', 'TOTAL', '', `Tk ${money(totals.loanAmount)}`, '', `Tk ${money(totals.totalPayable)}`, '', '', '', `Tk ${money(totals.totalPaid)}`, `Tk ${money(totals.remaining)}`, '', '', '']] : undefined,
+    foot: loanRows.length ? [['', 'TOTAL', '', `Tk ${money(totals.loanAmount)}`, '', `Tk ${money(totals.totalPayable)}`, '', '', `Tk ${money(totals.totalPaid)}`, `Tk ${money(totals.remaining)}`, '', '', '']] : undefined,
     headStyles: { fillColor: RGB_GOLD, fontSize: 6.5 },
     footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.5 },
     styles: { fontSize: 6.5 },
@@ -456,13 +458,13 @@ const EXCEL_LOAN_COL_WIDTHS = [6, 12, 22, 12, 16, 16, 16, 8, 10, 16, 18, 12, 14,
 
 const EXCEL_SINGLE_HEADERS = [
   'SL', 'Name', 'Member ID', 'Loan Amount (BDT)', 'Disbursement Date', 'Total Payable (BDT)',
-  'Installment Amt (BDT)', 'Tenure', 'Progress', 'Total Paid (BDT)', 'Remaining Balance (BDT)', 'Maturity Date', 'Last Payment Date', 'Contact',
+  'Installment Amt (BDT)', 'Tenure', 'Total Paid (BDT)', 'Remaining Balance (BDT)', 'Maturity Date', 'Last Payment Date', 'Contact',
 ];
 function addSingleReportRow(ws: any, r: any, sl: number, striped: boolean) {
   const row = ws.addRow([
     sl, r.full_name, r.borrower_code, Number(r.loan_amount),
     r.disbursement_date ? new Date(r.disbursement_date) : null,
-    Number(r.total_payable), Number(r.installment_amount), Number(r.tenure), progressText(r), Number(r.total_paid), Number(r.remaining_balance),
+    Number(r.total_payable), Number(r.installment_amount), progressText(r), Number(r.total_paid), Number(r.remaining_balance),
     r.maturity_date ? new Date(r.maturity_date) : null,
     r.last_payment_date ? new Date(r.last_payment_date) : null,
     r.phone || '',
@@ -472,10 +474,10 @@ function addSingleReportRow(ws: any, r: any, sl: number, striped: boolean) {
   row.getCell(5).numFmt = 'yyyy-mm-dd';
   row.getCell(6).numFmt = MONEY_FMT;
   row.getCell(7).numFmt = MONEY_FMT;
+  row.getCell(9).numFmt = MONEY_FMT;
   row.getCell(10).numFmt = MONEY_FMT;
-  row.getCell(11).numFmt = MONEY_FMT;
+  row.getCell(11).numFmt = 'yyyy-mm-dd';
   row.getCell(12).numFmt = 'yyyy-mm-dd';
-  row.getCell(13).numFmt = 'yyyy-mm-dd';
   return row;
 }
 
@@ -528,7 +530,7 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
   loanRows.forEach((r, i) => addSingleReportRow(summary, r, i + 1, i % 2 === 1));
 
   const totals = loanReportTotals(loanRows);
-  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', '', totals.totalPaid, totals.remaining, '', '', '']);
+  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', totals.totalPaid, totals.remaining, '', '', '']);
   totalRow.eachCell((cell: any) => {
     cell.font = { bold: true };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
@@ -536,10 +538,10 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
   });
   totalRow.getCell(4).numFmt = MONEY_FMT;
   totalRow.getCell(6).numFmt = MONEY_FMT;
+  totalRow.getCell(9).numFmt = MONEY_FMT;
   totalRow.getCell(10).numFmt = MONEY_FMT;
-  totalRow.getCell(11).numFmt = MONEY_FMT;
 
-  autoWidth(summary, EXCEL_SINGLE_HEADERS.length, [6, 22, 12, 16, 16, 16, 16, 8, 10, 16, 18, 12, 14, 16], 4);
+  autoWidth(summary, EXCEL_SINGLE_HEADERS.length, [6, 22, 12, 16, 16, 16, 16, 10, 16, 18, 12, 14, 16], 4);
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -563,7 +565,7 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
   loanRows.forEach((r, i) => addSingleReportRow(summary, r, i + 1, i % 2 === 1));
 
   const totals = loanReportTotals(loanRows);
-  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', '', totals.totalPaid, totals.remaining, '', '', '']);
+  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', totals.totalPaid, totals.remaining, '', '', '']);
   totalRow.eachCell((cell: any) => {
     cell.font = { bold: true };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
@@ -571,10 +573,10 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
   });
   totalRow.getCell(4).numFmt = MONEY_FMT;
   totalRow.getCell(6).numFmt = MONEY_FMT;
+  totalRow.getCell(9).numFmt = MONEY_FMT;
   totalRow.getCell(10).numFmt = MONEY_FMT;
-  totalRow.getCell(11).numFmt = MONEY_FMT;
 
-  autoWidth(summary, EXCEL_SINGLE_HEADERS.length, [6, 22, 12, 16, 16, 16, 16, 8, 10, 16, 18, 12, 14, 16], 4);
+  autoWidth(summary, EXCEL_SINGLE_HEADERS.length, [6, 22, 12, 16, 16, 16, 16, 10, 16, 18, 12, 14, 16], 4);
 
   // Payments sheet — every individual payment, oldest first, with a black border and
   // a remaining-balance column. The final row's "TOTAL PAID" label sits in the

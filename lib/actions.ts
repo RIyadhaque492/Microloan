@@ -157,8 +157,17 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
 // Removing a member moves them (and all their loans) to the Bin instead of
 // deleting anything for real — nothing is destroyed, and everything can be
 // restored together later from /bin.
-export async function deleteBorrowerAction(id: number) {
+/** Admin password required for every Remove/Delete. Change it with the DELETE_PASSWORD env var. */
+const DELETE_PASSWORD = process.env.DELETE_PASSWORD || '334499';
+function checkDeletePassword(formData: FormData | undefined, backTo: string) {
+  if (String(formData?.get('delete_pin') ?? '') !== DELETE_PASSWORD) {
+    redirect(`${backTo}?error=` + encodeURIComponent('Wrong password. Nothing was removed.'));
+  }
+}
+
+export async function deleteBorrowerAction(id: number, formData?: FormData) {
   await requireAdmin();
+  checkDeletePassword(formData, `/borrowers/${id}`);
   await sql`UPDATE borrowers SET deleted_at = now() WHERE id = ${id}`;
   await sql`UPDATE loans SET deleted_at = now() WHERE borrower_id = ${id} AND deleted_at IS NULL`;
   revalidatePath('/borrowers');
@@ -359,8 +368,9 @@ export async function updateLoanStatusAction(id: number, action: string): Promis
 // restored later from /bin. Loans that already have payment history are still
 // not removable this way, since hiding money that's already been collected
 // would make reports inconsistent.
-export async function deleteLoanAction(id: number) {
+export async function deleteLoanAction(id: number, formData?: FormData) {
   await requireAdmin();
+  checkDeletePassword(formData, `/loans/${id}`);
   await sql`UPDATE loans SET deleted_at = now() WHERE id = ${id}`;
   revalidatePath('/loans');
   revalidatePath('/collections');
@@ -370,8 +380,9 @@ export async function deleteLoanAction(id: number) {
 }
 
 /** Same as deleteLoanAction, but returns to the member's profile (used by the Remove > Loan option). */
-export async function removeLoanFromMemberAction(borrowerId: number, loanId: number) {
+export async function removeLoanFromMemberAction(borrowerId: number, loanId: number, formData?: FormData) {
   await requireAdmin();
+  checkDeletePassword(formData, `/borrowers/${borrowerId}`);
   await sql`UPDATE loans SET deleted_at = now() WHERE id = ${loanId} AND borrower_id = ${borrowerId}`;
   revalidatePath('/loans');
   revalidatePath('/collections');
@@ -513,11 +524,12 @@ async function replayLoanPayments(loanId: number) {
 }
 
 /** Deletes a payment receipt and recalculates the loan's installments. */
-export async function deleteCollectionAction(id: number) {
+export async function deleteCollectionAction(id: number, formData?: FormData) {
   await requireAdmin();
   const [collection] = await sql`SELECT loan_id FROM collections WHERE id = ${id}`;
   if (!collection) redirect('/collections?error=' + encodeURIComponent('Payment record not found.'));
   const loanId = collection.loan_id;
+  checkDeletePassword(formData, `/collections/history/${loanId}`);
   await sql`DELETE FROM collections WHERE id = ${id}`;
   await replayLoanPayments(loanId);
   revalidatePath(`/loans/${loanId}`);
@@ -677,8 +689,9 @@ export async function editSavingsTransactionAction(borrowerId: number, transacti
   redirect(`/savings/${borrowerId}`);
 }
 
-export async function deleteSavingsTransactionAction(borrowerId: number, transactionId: number) {
+export async function deleteSavingsTransactionAction(borrowerId: number, transactionId: number, formData?: FormData) {
   await requireAdmin();
+  checkDeletePassword(formData, `/savings/${borrowerId}`);
   await sql`DELETE FROM savings_transactions WHERE id = ${transactionId} AND borrower_id = ${borrowerId}`;
   revalidatePath(`/savings/${borrowerId}`);
   revalidatePath('/savings');
@@ -803,8 +816,9 @@ export async function uploadDocumentAction(borrowerId: number, formData: FormDat
   redirect(`/borrowers/${borrowerId}?uploaded=1#documents`);
 }
 
-export async function deleteDocumentAction(borrowerId: number, docId: number) {
+export async function deleteDocumentAction(borrowerId: number, docId: number, formData?: FormData) {
   await requireAdmin();
+  checkDeletePassword(formData, `/borrowers/${borrowerId}`);
   await sql`DELETE FROM borrower_documents WHERE id = ${docId} AND borrower_id = ${borrowerId}`;
   revalidatePath(`/borrowers/${borrowerId}`);
   redirect(`/borrowers/${borrowerId}#documents`);

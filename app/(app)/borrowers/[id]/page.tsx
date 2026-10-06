@@ -105,13 +105,15 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         const paid = loans.reduce((s, l) => s + Number(l.total_paid), 0);
         const outstanding = Math.max(0, payable - paid);
         const lastPay = loans.map((l) => l.last_payment_date).filter(Boolean).sort().pop();
+        const lastDisbursed = live.map((l) => l.disbursement_date).filter(Boolean).sort().pop();
         return (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
+            <div className="card p-3 border-l-4 border-l-indigo-500 bg-indigo-50"><div className="text-lg font-bold text-indigo-800">{lastDisbursed ? new Date(lastDisbursed).toLocaleDateString() : '—'}</div><div className="text-xs text-indigo-700">Disbursement Date</div></div>
             <div className="card p-3 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(borrowed)}</div><div className="text-xs text-sky-700">Total Borrowed</div></div>
             <div className="card p-3 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(payable)}</div><div className="text-xs text-amber-700">Total Payable</div></div>
             <div className="card p-3 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(paid)}</div><div className="text-xs text-green-700">Total Paid</div></div>
             <div className="card p-3 border-l-4 border-l-red-500 bg-red-50"><div className="text-lg font-bold text-red-800">৳{money(outstanding)}</div><div className="text-xs text-red-700">Outstanding</div></div>
-            <div className="card p-3 border-l-4 border-l-purple-500 bg-purple-50 col-span-2 lg:col-span-1"><div className="text-lg font-bold text-purple-800">{lastPay ? new Date(lastPay).toLocaleDateString() : '—'}</div><div className="text-xs text-purple-700">Last Payment</div></div>
+            <div className="card p-3 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">{lastPay ? new Date(lastPay).toLocaleDateString() : '—'}</div><div className="text-xs text-purple-700">Last Payment</div></div>
           </div>
         );
       })()}

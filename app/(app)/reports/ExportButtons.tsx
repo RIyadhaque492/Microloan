@@ -214,17 +214,17 @@ function TablePreview({ props }: { props: Props }) {
         <thead>
           <tr>
             <th>SL</th><th>Name</th><th>Member ID</th><th>Loan Amount</th><th>Disbursement Date</th>
-            <th>Total Payable</th><th>Installment Amt</th><th>Tenure</th><th>Progress</th><th>Total Paid</th>
+            <th>Total Payable</th><th>Installment Amt</th><th>Tenure</th><th>Total Paid</th>
             <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th>
           </tr>
         </thead>
         <tbody>
-          {loanRows.length === 0 && <tr><td colSpan={14} className="text-center text-gray-400 py-3">No disbursed loans.</td></tr>}
+          {loanRows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-400 py-3">No disbursed loans.</td></tr>}
           {loanRows.map((r: any, i: number) => (
             <tr key={r.loan_id}>
               <td>{i + 1}</td><td>{r.full_name}</td><td>{r.borrower_code}</td><td>৳{money(r.loan_amount)}</td><td>{fmtDate(r.disbursement_date)}</td>
               <td>৳{money(r.total_payable)}</td><td>৳{money(r.installment_amount)}</td>
-              <td>{r.tenure}</td><td><span className="inline-block rounded-full bg-teal-50 text-teal-700 px-2 text-[11px] font-semibold">{r.paid_count ?? 0}/{r.total_count || r.tenure}</span></td><td>৳{money(r.total_paid)}</td><td>৳{money(r.remaining_balance)}</td>
+              <td><span className="inline-block rounded-full bg-teal-50 text-teal-700 px-2 text-[11px] font-semibold">{r.paid_count ?? 0}/{r.total_count || r.tenure}</span></td><td>৳{money(r.total_paid)}</td><td>৳{money(r.remaining_balance)}</td>
               <td>{fmtDate(r.maturity_date)}</td><td>{fmtDate(r.last_payment_date)}</td><td>{r.phone}</td>
             </tr>
           ))}
