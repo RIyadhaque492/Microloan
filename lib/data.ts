@@ -329,12 +329,12 @@ export async function getLoanForCollection(loanId: number) {
   const [{ total_paid }] = await sql`
     SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_installments WHERE loan_id = ${loanId}
   `;
-  const [anyLast] = await sql`SELECT payment_method, payment_date FROM collections ORDER BY id DESC LIMIT 1`;
-  const lastMethod = lastPayment?.payment_method || anyLast?.payment_method || 'cash';
-  // The date typed in on the most recent collection — reused as the default for the next one.
-  const rawDate = anyLast?.payment_date;
-  const lastEnteredDate = rawDate ? (rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate).slice(0, 10)) : '';
-  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid), lastMethod, lastEnteredDate };
+  // The most recent collection entered anywhere — its amount, method and notes pre-fill the next one.
+  const [anyLast] = await sql`SELECT amount_paid, payment_method, notes FROM collections ORDER BY id DESC LIMIT 1`;
+  const lastInput = anyLast
+    ? { amount: String(Number(anyLast.amount_paid)), method: anyLast.payment_method || 'cash', notes: anyLast.notes || '' }
+    : null;
+  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid), lastInput };
 }
 
 export async function getSiteSettings() {

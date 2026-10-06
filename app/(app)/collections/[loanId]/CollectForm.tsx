@@ -19,25 +19,24 @@ export default function CollectForm({
   loanId,
   installments,
   preselectId,
-  defaultPaymentMethod = 'cash',
-  defaultPaymentDate = '',
+  lastInput = null,
   notesSuggestions = [],
 }: {
   loanId: number;
   installments: Installment[];
   preselectId: number;
-  defaultPaymentMethod?: string;
-  defaultPaymentDate?: string;
+  lastInput?: { amount: string; method: string; notes: string } | null;
   notesSuggestions?: string[];
 }) {
   const initial = installments.find((i) => i.id === preselectId) || installments[0];
   const [selectedId, setSelectedId] = useState<number | ''>(initial?.id ?? '');
-  const [amount, setAmount] = useState(initial ? (Number(initial.amount) - Number(initial.paid_amount)).toFixed(2) : '');
+  // Amount, method and notes start as whatever was entered last; the date is always today.
+  const [amount, setAmount] = useState(lastInput?.amount || (initial ? (Number(initial.amount) - Number(initial.paid_amount)).toFixed(2) : ''));
 
   function onSelectChange(id: number) {
     setSelectedId(id);
     const found = installments.find((i) => i.id === id);
-    if (found) setAmount((Number(found.amount) - Number(found.paid_amount)).toFixed(2));
+    if (found && !lastInput) setAmount((Number(found.amount) - Number(found.paid_amount)).toFixed(2));
   }
 
   return (
@@ -60,7 +59,7 @@ export default function CollectForm({
         </div>
         <div>
           <label className="label !mb-0.5">Payment Method</label>
-          <select name="payment_method" className="input" defaultValue={defaultPaymentMethod}>
+          <select name="payment_method" className="input" defaultValue={lastInput?.method || 'cash'}>
             <option value="cash">Cash</option>
             <option value="bank">Bank Transfer</option>
             <option value="mobile_banking">Mobile Banking</option>
@@ -69,11 +68,11 @@ export default function CollectForm({
         </div>
         <div>
           <label className="label !mb-0.5">Payment Date</label>
-          <input name="payment_date" type="date" defaultValue={defaultPaymentDate || new Date().toISOString().slice(0, 10)} className="input" />
+          <input name="payment_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
           <label className="label !mb-0.5">Notes</label>
-          <input name="notes" className="input" defaultValue="Installment" list="notes-suggestions" />
+          <input name="notes" className="input" defaultValue={lastInput?.notes || 'Installment'} list="notes-suggestions" />
           <datalist id="notes-suggestions">
             {notesSuggestions.map((n) => <option key={n} value={n} />)}
           </datalist>
