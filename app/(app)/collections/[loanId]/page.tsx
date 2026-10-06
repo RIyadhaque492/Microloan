@@ -17,7 +17,7 @@ export default async function CollectPage({
   if (!loanId || isNaN(loanId)) notFound();
   const data = await getLoanForCollection(loanId);
   if (!data) notFound();
-  const { loan, installments, lastPayment, totalPaid, lastMethod } = data;
+  const { loan, installments, lastPayment, totalPaid, lastMethod, lastEnteredDate } = data;
   const notesSuggestions = await getCollectionNotesSuggestions();
 
   const installmentsArr = installments as any[];
@@ -62,6 +62,7 @@ export default async function CollectPage({
             installments={installmentsArr as any}
             preselectId={preselectId}
             defaultPaymentMethod={lastMethod}
+          defaultPaymentDate={lastEnteredDate}
             notesSuggestions={notesSuggestions}
           />
         )}

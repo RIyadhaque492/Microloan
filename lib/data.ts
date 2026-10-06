@@ -329,9 +329,12 @@ export async function getLoanForCollection(loanId: number) {
   const [{ total_paid }] = await sql`
     SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_installments WHERE loan_id = ${loanId}
   `;
-  const [anyLast] = await sql`SELECT payment_method FROM collections ORDER BY id DESC LIMIT 1`;
+  const [anyLast] = await sql`SELECT payment_method, payment_date FROM collections ORDER BY id DESC LIMIT 1`;
   const lastMethod = lastPayment?.payment_method || anyLast?.payment_method || 'cash';
-  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid), lastMethod };
+  // The date typed in on the most recent collection — reused as the default for the next one.
+  const rawDate = anyLast?.payment_date;
+  const lastEnteredDate = rawDate ? (rawDate instanceof Date ? rawDate.toISOString().slice(0, 10) : String(rawDate).slice(0, 10)) : '';
+  return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid), lastMethod, lastEnteredDate };
 }
 
 export async function getSiteSettings() {

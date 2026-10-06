@@ -22,6 +22,55 @@ export async function shareOrDownloadBlob(blob: Blob, filename: string, mimeType
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ---------------------------------------------------------------------
+// Report / Receipt header & footer (Settings > Report / Receipt Header & Footer)
+// ---------------------------------------------------------------------
+type Branding = {
+  headerText: string;
+  footerAddress: string;
+  footerContact: string;
+  logo: { dataUrl: string; format: 'PNG' | 'JPEG'; ratio: number } | null;
+};
+
+/** The branding of the document currently being built (set at the start of each builder). */
+let activeBranding: Branding | null = null;
+
+async function loadBranding(): Promise<Branding | null> {
+  try {
+    const res = await fetch('/api/doc-branding', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const j = await res.json();
+    let logo: Branding['logo'] = null;
+    if (j.logo) {
+      const ratio = await new Promise<number>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1);
+        img.onerror = () => resolve(1);
+        img.src = j.logo;
+      });
+      logo = { dataUrl: j.logo, format: String(j.logo).startsWith('data:image/png') ? 'PNG' : 'JPEG', ratio };
+    }
+    const b: Branding = { headerText: j.headerText || '', footerAddress: j.footerAddress || '', footerContact: j.footerContact || '', logo };
+    return b.headerText || b.footerAddress || b.footerContact || b.logo ? b : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Logo size in mm for a given height, capped to a sensible width. */
+function logoSizeMm(b: Branding, heightMm: number): { w: number; h: number } {
+  const ratio = b.logo?.ratio || 1;
+  const w = Math.min(heightMm * ratio, 40);
+  return { w, h: w / ratio };
+}
+
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const bin = atob(dataUrl.split(',')[1] || '');
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
 // Shared brand colors (RGB, matching the app's navy/teal/gold palette)
 const RGB_NAVY: [number, number, number] = [15, 42, 63];
 const RGB_TEAL: [number, number, number] = [20, 149, 143];
@@ -41,6 +90,30 @@ function drawPageBorder(doc: any) {
 
 /** Full-width colored banner at the top of a page, with a title and optional subtitle. */
 function drawBanner(doc: any, title: string, subtitle: string) {
+  const b = activeBranding;
+  if (b && (b.headerText || b.logo)) {
+    // Branded header: logo + header text, report title underneath, then a line.
+    let x = 12;
+    if (b.logo) {
+      const { w, h } = logoSizeMm(b, 14);
+      doc.addImage(b.logo.dataUrl, b.logo.format, 11, 8 + (14 - h) / 2, w, h);
+      x = 11 + w + 4;
+    }
+    doc.setTextColor(...RGB_NAVY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    if (b.headerText) doc.text(fitTextWidth(doc, b.headerText, 200 - x), x, 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(90, 100, 110);
+    doc.text(fitTextWidth(doc, `${title}  •  ${subtitle}`, 200 - x), x, 21.5);
+    doc.setDrawColor(...RGB_NAVY);
+    doc.setLineWidth(0.8);
+    doc.line(10, 25.5, 200, 25.5);
+    doc.setLineWidth(0.5);
+    doc.setTextColor(0, 0, 0);
+    return;
+  }
   doc.setFillColor(...RGB_NAVY);
   doc.rect(6, 6, 198, 22, 'F');
   doc.setTextColor(255, 255, 255);
@@ -56,6 +129,20 @@ function drawBanner(doc: any, title: string, subtitle: string) {
 /** Full-width colored footer bar at the bottom of the page, showing total figures. */
 function drawFooter(doc: any, figures: [string, string][]) {
   const footerY = 279;
+  const b = activeBranding;
+  if (b && (b.footerAddress || b.footerContact)) {
+    doc.setDrawColor(...RGB_NAVY);
+    doc.setLineWidth(0.3);
+    doc.line(10, 267, 200, 267);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(60, 70, 80);
+    let yy = 271.5;
+    if (b.footerAddress) { doc.text(fitTextWidth(doc, b.footerAddress, 186), 105, yy, { align: 'center' }); yy += 4; }
+    if (b.footerContact) doc.text(fitTextWidth(doc, b.footerContact, 186), 105, yy, { align: 'center' });
+    doc.setLineWidth(0.5);
+    doc.setTextColor(0, 0, 0);
+  }
   doc.setFillColor(...RGB_GOLD);
   doc.rect(6, footerY, 198, 12, 'F');
   doc.setTextColor(255, 255, 255);
@@ -202,6 +289,7 @@ function loanReportTotals(rows: any[]) {
 export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
+  activeBranding = await loadBranding();
   const doc = new jsPDF();
   const X = 12;
   const W = 186;
@@ -226,7 +314,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     headStyles: { fillColor: RGB_NAVY, fontSize: 6.5 },
     styles: { fontSize: 6.5 },
     columnStyles: SINGLE_REPORT_COL_STYLES,
-    margin: { left: X, right: X },
+    margin: { left: X, right: X, bottom: 30 },
     didDrawPage: () => drawPageBorder(doc),
   });
 
@@ -252,7 +340,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     theme: 'grid',
     headStyles: { fillColor: RGB_TEAL, lineColor: RGB_BLACK, lineWidth: 0.3 },
     styles: { fontSize: 7.5, lineColor: RGB_BLACK, lineWidth: 0.3 },
-    margin: { left: X, right: X },
+    margin: { left: X, right: X, bottom: 30 },
     didParseCell: (data: any) => {
       if (data.section === 'body' && data.row.index === payBody.length - 1 && payments.length > 0) {
         data.cell.styles.fontStyle = 'bold';
@@ -284,6 +372,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
 export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
+  activeBranding = await loadBranding();
   const doc = new jsPDF();
   const X = 12;
   const W = 186;
@@ -319,7 +408,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
     footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.5 },
     styles: { fontSize: 6.5 },
     columnStyles: SINGLE_REPORT_COL_STYLES,
-    margin: { left: X, right: X, bottom: 24 },
+    margin: { left: X, right: X, bottom: 30 },
     // The bottom-total footer bar is drawn on EVERY page (not just the last), so a
     // multi-page loan register never loses its running grand totals off the bottom
     // of a page — this is the fix for the previously "missing" totals bar.
@@ -336,6 +425,8 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
 export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
+  const branding = await loadBranding();
+  activeBranding = branding;
   const doc = new jsPDF();
 
   // Outer border around the whole receipt
@@ -345,11 +436,34 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   doc.setLineWidth(0.2);
   doc.rect(14, 14, 182, 186);
 
-  doc.setFontSize(18);
-  doc.text('MicroLoan Admin', 105, 26, { align: 'center' });
-  doc.setFontSize(11);
-  doc.text('Payment Receipt', 105, 33, { align: 'center' });
-  doc.line(20, 38, 190, 38);
+  if (branding && (branding.headerText || branding.logo)) {
+    // Branded header: logo, header text, "Payment Receipt", then a line.
+    let x = 20;
+    if (branding.logo) {
+      const { w, h } = logoSizeMm(branding, 16);
+      doc.addImage(branding.logo.dataUrl, branding.logo.format, 20, 18 + (16 - h) / 2, w, h);
+      x = 20 + w + 5;
+    }
+    doc.setTextColor(15, 42, 63);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    if (branding.headerText) doc.text(fitTextWidth(doc, branding.headerText, 190 - x), x, 25);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(90, 100, 110);
+    doc.text('Payment Receipt', x, 32);
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(15, 42, 63);
+    doc.setLineWidth(0.6);
+    doc.line(20, 38, 190, 38);
+    doc.setLineWidth(0.2);
+  } else {
+    doc.setFontSize(18);
+    doc.text('MicroLoan Admin', 105, 26, { align: 'center' });
+    doc.setFontSize(11);
+    doc.text('Payment Receipt', 105, 33, { align: 'center' });
+    doc.line(20, 38, 190, 38);
+  }
 
   const rows = [
     ['Receipt No.', receipt.receipt_no],
@@ -382,6 +496,19 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   doc.setFontSize(14);
   doc.text(`Tk ${money(receipt.amount_paid)}`, 185, afterTable + 10, { align: 'right' });
 
+  if (branding && (branding.footerAddress || branding.footerContact)) {
+    doc.setDrawColor(15, 42, 63);
+    doc.setLineWidth(0.3);
+    doc.line(20, 184, 190, 184);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(60, 70, 80);
+    let yy = 189;
+    if (branding.footerAddress) { doc.text(fitTextWidth(doc, branding.footerAddress, 170), 105, yy, { align: 'center' }); yy += 5; }
+    if (branding.footerContact) doc.text(fitTextWidth(doc, branding.footerContact, 170), 105, yy, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  }
+
   return doc.output('blob');
 }
 
@@ -399,10 +526,26 @@ const BLACK_BORDER = { style: 'thin', color: { argb: 'FF000000' } };
 function titleRow(ws: any, text: string, span: number) {
   ws.mergeCells(1, 1, 1, span);
   const cell = ws.getCell(1, 1);
-  cell.value = text;
+  const headerText = activeBranding?.headerText;
+  // With a header text set, it replaces the "MicroLoan Admin" prefix of the title.
+  cell.value = headerText ? `${headerText}${text.includes(' — ') ? ' — ' + text.split(' — ').slice(1).join(' — ') : ''}` : text;
   cell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: BRAND_NAVY } };
   cell.alignment = { horizontal: 'left' };
   ws.getRow(1).height = 22;
+}
+
+/** Address + contact lines at the bottom of the first sheet (Report/Receipt footer setting). */
+function addExcelFooter(ws: any, span: number) {
+  const b = activeBranding;
+  if (!b || (!b.footerAddress && !b.footerContact)) return;
+  ws.addRow([]);
+  for (const line of [b.footerAddress, b.footerContact]) {
+    if (!line) continue;
+    const row = ws.addRow([line]);
+    ws.mergeCells(row.number, 1, row.number, span);
+    row.getCell(1).font = { name: 'Calibri', size: 9, color: { argb: 'FF4B5B66' } };
+    row.getCell(1).alignment = { horizontal: 'center' };
+  }
 }
 
 function subtitleRow(ws: any, rowNum: number, text: string, span: number) {
@@ -514,6 +657,7 @@ function addLoanReportRow(ws: any, r: any, sl: number, striped: boolean) {
 export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
+  activeBranding = await loadBranding();
   wb.creator = 'MicroLoan Admin';
   wb.created = new Date();
 
@@ -543,6 +687,8 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
 
   autoWidth(summary, EXCEL_SINGLE_HEADERS.length, [6, 22, 12, 16, 16, 16, 16, 10, 16, 18, 12, 14, 16], 4);
 
+  addExcelFooter(summary, EXCEL_SINGLE_HEADERS.length);
+
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
@@ -552,6 +698,7 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
 export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
+  activeBranding = await loadBranding();
   wb.creator = 'MicroLoan Admin';
   wb.created = new Date();
 
@@ -616,6 +763,8 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
 
   autoWidth(paySheet, 6, [6, 14, 16, 14, 16, 18]);
 
+  addExcelFooter(summary, EXCEL_SINGLE_HEADERS.length);
+
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
@@ -623,6 +772,7 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
 export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
+  activeBranding = await loadBranding();
   wb.creator = 'MicroLoan Admin';
   wb.created = new Date();
 
@@ -660,6 +810,8 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
 
   autoWidth(ws, 2, [20, 32], 3);
 
+  addExcelFooter(ws, 2);
+
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
@@ -672,6 +824,43 @@ const DOCX_NAVY = '0F2A3F';
 const DOCX_TEAL = '14958F';
 const DOCX_GOLD = 'D99A2B';
 const DOCX_LIGHT = 'F4F8F8';
+
+/** Word header (logo + text + line below) and footer (address + contact) for a section. */
+function docxBranding(Docx: any, b: Branding | null): Record<string, any> {
+  if (!b) return {};
+  const out: Record<string, any> = {};
+  if (b.headerText || b.logo) {
+    const children: any[] = [];
+    if (b.logo) {
+      const wPx = Math.round(Math.min(48 * b.logo.ratio, 150));
+      children.push(new Docx.ImageRun({
+        type: b.logo.format === 'PNG' ? 'png' : 'jpg',
+        data: dataUrlToBytes(b.logo.dataUrl),
+        transformation: { width: wPx, height: Math.round(wPx / b.logo.ratio) },
+      }));
+      children.push(new Docx.TextRun({ text: '   ' }));
+    }
+    if (b.headerText) children.push(new Docx.TextRun({ text: b.headerText, bold: true, size: 32, color: DOCX_NAVY }));
+    out.headers = {
+      default: new Docx.Header({
+        children: [new Docx.Paragraph({ children, border: { bottom: { style: Docx.BorderStyle.SINGLE, size: 12, color: DOCX_NAVY, space: 4 } } })],
+      }),
+    };
+  }
+  if (b.footerAddress || b.footerContact) {
+    const lines = [b.footerAddress, b.footerContact].filter(Boolean) as string[];
+    out.footers = {
+      default: new Docx.Footer({
+        children: lines.map((t, i) => new Docx.Paragraph({
+          alignment: Docx.AlignmentType.CENTER,
+          border: i === 0 ? { top: { style: Docx.BorderStyle.SINGLE, size: 6, color: DOCX_NAVY, space: 4 } } : undefined,
+          children: [new Docx.TextRun({ text: t, size: 16, color: '4B5B66' })],
+        })),
+      }),
+    };
+  }
+  return out;
+}
 
 function docxHeaderCell(Docx: any, text: string, fill: string) {
   return new Docx.TableCell({
@@ -708,6 +897,7 @@ function docxSummaryTable(Docx: any, headers: string[], rows: string[][], headFi
 /** Single member report as a Word document — loan-register table + full payment history. */
 export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
   const Docx = await import('docx');
+  const branding = await loadBranding();
 
   const totals = loanReportTotals(loanRows);
   const loanTableRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
@@ -725,6 +915,7 @@ export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [],
   const doc = new Docx.Document({
     sections: [
       {
+        ...docxBranding(Docx, branding),
         children: [
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'Member Credit / Debt Report', bold: true, size: 32, color: DOCX_NAVY })] }),
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${member.full_name} (${member.borrower_code})`, italics: true, size: 18, color: '6B7C85' })] }),
@@ -755,6 +946,7 @@ export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [],
 /** All members report as a Word document — one loan-register table, one row per loan. */
 export async function buildAllUsersWordBlob(loanRows: any[]): Promise<Blob> {
   const Docx = await import('docx');
+  const branding = await loadBranding();
 
   const totals = loanReportTotals(loanRows);
   const loanTableRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '']];
@@ -762,6 +954,7 @@ export async function buildAllUsersWordBlob(loanRows: any[]): Promise<Blob> {
   const doc = new Docx.Document({
     sections: [
       {
+        ...docxBranding(Docx, branding),
         children: [
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'All Loans - Full Register', bold: true, size: 32, color: DOCX_NAVY })] }),
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`, italics: true, size: 18, color: '6B7C85' })] }),

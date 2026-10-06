@@ -20,12 +20,14 @@ export default function CollectForm({
   installments,
   preselectId,
   defaultPaymentMethod = 'cash',
+  defaultPaymentDate = '',
   notesSuggestions = [],
 }: {
   loanId: number;
   installments: Installment[];
   preselectId: number;
   defaultPaymentMethod?: string;
+  defaultPaymentDate?: string;
   notesSuggestions?: string[];
 }) {
   const initial = installments.find((i) => i.id === preselectId) || installments[0];
@@ -67,7 +69,7 @@ export default function CollectForm({
         </div>
         <div>
           <label className="label !mb-0.5">Payment Date</label>
-          <input name="payment_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
+          <input name="payment_date" type="date" defaultValue={defaultPaymentDate || new Date().toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
           <label className="label !mb-0.5">Notes</label>

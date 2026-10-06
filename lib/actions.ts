@@ -750,6 +750,48 @@ export async function updateSiteSettingsAction(formData: FormData) {
   redirect('/settings?saved=1');
 }
 
+/** Saves the Report / Receipt header (logo + text) and footer (address + contact). */
+export async function updateDocumentBrandingAction(formData: FormData) {
+  await requireAdmin();
+
+  const logo = formData.get('doc_logo') as File | null;
+  const removeLogo = formData.get('remove_doc_logo') === '1';
+
+  try {
+    if (logo && logo.size > 0) {
+      if (logo.size > 1024 * 1024) {
+        redirect('/settings?error=' + encodeURIComponent('Logo is too large. Max size is 1MB.') + '#documents');
+      }
+      if (!['image/png', 'image/jpeg'].includes(logo.type)) {
+        redirect('/settings?error=' + encodeURIComponent('Logo must be a PNG or JPG image.') + '#documents');
+      }
+      const base64 = Buffer.from(await logo.arrayBuffer()).toString('base64');
+      await sql`UPDATE site_settings SET doc_logo_data = ${base64}, doc_logo_mime = ${logo.type} WHERE id = 1`;
+    } else if (removeLogo) {
+      await sql`UPDATE site_settings SET doc_logo_data = NULL, doc_logo_mime = NULL WHERE id = 1`;
+    }
+
+    await sql`
+      UPDATE site_settings SET
+        doc_header_text = ${String(formData.get('doc_header_text') || '')},
+        doc_footer_address = ${String(formData.get('doc_footer_address') || '')},
+        doc_footer_contact = ${String(formData.get('doc_footer_contact') || '')},
+        updated_at = now()
+      WHERE id = 1
+    `;
+  } catch (err: any) {
+    if (String(err?.digest || '').startsWith('NEXT_REDIRECT')) throw err;
+    const msg = String(err?.message || '');
+    if (msg.includes('doc_') && msg.includes('does not exist')) {
+      redirect('/settings?error=' + encodeURIComponent('Run migration_add_document_branding.sql in Neon first, then save again.'));
+    }
+    throw err;
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?saved=doc#documents');
+}
+
 // ---------- Documents ----------
 
 const MAX_DOC_SIZE = 3 * 1024 * 1024;

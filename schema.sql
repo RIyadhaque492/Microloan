@@ -110,6 +110,11 @@ CREATE TABLE IF NOT EXISTS site_settings (
     contact_email VARCHAR(150),
     contact_address TEXT,
     savings_interest_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    doc_header_text VARCHAR(200),
+    doc_logo_data TEXT,
+    doc_logo_mime VARCHAR(100),
+    doc_footer_address TEXT,
+    doc_footer_contact TEXT,
     updated_at TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT single_row CHECK (id = 1)
 );

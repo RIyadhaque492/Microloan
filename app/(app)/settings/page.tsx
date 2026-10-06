@@ -1,5 +1,5 @@
 import { getSiteSettings } from '@/lib/data';
-import { updateSiteSettingsAction } from '@/lib/actions';
+import { updateSiteSettingsAction, updateDocumentBrandingAction } from '@/lib/actions';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Website Settings - MicroLoan Admin' };
@@ -12,7 +12,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
       <PageHeader title="Website Settings" />
 
       {searchParams.saved && (
-        <div className="mb-4 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2">✅ Settings saved. Your public homepage has been updated.</div>
+        <div className="mb-4 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2">
+          {searchParams.saved === 'doc' ? '✅ Report / Receipt header & footer saved.' : '✅ Settings saved. Your public homepage has been updated.'}
+        </div>
       )}
       {searchParams.error && (
         <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>
@@ -80,6 +82,46 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
         </div>
 
         <button type="submit" className="btn btn-primary">Save Settings</button>
+      </form>
+
+      <form id="documents" action={updateDocumentBrandingAction} className="card p-6 max-w-2xl space-y-4 mt-6 scroll-mt-4">
+        <div>
+          <h3 className="font-semibold text-navy">📄 Report / Receipt Header &amp; Footer</h3>
+          <p className="text-xs text-gray-500 mt-1">Used on every report and payment receipt (PDF and Word). Header = logo + text with a line below. Footer = address and contact.</p>
+        </div>
+
+        <div>
+          <label className="label">Logo</label>
+          {settings?.doc_logo_data ? (
+            <div className="mb-2 flex items-center gap-3">
+              <img src={`data:${settings.doc_logo_mime || 'image/png'};base64,${settings.doc_logo_data}`} alt="Current logo" className="h-14 w-auto rounded border border-gray-200 bg-white p-1" />
+              <label className="flex items-center gap-2 text-xs text-red-500">
+                <input type="checkbox" name="remove_doc_logo" value="1" className="rounded" /> Remove logo
+              </label>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 mb-2">No logo yet.</p>
+          )}
+          <input name="doc_logo" type="file" accept="image/png,image/jpeg" className="input" />
+          <p className="text-xs text-gray-400 mt-1">PNG or JPG, max 1MB. A square or wide logo works best.</p>
+        </div>
+
+        <div>
+          <label className="label">Header Text</label>
+          <input name="doc_header_text" defaultValue={settings?.doc_header_text || ''} className="input" placeholder="e.g. Your Company Name" maxLength={200} />
+          <p className="text-xs text-gray-400 mt-1">Shown next to the logo, with a line under it.</p>
+        </div>
+
+        <div>
+          <label className="label">Footer — Address</label>
+          <input name="doc_footer_address" defaultValue={settings?.doc_footer_address || ''} className="input" placeholder="e.g. House 1, Road 2, Chattogram" />
+        </div>
+        <div>
+          <label className="label">Footer — Contact</label>
+          <input name="doc_footer_contact" defaultValue={settings?.doc_footer_contact || ''} className="input" placeholder="e.g. +880 1XXX-XXXXXX · info@example.com" />
+        </div>
+
+        <button type="submit" className="btn btn-primary">Save Header &amp; Footer</button>
       </form>
     </div>
   );

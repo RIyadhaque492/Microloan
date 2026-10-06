@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
+import { getSiteSettings } from '@/lib/data';
 import { money } from '@/lib/utils';
 import ReceiptExportButtons from './ReceiptExportButtons';
 import PageHeader from '../../../PageHeader';
@@ -19,6 +20,8 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     WHERE c.id = ${id}
   `;
   if (!p) notFound();
+  const brand: any = await getSiteSettings();
+  const logoSrc = brand?.doc_logo_data ? `data:${brand.doc_logo_mime || 'image/png'};base64,${brand.doc_logo_data}` : '';
 
   const shareText = [
     `*MicroLoan Payment Receipt*`,
@@ -34,10 +37,10 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     <div className="max-w-md mx-auto">
       <PageHeader title="Payment Receipt" />
       <div className="card p-4 text-center border-2 border-navy/20">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-2xl">💰</span>
+        <div className="flex items-center gap-2 pb-2 mb-2 border-b-2 border-navy">
+          {logoSrc ? <img src={logoSrc} alt="" className="h-10 w-auto max-w-[110px] object-contain" /> : <span className="text-2xl">💰</span>}
           <div className="text-left leading-tight">
-            <h2 className="font-bold text-navy text-sm">MicroLoan Admin</h2>
+            <h2 className="font-bold text-navy text-sm">{brand?.doc_header_text || 'MicroLoan Admin'}</h2>
             <p className="text-gray-400 text-xs">Payment Receipt</p>
           </div>
         </div>
@@ -55,6 +58,13 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           <span className="font-semibold text-sm">Amount Paid</span>
           <span className="font-bold text-teal text-xl">৳{money(p.amount_paid)}</span>
         </div>
+
+        {(brand?.doc_footer_address || brand?.doc_footer_contact) && (
+          <div className="border-t border-gray-300 pt-1.5 mb-3 text-[11px] text-gray-500 leading-snug">
+            {brand?.doc_footer_address && <div>{brand.doc_footer_address}</div>}
+            {brand?.doc_footer_contact && <div>{brand.doc_footer_contact}</div>}
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <ReceiptExportButtons receipt={p} shareText={shareText} />
