@@ -329,11 +329,12 @@ export async function getLoanForCollection(loanId: number) {
   const [{ total_paid }] = await sql`
     SELECT COALESCE(SUM(paid_amount),0) AS total_paid FROM loan_installments WHERE loan_id = ${loanId}
   `;
-  // The most recent collection entered anywhere — its amount, method and notes pre-fill the next one.
-  const [anyLast] = await sql`SELECT amount_paid, payment_method, notes FROM collections ORDER BY id DESC LIMIT 1`;
-  const lastInput = anyLast
-    ? { amount: String(Number(anyLast.amount_paid)), method: anyLast.payment_method || 'cash', notes: anyLast.notes || '' }
-    : null;
+  // Member-based: payment method and notes start as whatever was last entered for THIS member.
+  // (The amount is loan-based — it comes from the selected installment, not from the last input.)
+  const [memberLast] = await sql`
+    SELECT payment_method, notes FROM collections WHERE borrower_id = ${loan.borrower_id} ORDER BY id DESC LIMIT 1
+  `;
+  const lastInput = memberLast ? { method: memberLast.payment_method || 'cash', notes: memberLast.notes || '' } : null;
   return { loan, installments, lastPayment: lastPayment || null, totalPaid: Number(total_paid), lastInput };
 }
 
@@ -476,12 +477,44 @@ export async function getSavingsTransactions(borrowerId: number) {
   `;
 }
 
+/** Totals for one member (profile cards). */
+export async function getSavingsSummary(borrowerId: number) {
+  const [row] = await sql`
+    SELECT
+      COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) AS deposit,
+      COALESCE(SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END), 0) AS withdraw,
+      COUNT(*)::int AS receipts,
+      MAX(transaction_date) AS last_date
+    FROM savings_transactions WHERE borrower_id = ${borrowerId}
+  `;
+  return { deposit: Number(row.deposit), withdraw: Number(row.withdraw), receipts: Number(row.receipts), lastDate: row.last_date as any };
+}
+
+/** Totals across all members (list page cards). "Today" = today's deposits / withdrawals. */
+export async function getAllSavingsTotals() {
+  const [row] = await sql`
+    SELECT
+      COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) AS deposit,
+      COALESCE(SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END), 0) AS withdraw,
+      COALESCE(SUM(CASE WHEN type = 'deposit' AND transaction_date = CURRENT_DATE THEN amount ELSE 0 END), 0) AS deposit_today,
+      COALESCE(SUM(CASE WHEN type = 'withdrawal' AND transaction_date = CURRENT_DATE THEN amount ELSE 0 END), 0) AS withdraw_today
+    FROM savings_transactions st JOIN borrowers b ON b.id = st.borrower_id WHERE b.deleted_at IS NULL
+  `;
+  return {
+    deposit: Number(row.deposit), withdraw: Number(row.withdraw),
+    depositToday: Number(row.deposit_today), withdrawToday: Number(row.withdraw_today),
+  };
+}
+
 export async function getAllMembersSavings(search?: string) {
   const like = search ? `%${search}%` : null;
   const rows = like
     ? await sql`
         SELECT b.id, b.borrower_code, b.full_name, b.phone,
           COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS balance,
+          COALESCE((SELECT SUM(st.amount) FROM savings_transactions st WHERE st.borrower_id = b.id AND st.type = 'deposit'), 0) AS total_deposit,
+          COALESCE((SELECT SUM(st.amount) FROM savings_transactions st WHERE st.borrower_id = b.id AND st.type = 'withdrawal'), 0) AS total_withdraw,
+          (SELECT st4.id FROM savings_transactions st4 WHERE st4.borrower_id = b.id ORDER BY st4.transaction_date DESC, st4.id DESC LIMIT 1) AS last_transaction_id,
           (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count,
           (SELECT MAX(st3.transaction_date) FROM savings_transactions st3 WHERE st3.borrower_id = b.id) AS last_savings_date
         FROM borrowers b
@@ -491,6 +524,9 @@ export async function getAllMembersSavings(search?: string) {
     : await sql`
         SELECT b.id, b.borrower_code, b.full_name, b.phone,
           COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS balance,
+          COALESCE((SELECT SUM(st.amount) FROM savings_transactions st WHERE st.borrower_id = b.id AND st.type = 'deposit'), 0) AS total_deposit,
+          COALESCE((SELECT SUM(st.amount) FROM savings_transactions st WHERE st.borrower_id = b.id AND st.type = 'withdrawal'), 0) AS total_withdraw,
+          (SELECT st4.id FROM savings_transactions st4 WHERE st4.borrower_id = b.id ORDER BY st4.transaction_date DESC, st4.id DESC LIMIT 1) AS last_transaction_id,
           (SELECT COUNT(*)::int FROM savings_transactions st2 WHERE st2.borrower_id = b.id) AS transaction_count,
           (SELECT MAX(st3.transaction_date) FROM savings_transactions st3 WHERE st3.borrower_id = b.id) AS last_savings_date
         FROM borrowers b

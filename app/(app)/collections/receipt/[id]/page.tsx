@@ -21,6 +21,17 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
   `;
   if (!p) notFound();
   const brand: any = await getSiteSettings();
+  let docStyle: any = {};
+  try { docStyle = brand?.doc_style ? JSON.parse(brand.doc_style) : {}; } catch {}
+  const hs: any = { bold: true, italic: false, size: 'md', color: '#0F2A3F', align: 'left', ...(docStyle.header || {}) };
+  const fsx: any = { bold: false, italic: false, size: 'md', color: '#3C4650', align: 'center', ...(docStyle.footer || {}) };
+  const css = (st: any, k: 'h' | 'f'): React.CSSProperties => ({
+    fontWeight: st.bold ? 700 : 400,
+    fontStyle: st.italic ? 'italic' : 'normal',
+    color: st.color,
+    textAlign: st.align,
+    fontSize: (k === 'h' ? { sm: 13, md: 15, lg: 19 } : { sm: 10, md: 11, lg: 13 })[st.size as 'sm' | 'md' | 'lg'],
+  });
   const logoSrc = brand?.doc_logo_data ? `data:${brand.doc_logo_mime || 'image/png'};base64,${brand.doc_logo_data}` : '';
 
   const shareText = [
@@ -37,11 +48,11 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     <div className="max-w-md mx-auto">
       <PageHeader title="Payment Receipt" />
       <div className="card p-4 text-center border-2 border-navy/20">
-        <div className="flex items-center gap-2 pb-2 mb-2 border-b-2 border-navy">
+        <div className="flex items-center gap-2 pb-2 mb-2 border-b-2" style={{ borderColor: hs.color }}>
           {logoSrc ? <img src={logoSrc} alt="" className="h-10 w-auto max-w-[110px] object-contain" /> : <span className="text-2xl">💰</span>}
-          <div className="text-left leading-tight">
-            <h2 className="font-bold text-navy text-sm">{brand?.doc_header_text || 'MicroLoan Admin'}</h2>
-            <p className="text-gray-400 text-xs">Payment Receipt</p>
+          <div className="flex-1 leading-tight" style={{ textAlign: hs.align as any }}>
+            <h2 style={css(hs, 'h')}>{brand?.doc_header_text || 'MicroLoan Admin'}</h2>
+            <p className="text-teal text-xs font-semibold">Payment Receipt</p>
           </div>
         </div>
 
@@ -59,10 +70,11 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           <span className="font-bold text-teal text-xl">৳{money(p.amount_paid)}</span>
         </div>
 
-        {(brand?.doc_footer_address || brand?.doc_footer_contact) && (
-          <div className="border-t border-gray-300 pt-1.5 mb-3 text-[11px] text-gray-500 leading-snug">
+        {(brand?.doc_footer_address || brand?.doc_footer_contact || brand?.doc_footer_email) && (
+          <div className="border-t pt-1.5 mb-3 leading-snug" style={{ borderColor: hs.color, ...css(fsx, 'f') }}>
             {brand?.doc_footer_address && <div>{brand.doc_footer_address}</div>}
             {brand?.doc_footer_contact && <div>{brand.doc_footer_contact}</div>}
+            {brand?.doc_footer_email && <div>{brand.doc_footer_email}</div>}
           </div>
         )}
 

@@ -1,5 +1,7 @@
 'use client';
 
+import PdfPageViewer from '../../../PdfPageViewer';
+
 import { useState } from 'react';
 import { money } from '@/lib/utils';
 import { shareOrDownloadBlob, buildReceiptPdfBlob, buildReceiptExcelBlob } from '@/lib/clientExport';
@@ -95,7 +97,7 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
 
             <div className={`flex-1 min-h-0 overflow-auto ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {preview.kind === 'pdf' && (
-                <iframe src={`${preview.url}#view=Fit&toolbar=0`} title="PDF preview" className="w-full h-full border-0" />
+                <PdfPageViewer url={preview.url} />
               )}
               {preview.kind === 'excel' && (
                 <table className="app-table text-sm">

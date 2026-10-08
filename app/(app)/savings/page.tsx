@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getAllMembersSavings, getSiteSettings } from '@/lib/data';
+import { getAllMembersSavings, getAllSavingsTotals, getSiteSettings } from '@/lib/data';
 import { money } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic';
 export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string } }) {
   const rows = await getAllMembersSavings(searchParams.q);
   const settings = await getSiteSettings();
-  const totalSavings = rows.reduce((s, r) => s + Number(r.balance), 0);
+  const totals = await getAllSavingsTotals();
+  const remaining = rows.reduce((s, r) => s + Number(r.balance), 0);
 
   return (
     <div>
@@ -25,25 +26,35 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
         <button className="btn btn-outline">Search</button>
       </form>
 
-      <div className="card p-4 mb-4">
-        <div className="text-xs text-gray-500">Total Savings Across All Members</div>
-        <div className="text-2xl font-bold text-navy">৳{money(totalSavings)}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(totals.deposit)}</div><div className="text-xs text-sky-700">Total Savings</div></div>
+        <div className="card p-4 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(totals.depositToday)}</div><div className="text-xs text-green-700">Deposit (Today)</div></div>
+        <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(totals.withdrawToday)}</div><div className="text-xs text-amber-700">Withdraw (Today)</div></div>
+        <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">৳{money(remaining)}</div><div className="text-xs text-purple-700">Remaining Savings</div></div>
       </div>
 
       <div className="table-wrap">
         <table className="app-table">
-          <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Receipts</th><th>Last Savings Date</th><th>Net Balance</th><th></th></tr></thead>
+          <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Deposit</th><th>Withdraw</th><th>Remaining</th><th>Last Date</th><th></th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-10">No members found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8} className="text-center text-gray-400 py-10">No members found.</td></tr>}
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.borrower_code}</td>
                 <td>{r.full_name}</td>
                 <td>{r.phone}</td>
-                <td>{r.transaction_count}</td>
+                <td className="text-green-700 font-semibold">৳{money(r.total_deposit)}</td>
+                <td className="text-amber-700 font-semibold">৳{money(r.total_withdraw)}</td>
+                <td className="font-semibold text-purple-700">৳{money(r.balance)}</td>
                 <td>{r.last_savings_date ? new Date(r.last_savings_date).toLocaleDateString() : '—'}</td>
-                <td className="font-semibold">৳{money(r.balance)}</td>
-                <td><Link href={`/savings/${r.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Manage</Link></td>
+                <td className="whitespace-nowrap">
+                  <Link href={`/savings/${r.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link>
+                  {r.last_transaction_id ? (
+                    <Link href={`/savings/${r.id}/edit/${r.last_transaction_id}`} className="btn btn-outline !py-1 !px-2 text-xs ml-1">Edit</Link>
+                  ) : (
+                    <span className="text-xs text-gray-300 ml-2" title="No receipts to edit yet">Edit</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

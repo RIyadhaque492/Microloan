@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getBorrower, getSavingsBalance, getSavingsTransactions, getSiteSettings, getSavingsNotesSuggestions } from '@/lib/data';
+import { getBorrower, getSavingsBalance, getSavingsSummary, getSavingsTransactions, getSiteSettings, getSavingsNotesSuggestions } from '@/lib/data';
 import { money, statusBadgeClass } from '@/lib/utils';
 import { recordSavingsTransactionAction, deleteSavingsTransactionAction } from '@/lib/actions';
-import PageHeader from '../../PageHeader';
+import BackLink from '../../BackLink';
 
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
 
@@ -14,6 +14,7 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
   if (!borrower) notFound();
 
   const balance = await getSavingsBalance(id);
+  const summary = await getSavingsSummary(id);
   const transactions = (await getSavingsTransactions(id)) as any[];
   const settings = await getSiteSettings();
   const notesSuggestions = await getSavingsNotesSuggestions();
@@ -22,38 +23,30 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
 
   return (
     <div>
-      <PageHeader title={`${borrower.full_name}'s Savings`} action={<Link href="/savings" className="btn btn-primary">✔ Done</Link>} />
+      <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <BackLink />
+          <div>
+            <h1 className="text-lg font-bold text-navy">{borrower.full_name}&apos;s Savings</h1>
+            <p className="text-gray-500 text-sm">
+              Member: <Link href={`/borrowers/${id}`} className="text-teal">{borrower.full_name}</Link> ({borrower.borrower_code}) — {borrower.phone}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Link href={`/borrowers/${id}`} className="btn btn-outline">👤 Member Profile</Link>
+          <Link href="/savings" prefetch={false} className="btn btn-outline">✔ Done</Link>
+        </div>
+      </div>
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      {/* Profile — upper section */}
-      <div className="rounded-2xl overflow-hidden shadow-lg mb-5">
-        <div className="bg-gradient-to-r from-navy via-navy to-teal-700 text-white px-6 py-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="w-14 h-14 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-xl font-bold flex-shrink-0 border border-white/20">
-              {borrower.full_name.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <h2 className="font-bold text-lg leading-tight">{borrower.full_name}</h2>
-              <p className="text-teal-100 text-sm opacity-90">{borrower.phone} · Member ID: {borrower.borrower_code}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5 pt-5 border-t border-white/15">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Net Balance</div>
-              <div className="font-bold text-xl">৳{money(balance)}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Receipts</div>
-              <div className="font-bold">{transactions.length}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-teal-100 opacity-80">Interest Rate Reference</div>
-              <div className="font-bold">{Number(settings?.savings_interest_rate || 0)}% p.a.</div>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div className="card p-4 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(summary.deposit)}</div><div className="text-xs text-green-700">Total Deposit</div></div>
+        <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(summary.withdraw)}</div><div className="text-xs text-amber-700">Total Withdraw</div></div>
+        <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">৳{money(balance)}</div><div className="text-xs text-purple-700">Remaining Savings</div></div>
+        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">{summary.lastDate ? new Date(summary.lastDate).toLocaleDateString() : '—'}</div><div className="text-xs text-sky-700">Last Savings Date</div></div>
+        <div className="card p-4 border-l-4 border-l-red-500 bg-red-50 col-span-2 lg:col-span-1"><div className="text-lg font-bold text-red-800">{summary.receipts}</div><div className="text-xs text-red-700">Receipts · {Number(settings?.savings_interest_rate || 0)}% p.a.</div></div>
       </div>
 
       {/* Details — lower section */}

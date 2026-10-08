@@ -24,4 +24,10 @@ const nextConfig = {
   },
 };
 
+nextConfig.webpack = (config) => {
+  // pdf.js tries to load the optional Node-only 'canvas' package; the browser doesn't need it.
+  config.resolve.alias.canvas = false;
+  return config;
+};
+
 module.exports = nextConfig;

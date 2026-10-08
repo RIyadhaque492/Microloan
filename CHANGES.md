@@ -1,6 +1,9 @@
 
-# Batch 5
-- Settings: new card "Report / Receipt Header & Footer" (logo, header text, footer address, footer contact).
-- Header (logo + text + line) and footer (address + contact) now appear on report/receipt PDFs and Word files; Excel gets header text + footer rows; on-screen receipt shows them too.
-- Collect Payment: Payment Date now defaults to the date used on the last collection.
-- Run migration_add_document_branding.sql once in Neon.
+# Batch 7
+- Collect Payment: amount = loan-based (selected installment); method + notes = last entered for the SAME member; date = today.
+- PDF previews show the page as an image fitted to the screen (one page = whole page, 100% fit). Needs `npm install` (adds pdfjs-dist).
+- PDFs: receipt now coloured (ribbon, tinted label column, cream amount box).
+- Settings > Report/Receipt: added Footer Email + text edit toolbar (bold, italic, size, colour, alignment) with live preview.
+- Savings list: top cards (Total Savings, Deposit, Withdraw, Remaining), per-member Deposit/Withdraw/Remaining, View + Edit buttons.
+- Savings profile redesigned like the loan profile (coloured cards).
+- Run migration_add_document_branding.sql again (adds doc_footer_email, doc_style) - safe to re-run.

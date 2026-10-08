@@ -1,5 +1,7 @@
 'use client';
 
+import PdfPageViewer from '../PdfPageViewer';
+
 import { useState } from 'react';
 import { money } from '@/lib/utils';
 import {
@@ -182,7 +184,7 @@ export default function ExportButtons(props: Props) {
             <div className={`flex-1 overflow-auto min-h-0 ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {(preview.kind === 'excel' || preview.kind === 'word' || preview.kind === 'view') && <TablePreview props={props} />}
               {preview.kind === 'pdf' && (
-                <iframe src={`${preview.blobUrl}#view=Fit`} title="PDF preview" className="w-full h-full border-0" />
+                <PdfPageViewer url={preview.blobUrl} />
               )}
               {preview.kind === 'text' && (
                 <pre className="whitespace-pre-wrap text-sm bg-gray-50 rounded-lg p-3 border border-gray-200">{props.shareText}</pre>

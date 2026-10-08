@@ -1,5 +1,6 @@
 import { getSiteSettings } from '@/lib/data';
 import { updateSiteSettingsAction, updateDocumentBrandingAction } from '@/lib/actions';
+import DocStyleEditor from './DocStyleEditor';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Website Settings - MicroLoan Admin' };
@@ -106,20 +107,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
           <p className="text-xs text-gray-400 mt-1">PNG or JPG, max 1MB. A square or wide logo works best.</p>
         </div>
 
-        <div>
-          <label className="label">Header Text</label>
-          <input name="doc_header_text" defaultValue={settings?.doc_header_text || ''} className="input" placeholder="e.g. Your Company Name" maxLength={200} />
-          <p className="text-xs text-gray-400 mt-1">Shown next to the logo, with a line under it.</p>
-        </div>
-
-        <div>
-          <label className="label">Footer — Address</label>
-          <input name="doc_footer_address" defaultValue={settings?.doc_footer_address || ''} className="input" placeholder="e.g. House 1, Road 2, Chattogram" />
-        </div>
-        <div>
-          <label className="label">Footer — Contact</label>
-          <input name="doc_footer_contact" defaultValue={settings?.doc_footer_contact || ''} className="input" placeholder="e.g. +880 1XXX-XXXXXX · info@example.com" />
-        </div>
+        <DocStyleEditor
+          initialHeader={settings?.doc_header_text || ''}
+          initialAddress={settings?.doc_footer_address || ''}
+          initialContact={settings?.doc_footer_contact || ''}
+          initialEmail={settings?.doc_footer_email || ''}
+          initialStyle={settings?.doc_style || null}
+          logoSrc={settings?.doc_logo_data ? `data:${settings.doc_logo_mime || 'image/png'};base64,${settings.doc_logo_data}` : ''}
+        />
 
         <button type="submit" className="btn btn-primary">Save Header &amp; Footer</button>
       </form>

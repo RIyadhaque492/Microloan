@@ -776,6 +776,8 @@ export async function updateDocumentBrandingAction(formData: FormData) {
         doc_header_text = ${String(formData.get('doc_header_text') || '')},
         doc_footer_address = ${String(formData.get('doc_footer_address') || '')},
         doc_footer_contact = ${String(formData.get('doc_footer_contact') || '')},
+        doc_footer_email = ${String(formData.get('doc_footer_email') || '')},
+        doc_style = ${String(formData.get('doc_style') || '{}')},
         updated_at = now()
       WHERE id = 1
     `;

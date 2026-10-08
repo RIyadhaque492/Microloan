@@ -25,12 +25,44 @@ export async function shareOrDownloadBlob(blob: Blob, filename: string, mimeType
 // ---------------------------------------------------------------------
 // Report / Receipt header & footer (Settings > Report / Receipt Header & Footer)
 // ---------------------------------------------------------------------
+type TextStyle = { bold: boolean; italic: boolean; size: 'sm' | 'md' | 'lg'; color: string; align: 'left' | 'center' | 'right' };
+
 type Branding = {
   headerText: string;
   footerAddress: string;
   footerContact: string;
+  footerEmail: string;
+  headerStyle: TextStyle;
+  footerStyle: TextStyle;
   logo: { dataUrl: string; format: 'PNG' | 'JPEG'; ratio: number } | null;
 };
+
+const DEFAULT_HEADER_STYLE: TextStyle = { bold: true, italic: false, size: 'md', color: '#0F2A3F', align: 'left' };
+const DEFAULT_FOOTER_STYLE: TextStyle = { bold: false, italic: false, size: 'md', color: '#3C4650', align: 'center' };
+
+function mergeStyle(base: TextStyle, input: any): TextStyle {
+  const st: TextStyle = { ...base };
+  if (input && typeof input === 'object') {
+    if (typeof input.bold === 'boolean') st.bold = input.bold;
+    if (typeof input.italic === 'boolean') st.italic = input.italic;
+    if (['sm', 'md', 'lg'].includes(input.size)) st.size = input.size;
+    if (typeof input.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(input.color)) st.color = input.color;
+    if (['left', 'center', 'right'].includes(input.align)) st.align = input.align;
+  }
+  return st;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
+}
+
+function pdfFontStyle(st: TextStyle): string {
+  return st.bold && st.italic ? 'bolditalic' : st.bold ? 'bold' : st.italic ? 'italic' : 'normal';
+}
+
+const HEADER_PT = { report: { sm: 12, md: 15, lg: 19 }, receipt: { sm: 13, md: 16, lg: 20 } };
+const FOOTER_PT = { report: { sm: 6.5, md: 7.5, lg: 9 }, receipt: { sm: 7.5, md: 8.5, lg: 10 } };
 
 /** The branding of the document currently being built (set at the start of each builder). */
 let activeBranding: Branding | null = null;
@@ -50,11 +82,60 @@ async function loadBranding(): Promise<Branding | null> {
       });
       logo = { dataUrl: j.logo, format: String(j.logo).startsWith('data:image/png') ? 'PNG' : 'JPEG', ratio };
     }
-    const b: Branding = { headerText: j.headerText || '', footerAddress: j.footerAddress || '', footerContact: j.footerContact || '', logo };
-    return b.headerText || b.footerAddress || b.footerContact || b.logo ? b : null;
+    const b: Branding = {
+      headerText: j.headerText || '',
+      footerAddress: j.footerAddress || '',
+      footerContact: j.footerContact || '',
+      footerEmail: j.footerEmail || '',
+      headerStyle: mergeStyle(DEFAULT_HEADER_STYLE, j.style?.header),
+      footerStyle: mergeStyle(DEFAULT_FOOTER_STYLE, j.style?.footer),
+      logo,
+    };
+    return b.headerText || b.footerAddress || b.footerContact || b.footerEmail || b.logo ? b : null;
   } catch {
     return null;
   }
+}
+
+function footerLines(b: Branding | null): string[] {
+  return b ? ([b.footerAddress, b.footerContact, b.footerEmail].filter(Boolean) as string[]) : [];
+}
+
+/** Draws the header text in its saved style between xStart and xEnd. */
+function drawHeaderText(doc: any, b: Branding, xStart: number, xEnd: number, y: number, kind: 'report' | 'receipt') {
+  if (!b.headerText) return;
+  const st = b.headerStyle;
+  doc.setFont('helvetica', pdfFontStyle(st));
+  doc.setFontSize(HEADER_PT[kind][st.size]);
+  doc.setTextColor(...hexToRgb(st.color));
+  const t = fitTextWidth(doc, b.headerText, xEnd - xStart);
+  if (st.align === 'center') doc.text(t, (xStart + xEnd) / 2, y, { align: 'center' });
+  else if (st.align === 'right') doc.text(t, xEnd, y, { align: 'right' });
+  else doc.text(t, xStart, y);
+}
+
+/** Draws the footer lines (address, contact, email) in their saved style. */
+function drawFooterBlock(doc: any, b: Branding, xStart: number, xEnd: number, ruleY: number, lineH: number, kind: 'report' | 'receipt') {
+  const lines = footerLines(b);
+  if (!lines.length) return;
+  const st = b.footerStyle;
+  doc.setDrawColor(...hexToRgb(b.headerStyle.color));
+  doc.setLineWidth(0.3);
+  doc.line(xStart, ruleY, xEnd, ruleY);
+  doc.setFont('helvetica', pdfFontStyle(st));
+  doc.setFontSize(FOOTER_PT[kind][st.size]);
+  doc.setTextColor(...hexToRgb(st.color));
+  let y = ruleY + lineH;
+  for (const line of lines) {
+    const t = fitTextWidth(doc, line, xEnd - xStart);
+    if (st.align === 'left') doc.text(t, xStart, y);
+    else if (st.align === 'right') doc.text(t, xEnd, y, { align: 'right' });
+    else doc.text(t, (xStart + xEnd) / 2, y, { align: 'center' });
+    y += lineH;
+  }
+  doc.setLineWidth(0.5);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
 }
 
 /** Logo size in mm for a given height, capped to a sensible width. */
@@ -99,15 +180,12 @@ function drawBanner(doc: any, title: string, subtitle: string) {
       doc.addImage(b.logo.dataUrl, b.logo.format, 11, 8 + (14 - h) / 2, w, h);
       x = 11 + w + 4;
     }
-    doc.setTextColor(...RGB_NAVY);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    if (b.headerText) doc.text(fitTextWidth(doc, b.headerText, 200 - x), x, 15);
+    drawHeaderText(doc, b, x, 198, 15, 'report');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(90, 100, 110);
-    doc.text(fitTextWidth(doc, `${title}  •  ${subtitle}`, 200 - x), x, 21.5);
-    doc.setDrawColor(...RGB_NAVY);
+    doc.text(fitTextWidth(doc, `${title}  •  ${subtitle}`, 198 - x), b.headerStyle.align === 'right' ? 198 : b.headerStyle.align === 'center' ? (x + 198) / 2 : x, 21.5, { align: b.headerStyle.align });
+    doc.setDrawColor(...hexToRgb(b.headerStyle.color));
     doc.setLineWidth(0.8);
     doc.line(10, 25.5, 200, 25.5);
     doc.setLineWidth(0.5);
@@ -130,19 +208,7 @@ function drawBanner(doc: any, title: string, subtitle: string) {
 function drawFooter(doc: any, figures: [string, string][]) {
   const footerY = 279;
   const b = activeBranding;
-  if (b && (b.footerAddress || b.footerContact)) {
-    doc.setDrawColor(...RGB_NAVY);
-    doc.setLineWidth(0.3);
-    doc.line(10, 267, 200, 267);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(60, 70, 80);
-    let yy = 271.5;
-    if (b.footerAddress) { doc.text(fitTextWidth(doc, b.footerAddress, 186), 105, yy, { align: 'center' }); yy += 4; }
-    if (b.footerContact) doc.text(fitTextWidth(doc, b.footerContact, 186), 105, yy, { align: 'center' });
-    doc.setLineWidth(0.5);
-    doc.setTextColor(0, 0, 0);
-  }
+  if (b && footerLines(b).length) drawFooterBlock(doc, b, 12, 198, 264, 4, 'report');
   doc.setFillColor(...RGB_GOLD);
   doc.rect(6, footerY, 198, 12, 'F');
   doc.setTextColor(255, 255, 255);
@@ -314,7 +380,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     headStyles: { fillColor: RGB_NAVY, fontSize: 6.5 },
     styles: { fontSize: 6.5 },
     columnStyles: SINGLE_REPORT_COL_STYLES,
-    margin: { left: X, right: X, bottom: 30 },
+    margin: { left: X, right: X, bottom: 32 },
     didDrawPage: () => drawPageBorder(doc),
   });
 
@@ -340,7 +406,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     theme: 'grid',
     headStyles: { fillColor: RGB_TEAL, lineColor: RGB_BLACK, lineWidth: 0.3 },
     styles: { fontSize: 7.5, lineColor: RGB_BLACK, lineWidth: 0.3 },
-    margin: { left: X, right: X, bottom: 30 },
+    margin: { left: X, right: X, bottom: 32 },
     didParseCell: (data: any) => {
       if (data.section === 'body' && data.row.index === payBody.length - 1 && payments.length > 0) {
         data.cell.styles.fontStyle = 'bold';
@@ -408,7 +474,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
     footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.5 },
     styles: { fontSize: 6.5 },
     columnStyles: SINGLE_REPORT_COL_STYLES,
-    margin: { left: X, right: X, bottom: 30 },
+    margin: { left: X, right: X, bottom: 32 },
     // The bottom-total footer bar is drawn on EVERY page (not just the last), so a
     // multi-page loan register never loses its running grand totals off the bottom
     // of a page — this is the fix for the previously "missing" totals bar.
@@ -435,34 +501,41 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   doc.rect(12, 12, 186, 190);
   doc.setLineWidth(0.2);
   doc.rect(14, 14, 182, 186);
+  // Teal ribbon along the top inside the border
+  doc.setFillColor(20, 149, 143);
+  doc.rect(14, 14, 182, 3, 'F');
 
   if (branding && (branding.headerText || branding.logo)) {
     // Branded header: logo, header text, "Payment Receipt", then a line.
     let x = 20;
     if (branding.logo) {
       const { w, h } = logoSizeMm(branding, 16);
-      doc.addImage(branding.logo.dataUrl, branding.logo.format, 20, 18 + (16 - h) / 2, w, h);
+      doc.addImage(branding.logo.dataUrl, branding.logo.format, 20, 20 + (16 - h) / 2, w, h);
       x = 20 + w + 5;
     }
-    doc.setTextColor(15, 42, 63);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    if (branding.headerText) doc.text(fitTextWidth(doc, branding.headerText, 190 - x), x, 25);
+    drawHeaderText(doc, branding, x, 190, 27, 'receipt');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
-    doc.setTextColor(90, 100, 110);
-    doc.text('Payment Receipt', x, 32);
+    doc.setTextColor(20, 149, 143);
+    const subAlign = branding.headerStyle.align;
+    doc.text('Payment Receipt', subAlign === 'right' ? 190 : subAlign === 'center' ? (x + 190) / 2 : x, 34, { align: subAlign });
     doc.setTextColor(0, 0, 0);
-    doc.setDrawColor(15, 42, 63);
+    doc.setDrawColor(...hexToRgb(branding.headerStyle.color));
     doc.setLineWidth(0.6);
-    doc.line(20, 38, 190, 38);
+    doc.line(20, 39, 190, 39);
     doc.setLineWidth(0.2);
   } else {
+    doc.setTextColor(15, 42, 63);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text('MicroLoan Admin', 105, 26, { align: 'center' });
+    doc.text('MicroLoan Admin', 105, 28, { align: 'center' });
     doc.setFontSize(11);
-    doc.text('Payment Receipt', 105, 33, { align: 'center' });
-    doc.line(20, 38, 190, 38);
+    doc.setTextColor(20, 149, 143);
+    doc.text('Payment Receipt', 105, 35, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setDrawColor(15, 42, 63);
+    doc.line(20, 39, 190, 39);
   }
 
   const rows = [
@@ -476,37 +549,32 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   ];
 
   autoTable(doc, {
-    startY: 44,
+    startY: 45,
     body: rows,
-    theme: 'plain',
-    styles: { fontSize: 11, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
+    theme: 'grid',
+    styles: { fontSize: 11, cellPadding: 2.5, lineColor: [200, 214, 224], lineWidth: 0.2, textColor: [30, 41, 59] },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50, textColor: [15, 42, 63], fillColor: [228, 241, 247] } },
+    alternateRowStyles: { fillColor: [250, 252, 253] },
     margin: { left: 20, right: 20 },
   });
 
   const afterTable = (doc as any).lastAutoTable.finalY + 8;
-  doc.setFillColor(230, 246, 245);
+  doc.setFillColor(255, 246, 220);
   doc.rect(20, afterTable, 170, 16, 'F');
-  doc.setDrawColor(20, 149, 143);
-  doc.setLineWidth(0.3);
+  doc.setDrawColor(245, 158, 11);
+  doc.setLineWidth(0.4);
   doc.rect(20, afterTable, 170, 16);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 80, 0);
   doc.text('Amount Paid', 25, afterTable + 10);
-  doc.setFontSize(14);
+  doc.setFontSize(15);
+  doc.setTextColor(20, 149, 143);
   doc.text(`Tk ${money(receipt.amount_paid)}`, 185, afterTable + 10, { align: 'right' });
+  doc.setTextColor(0, 0, 0);
 
-  if (branding && (branding.footerAddress || branding.footerContact)) {
-    doc.setDrawColor(15, 42, 63);
-    doc.setLineWidth(0.3);
-    doc.line(20, 184, 190, 184);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(60, 70, 80);
-    let yy = 189;
-    if (branding.footerAddress) { doc.text(fitTextWidth(doc, branding.footerAddress, 170), 105, yy, { align: 'center' }); yy += 5; }
-    if (branding.footerContact) doc.text(fitTextWidth(doc, branding.footerContact, 170), 105, yy, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
+  if (branding && footerLines(branding).length) {
+    drawFooterBlock(doc, branding, 20, 190, 178, 5, 'receipt');
   }
 
   return doc.output('blob');
@@ -537,9 +605,9 @@ function titleRow(ws: any, text: string, span: number) {
 /** Address + contact lines at the bottom of the first sheet (Report/Receipt footer setting). */
 function addExcelFooter(ws: any, span: number) {
   const b = activeBranding;
-  if (!b || (!b.footerAddress && !b.footerContact)) return;
+  if (!b || !footerLines(b).length) return;
   ws.addRow([]);
-  for (const line of [b.footerAddress, b.footerContact]) {
+  for (const line of footerLines(b)) {
     if (!line) continue;
     const row = ws.addRow([line]);
     ws.mergeCells(row.number, 1, row.number, span);
@@ -825,11 +893,14 @@ const DOCX_TEAL = '14958F';
 const DOCX_GOLD = 'D99A2B';
 const DOCX_LIGHT = 'F4F8F8';
 
-/** Word header (logo + text + line below) and footer (address + contact) for a section. */
+/** Word header (logo + text + line below) and footer (address + contact + email) for a section. */
 function docxBranding(Docx: any, b: Branding | null): Record<string, any> {
   if (!b) return {};
   const out: Record<string, any> = {};
+  const alignOf = (a: string) => (a === 'center' ? Docx.AlignmentType.CENTER : a === 'right' ? Docx.AlignmentType.RIGHT : Docx.AlignmentType.LEFT);
+  const hex = (c: string) => c.replace('#', '').toUpperCase();
   if (b.headerText || b.logo) {
+    const st = b.headerStyle;
     const children: any[] = [];
     if (b.logo) {
       const wPx = Math.round(Math.min(48 * b.logo.ratio, 150));
@@ -840,21 +911,34 @@ function docxBranding(Docx: any, b: Branding | null): Record<string, any> {
       }));
       children.push(new Docx.TextRun({ text: '   ' }));
     }
-    if (b.headerText) children.push(new Docx.TextRun({ text: b.headerText, bold: true, size: 32, color: DOCX_NAVY }));
+    if (b.headerText) {
+      children.push(new Docx.TextRun({
+        text: b.headerText, bold: st.bold, italics: st.italic, color: hex(st.color),
+        size: st.size === 'sm' ? 24 : st.size === 'lg' ? 40 : 32,
+      }));
+    }
     out.headers = {
       default: new Docx.Header({
-        children: [new Docx.Paragraph({ children, border: { bottom: { style: Docx.BorderStyle.SINGLE, size: 12, color: DOCX_NAVY, space: 4 } } })],
+        children: [new Docx.Paragraph({
+          alignment: alignOf(st.align),
+          children,
+          border: { bottom: { style: Docx.BorderStyle.SINGLE, size: 12, color: hex(st.color), space: 4 } },
+        })],
       }),
     };
   }
-  if (b.footerAddress || b.footerContact) {
-    const lines = [b.footerAddress, b.footerContact].filter(Boolean) as string[];
+  const lines = footerLines(b);
+  if (lines.length) {
+    const fs = b.footerStyle;
     out.footers = {
       default: new Docx.Footer({
         children: lines.map((t, i) => new Docx.Paragraph({
-          alignment: Docx.AlignmentType.CENTER,
-          border: i === 0 ? { top: { style: Docx.BorderStyle.SINGLE, size: 6, color: DOCX_NAVY, space: 4 } } : undefined,
-          children: [new Docx.TextRun({ text: t, size: 16, color: '4B5B66' })],
+          alignment: alignOf(fs.align),
+          border: i === 0 ? { top: { style: Docx.BorderStyle.SINGLE, size: 6, color: hex(b.headerStyle.color), space: 4 } } : undefined,
+          children: [new Docx.TextRun({
+            text: t, bold: fs.bold, italics: fs.italic, color: hex(fs.color),
+            size: fs.size === 'sm' ? 13 : fs.size === 'lg' ? 20 : 16,
+          })],
         })),
       }),
     };
