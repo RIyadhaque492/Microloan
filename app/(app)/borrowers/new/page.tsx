@@ -1,4 +1,4 @@
-import { getNextMemberId, getPresentAddressSuggestions, getMonthlyIncomeSuggestions } from '@/lib/data';
+import { getNextMemberId, getPresentAddressSuggestions, getMonthlyIncomeSuggestions, getMemberFieldSuggestions } from '@/lib/data';
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 
@@ -7,15 +7,20 @@ export const dynamic = 'force-dynamic';
 
 export default async function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
   const suggestedId = await getNextMemberId();
-  const [addressSuggestions, incomeSuggestions] = await Promise.all([
+  const [addressSuggestions, incomeSuggestions, fieldSuggestions] = await Promise.all([
     getPresentAddressSuggestions(),
     getMonthlyIncomeSuggestions(),
+    getMemberFieldSuggestions(),
   ]);
 
   return (
     <div>
       <PageHeader title="Add Member" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
+
+      <datalist id="father-suggestions">{fieldSuggestions.fathers.map((v) => <option key={v} value={v} />)}</datalist>
+      <datalist id="occupation-suggestions">{fieldSuggestions.occupations.map((v) => <option key={v} value={v} />)}</datalist>
+      <datalist id="guarantor-suggestions">{fieldSuggestions.guarantors.map((v) => <option key={v} value={v} />)}</datalist>
 
       <form action={createBorrowerAction} className="card p-6 max-w-3xl space-y-5">
         <div className="grid md:grid-cols-2 gap-4">
@@ -25,7 +30,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
             <p className="text-xs text-gray-400 mt-1">Auto-suggested next ID — edit if you want a different one.</p>
           </div>
           <div><label className="label">Full Name *</label><input name="full_name" required className="input" /></div>
-          <div><label className="label">Father's Name</label><input name="father_name" className="input" /></div>
+          <div><label className="label">Father's Name</label><input name="father_name" list="father-suggestions" className="input" /></div>
           <div>
             <label className="label">Gender</label>
             <select name="gender" className="input">
@@ -45,7 +50,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
               {addressSuggestions.map((a) => <option key={a} value={a} />)}
             </datalist>
           </div>
-          <div><label className="label">Occupation</label><input name="occupation" className="input" /></div>
+          <div><label className="label">Occupation</label><input name="occupation" list="occupation-suggestions" className="input" /></div>
           <div>
             <label className="label">Monthly Income</label>
             <input name="monthly_income" type="number" step="0.01" list="monthly-income-suggestions" className="input" />
@@ -53,7 +58,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
               {incomeSuggestions.map((v) => <option key={v} value={v} />)}
             </datalist>
           </div>
-          <div><label className="label">Guarantor Name</label><input name="guarantor_name" className="input" /></div>
+          <div><label className="label">Guarantor Name</label><input name="guarantor_name" list="guarantor-suggestions" className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" className="input" /></div>
           <div>
             <label className="label">Registration Fee (৳)</label>

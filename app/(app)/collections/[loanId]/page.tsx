@@ -62,6 +62,7 @@ export default async function CollectPage({
             installments={installmentsArr as any}
             preselectId={preselectId}
             lastInput={lastInput}
+            installmentAmount={Number(loan.installment_amount)}
             notesSuggestions={notesSuggestions}
           />
         )}

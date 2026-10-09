@@ -68,7 +68,10 @@ export default function UploadForm({ action }: { action: (formData: FormData) =>
     <form action={handleSubmit} className="space-y-3">
       <div>
         <label className="label">Document Title *</label>
-        <input name="doc_title" required placeholder="e.g. NID Front Side" className="input" />
+        <input name="doc_title" required list="doc-title-suggestions" placeholder="e.g. NID Front Side" className="input" />
+        <datalist id="doc-title-suggestions">
+          {['NID Front Side', 'NID Back Side', 'Passport Size Photo', 'Guarantor NID Front', 'Guarantor NID Back', 'Guarantor Photo', 'Income Proof', 'Address Proof', 'Loan Application Form'].map((v) => <option key={v} value={v} />)}
+        </datalist>
       </div>
       <div>
         <label className="label">Document Type</label>

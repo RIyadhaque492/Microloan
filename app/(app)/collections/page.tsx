@@ -15,7 +15,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
   const dayTotal = loans.reduce((s, l) => s + Number(l.collected_on_date || 0), 0);
 
   return (
-    <div>
+    <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="Loan Collection" showBack={false} />
 
       <form className="flex gap-2 flex-wrap mb-4">
@@ -45,7 +45,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
         )}
       </div>
 
-      <div className="table-wrap !max-h-[calc(100dvh-17rem)] lg:!max-h-[calc(100dvh-15rem)] overflow-y-auto [&_thead_th]:sticky [&_thead_th]:top-0">
+      <div className="table-wrap flex-1 min-h-0 !overflow-auto overscroll-contain [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10">
         <table className="app-table">
           <thead><tr><th>Member ID</th><th>Name</th><th>Last Payment Date</th><th>Total Paid</th><th>Remaining Balance</th><th>Collect</th><th></th></tr></thead>
           <tbody>

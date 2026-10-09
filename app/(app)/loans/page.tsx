@@ -12,7 +12,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
   const loans = (await getLoans(searchParams.q, searchParams.status)) as any[];
 
   return (
-    <div>
+    <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="All Loans" showBack={false} action={<Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>} />
 
       <form className="flex gap-2 flex-wrap mb-4">
@@ -26,7 +26,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <div className="table-wrap !max-h-[calc(100dvh-17rem)] lg:!max-h-[calc(100dvh-15rem)] overflow-y-auto [&_thead_th]:sticky [&_thead_th]:top-0">
+      <div className="table-wrap flex-1 min-h-0 !overflow-auto overscroll-contain [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10">
         <table className="app-table">
           <thead>
             <tr>

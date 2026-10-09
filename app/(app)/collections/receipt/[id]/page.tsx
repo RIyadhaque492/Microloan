@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { getSiteSettings } from '@/lib/data';
-import { money } from '@/lib/utils';
+import { money, amountInWords } from '@/lib/utils';
 import ReceiptExportButtons from './ReceiptExportButtons';
 import PageHeader from '../../../PageHeader';
 import { deleteCollectionAction } from '@/lib/actions';
@@ -41,6 +41,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     `Member: ${p.full_name} (${p.borrower_code})`,
     `Loan Code: ${p.loan_code}`,
     `Amount Paid: ৳${money(p.amount_paid)}`,
+    `In words: ${amountInWords(p.amount_paid)}`,
     `Method: ${p.payment_method}`,
   ].join('\n');
 
@@ -69,6 +70,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           <span className="font-semibold text-sm">Amount Paid</span>
           <span className="font-bold text-teal text-xl">৳{money(p.amount_paid)}</span>
         </div>
+        <p className="text-[11px] italic text-gray-600 -mt-1 mb-3 text-left"><strong className="not-italic text-navy">In words:</strong> {amountInWords(p.amount_paid)}</p>
 
         {(brand?.doc_footer_address || brand?.doc_footer_contact || brand?.doc_footer_email) && (
           <div className="border-t pt-1.5 mb-3 leading-snug" style={{ borderColor: hs.color, ...css(fsx, 'f') }}>

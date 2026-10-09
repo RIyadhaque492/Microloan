@@ -1,9 +1,7 @@
 
-# Batch 7
-- Collect Payment: amount = loan-based (selected installment); method + notes = last entered for the SAME member; date = today.
-- PDF previews show the page as an image fitted to the screen (one page = whole page, 100% fit). Needs `npm install` (adds pdfjs-dist).
-- PDFs: receipt now coloured (ribbon, tinted label column, cream amount box).
-- Settings > Report/Receipt: added Footer Email + text edit toolbar (bold, italic, size, colour, alignment) with live preview.
-- Savings list: top cards (Total Savings, Deposit, Withdraw, Remaining), per-member Deposit/Withdraw/Remaining, View + Edit buttons.
-- Savings profile redesigned like the loan profile (coloured cards).
-- Run migration_add_document_branding.sql again (adds doc_footer_email, doc_style) - safe to re-run.
+# Batch 8
+- Reports (PDF, Excel, Word, screen): SL = member serial (Member ID number), ID beside the name, Member ID column removed, Membership Date added, Savings column added last (own colour). Totals row sticks at the bottom; totals bar includes savings; PDF has 5 coloured summary boxes.
+- Collect payment: amount = the loan's installment amount (capped at what is still due).
+- Receipt: amount in words under Amount Paid (screen, PDF, share text).
+- Lists (Collection, Loans, Members): table fills the screen and scrolls inside.
+- Suggestions: father's name, occupation, guarantor name (add + edit member), document title.

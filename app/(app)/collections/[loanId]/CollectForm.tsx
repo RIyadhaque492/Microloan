@@ -21,8 +21,10 @@ export default function CollectForm({
   preselectId,
   lastInput = null,
   notesSuggestions = [],
+  installmentAmount = 0,
 }: {
   loanId: number;
+  installmentAmount?: number;
   installments: Installment[];
   preselectId: number;
   lastInput?: { method: string; notes: string } | null;
@@ -30,13 +32,19 @@ export default function CollectForm({
 }) {
   const initial = installments.find((i) => i.id === preselectId) || installments[0];
   const [selectedId, setSelectedId] = useState<number | ''>(initial?.id ?? '');
-  // Amount is loan-based (the selected installment's due amount); method and notes are member-based (last entered); date is today.
-  const [amount, setAmount] = useState(initial ? (Number(initial.amount) - Number(initial.paid_amount)).toFixed(2) : '');
+  // Amount is fixed to the loan's installment amount (never more than what is still due on the selected
+  // installment); method and notes are member-based (last entered); date is today.
+  const defaultAmountFor = (inst?: Installment) => {
+    const due = inst ? Number(inst.amount) - Number(inst.paid_amount) : 0;
+    const fixed = installmentAmount > 0 ? installmentAmount : due;
+    return (due > 0 ? Math.min(fixed, due) : fixed).toFixed(2);
+  };
+  const [amount, setAmount] = useState(initial || installmentAmount ? defaultAmountFor(initial) : '');
 
   function onSelectChange(id: number) {
     setSelectedId(id);
     const found = installments.find((i) => i.id === id);
-    if (found) setAmount((Number(found.amount) - Number(found.paid_amount)).toFixed(2));
+    if (found) setAmount(defaultAmountFor(found));
   }
 
   return (

@@ -155,6 +155,21 @@ export async function getCollectionNotesSuggestions(): Promise<string[]> {
   return rows.map((r) => r.notes);
 }
 
+/** Values already used for member text fields — powers the suggestion lists on the member forms. */
+export async function getMemberFieldSuggestions() {
+  const col = async (rows: any[], key: string) => rows.map((r) => String(r[key])).filter(Boolean);
+  const [fathers, jobs, guarantors] = await Promise.all([
+    sql`SELECT father_name AS v, COUNT(*) AS n FROM borrowers WHERE father_name IS NOT NULL AND father_name != '' AND deleted_at IS NULL GROUP BY father_name ORDER BY n DESC, v ASC LIMIT 60`,
+    sql`SELECT occupation AS v, COUNT(*) AS n FROM borrowers WHERE occupation IS NOT NULL AND occupation != '' AND deleted_at IS NULL GROUP BY occupation ORDER BY n DESC, v ASC LIMIT 60`,
+    sql`SELECT guarantor_name AS v, COUNT(*) AS n FROM borrowers WHERE guarantor_name IS NOT NULL AND guarantor_name != '' AND deleted_at IS NULL GROUP BY guarantor_name ORDER BY n DESC, v ASC LIMIT 60`,
+  ]);
+  return {
+    fathers: await col(fathers as any[], 'v'),
+    occupations: [...new Set(['Farmer', 'Small business', 'Shopkeeper', 'Day labourer', 'Housewife', 'Driver', 'Tailor', ...(await col(jobs as any[], 'v'))])],
+    guarantors: await col(guarantors as any[], 'v'),
+  };
+}
+
 /** Loan purposes already used — powers the suggestion list on Loan Registration. */
 export async function getLoanPurposeSuggestions(): Promise<string[]> {
   const rows = (await sql`
@@ -426,7 +441,8 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
       l.id AS loan_id, l.loan_code, l.status AS loan_status,
       l.disbursement_date, l.maturity_date, l.loan_amount, l.total_payable,
       l.installment_amount, l.tenure,
-      b.id AS borrower_id, b.borrower_code, b.full_name, b.phone,
+      b.id AS borrower_id, b.borrower_code, b.full_name, b.phone, b.created_at AS membership_date,
+      COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS savings_raw,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,
       (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
       (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
@@ -440,10 +456,25 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
     ORDER BY b.full_name ASC, l.created_at ASC
   `) as any[];
 
+  // Member serial order (Member ID 1, 2, 3...). Savings are shown once per member (first loan row)
+  // so totals never count the same savings twice.
+  const serial = (r: any) => {
+    const m = /(\d+)\s*$/.exec(String(r.borrower_code ?? ''));
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  };
+  rows.sort((a, b) => serial(a) - serial(b) || String(a.full_name).localeCompare(String(b.full_name)));
+  const seen = new Set<number>();
   return rows.map((r) => {
     const totalPaid = Number(r.total_paid);
     const totalPayable = Number(r.total_payable);
-    return { ...r, total_paid: totalPaid, remaining_balance: Math.max(0, totalPayable - totalPaid) };
+    const first = !seen.has(r.borrower_id);
+    seen.add(r.borrower_id);
+    return {
+      ...r,
+      total_paid: totalPaid,
+      remaining_balance: Math.max(0, totalPayable - totalPaid),
+      savings_balance: first ? Number(r.savings_raw) : null,
+    };
   });
 }
 

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getBorrowersBasic, getLoanReportRows, getPaymentsForBorrower } from '@/lib/data';
 import { money, buildSingleUserShareText, buildAllUsersShareText } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
+import RegisterTable, { TotalsBar } from './RegisterTable';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Reports - MicroLoan Admin' };
@@ -13,6 +14,7 @@ function loanTotals(rows: any[]) {
     totalPayable: rows.reduce((s, r) => s + Number(r.total_payable), 0),
     totalPaid: rows.reduce((s, r) => s + Number(r.total_paid), 0),
     remaining: rows.reduce((s, r) => s + Number(r.remaining_balance), 0),
+    savings: rows.reduce((s, r) => s + (r.savings_balance == null ? 0 : Number(r.savings_balance)), 0),
   };
 }
 
@@ -70,51 +72,7 @@ export default async function ReportsPage({
 
             <div className="bg-white p-5">
               <h3 className="font-semibold text-sm text-navy mb-2">Loan Register</h3>
-              <div className="overflow-x-auto">
-                <table className="app-table text-xs">
-                  <thead>
-                    <tr>
-                      <th>SL</th><th>Name</th><th>Member ID</th><th>Loan Amount</th><th>Disbursement Date</th>
-                      <th>Total Payable</th><th>Installment Amt</th><th>Tenure</th><th>Total Paid</th>
-                      <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loanRows.length === 0 && <tr><td colSpan={13} className="text-center text-gray-400 py-6">No disbursed loans.</td></tr>}
-                    {loanRows.map((r: any, i: number) => (
-                      <tr key={r.loan_id}>
-                        <td>{i + 1}</td>
-                        <td>{r.full_name}</td>
-                        <td>{r.borrower_code}</td>
-                        <td>৳{money(r.loan_amount)}</td>
-                        <td>{fmtDate(r.disbursement_date)}</td>
-                        <td>৳{money(r.total_payable)}</td>
-                        <td>৳{money(r.installment_amount)}</td>
-                        <td><span className="inline-block rounded-full bg-teal-50 text-teal-700 px-2 text-[11px] font-semibold">{r.paid_count ?? 0}/{r.total_count || r.tenure}</span></td>
-                        <td>৳{money(r.total_paid)}</td>
-                        <td className="font-semibold">৳{money(r.remaining_balance)}</td>
-                        <td>{fmtDate(r.maturity_date)}</td>
-                        <td>{fmtDate(r.last_payment_date)}</td>
-                        <td>{r.phone}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  {loanRows.length > 0 && (
-                    <tfoot>
-                      <tr className="bg-tealight font-bold">
-                        <td colSpan={3} className="text-right">TOTAL</td>
-                        <td>৳{money(totals.loanAmount)}</td>
-                        <td></td>
-                        <td>৳{money(totals.totalPayable)}</td>
-                        <td colSpan={2}></td>
-                        <td>৳{money(totals.totalPaid)}</td>
-                        <td>৳{money(totals.remaining)}</td>
-                        <td colSpan={3}></td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
+              <RegisterTable rows={loanRows} headColor="#0F2A3F" maxHeight="max-h-[45vh]" />
 
               <h3 className="font-semibold text-sm text-navy mt-6 mb-2">Payment History — every installment tracked individually</h3>
               <table className="app-table border-2 border-black">
@@ -158,12 +116,7 @@ export default async function ReportsPage({
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
             </div>
 
-            <div className="bg-navy text-white px-5 py-3 flex flex-wrap justify-around gap-3 text-sm">
-              <span><strong>Loan Amount:</strong> ৳{money(totals.loanAmount)}</span>
-              <span><strong>Total Payable:</strong> ৳{money(totals.totalPayable)}</span>
-              <span><strong>Total Paid:</strong> ৳{money(totals.totalPaid)}</span>
-              <span><strong>Remaining:</strong> ৳{money(totals.remaining)}</span>
-            </div>
+            <TotalsBar rows={loanRows} />
           </div>
         )}
       </div>
@@ -188,7 +141,7 @@ export default async function ReportsPage({
         <ExportButtons mode="all" loanRows={loanRows} shareText={shareText} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
         <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
           <div className="text-xs text-sky-700">Total Loan Amount</div>
           <div className="text-lg font-bold text-navy">৳{money(totals.loanAmount)}</div>
@@ -205,65 +158,18 @@ export default async function ReportsPage({
           <div className="text-xs text-red-700">Total Remaining Balance</div>
           <div className="text-lg font-bold text-red-800">৳{money(totals.remaining)}</div>
         </div>
+        <div className="rounded-xl border border-teal-300 p-4 col-span-2 md:col-span-1" style={{ backgroundColor: '#E6F6F5' }}>
+          <div className="text-xs text-teal-700">Total Savings</div>
+          <div className="text-lg font-bold" style={{ color: '#0A5A56' }}>৳{money(totals.savings)}</div>
+        </div>
       </div>
 
       <div className="rounded-xl border-2 border-navy/10 overflow-hidden">
         <div className="bg-gold text-white px-5 py-3 font-semibold text-sm" style={{ backgroundColor: '#d99a2b' }}>All Loans Register — {loanRows.length} loan(s)</div>
-        <div className="table-wrap !rounded-none !border-0 overflow-x-auto">
-          <table className="app-table text-xs">
-            <thead>
-              <tr>
-                <th>SL</th><th>Name</th><th>Member ID</th><th>Loan Amount</th><th>Disbursement Date</th>
-                <th>Total Payable</th><th>Installment Amt</th><th>Tenure</th><th>Total Paid</th>
-                <th>Remaining Balance</th><th>Maturity Date</th><th>Last Payment Date</th><th>Contact</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loanRows.length === 0 && <tr><td colSpan={14} className="text-center text-gray-400 py-10">No disbursed loans found.</td></tr>}
-              {loanRows.map((r: any, i: number) => (
-                <tr key={r.loan_id}>
-                  <td>{i + 1}</td>
-                  <td>{r.full_name}</td>
-                  <td className="font-semibold">{r.borrower_code}</td>
-                  <td>৳{money(r.loan_amount)}</td>
-                  <td>{fmtDate(r.disbursement_date)}</td>
-                  <td>৳{money(r.total_payable)}</td>
-                  <td>৳{money(r.installment_amount)}</td>
-                  <td><span className="inline-block rounded-full bg-teal-50 text-teal-700 px-2 text-[11px] font-semibold">{r.paid_count ?? 0}/{r.total_count || r.tenure}</span></td>
-                  <td>৳{money(r.total_paid)}</td>
-                  <td className="font-semibold">৳{money(r.remaining_balance)}</td>
-                  <td>{fmtDate(r.maturity_date)}</td>
-                  <td>{fmtDate(r.last_payment_date)}</td>
-                  <td>{r.phone}</td>
-                  <td className="whitespace-nowrap">
-                    <Link href={`/reports?mode=single&borrower=${r.borrower_id}`} className="text-xs text-teal hover:underline mr-2">View</Link>
-                    <Link href={`/loans/${r.loan_id}`} className="text-xs text-gray-400 hover:text-teal">Loan</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {loanRows.length > 0 && (
-              <tfoot>
-                <tr className="bg-tealight font-bold">
-                  <td colSpan={3} className="text-right">TOTAL</td>
-                  <td>৳{money(totals.loanAmount)}</td>
-                  <td></td>
-                  <td>৳{money(totals.totalPayable)}</td>
-                  <td colSpan={2}></td>
-                  <td>৳{money(totals.totalPaid)}</td>
-                  <td>৳{money(totals.remaining)}</td>
-                  <td colSpan={3}></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
+        <div className="p-3 bg-white">
+          <RegisterTable rows={loanRows} headColor="#D99A2B" showActions maxHeight="max-h-[55vh]" />
         </div>
-        <div className="bg-navy text-white px-5 py-3 flex flex-wrap justify-around gap-3 text-sm">
-          <span><strong>Total Loan Amount:</strong> ৳{money(totals.loanAmount)}</span>
-          <span><strong>Total Payable:</strong> ৳{money(totals.totalPayable)}</span>
-          <span><strong>Total Paid:</strong> ৳{money(totals.totalPaid)}</span>
-          <span><strong>Total Remaining Balance:</strong> ৳{money(totals.remaining)}</span>
-        </div>
+        <TotalsBar rows={loanRows} labelPrefix="Total " />
       </div>
     </div>
   );

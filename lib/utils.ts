@@ -156,3 +156,57 @@ export function statusBadgeClass(status: string): string {
   };
   return map[status] || 'bg-gray-200 text-gray-700';
 }
+
+
+/** The member's serial number, taken from their Member ID ("2" -> 2, "M-0007" -> 7). */
+export function memberSerial(code: any, fallback?: number | string): string {
+  const m = /(\d+)\s*$/.exec(String(code ?? ''));
+  return m ? String(Number(m[1])) : String(fallback ?? code ?? '');
+}
+
+/** Totals for the report tables. Savings is counted once per member (first loan row only). */
+export function reportTotals(rows: any[]) {
+  return {
+    loanAmount: rows.reduce((s, r) => s + Number(r.loan_amount), 0),
+    totalPayable: rows.reduce((s, r) => s + Number(r.total_payable), 0),
+    totalPaid: rows.reduce((s, r) => s + Number(r.total_paid), 0),
+    remaining: rows.reduce((s, r) => s + Number(r.remaining_balance), 0),
+    savings: rows.reduce((s, r) => s + (r.savings_balance == null ? 0 : Number(r.savings_balance)), 0),
+  };
+}
+
+const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+function wordsBelow1000(n: number): string {
+  const out: string[] = [];
+  if (n >= 100) { out.push(ONES[Math.floor(n / 100)], 'Hundred'); n %= 100; }
+  if (n >= 20) { out.push(TENS[Math.floor(n / 10)]); n %= 10; }
+  if (n > 0) out.push(ONES[n]);
+  return out.join(' ');
+}
+
+function wordsInteger(n: number): string {
+  if (n === 0) return 'Zero';
+  const parts: string[] = [];
+  const crore = Math.floor(n / 10000000);
+  const lakh = Math.floor((n % 10000000) / 100000);
+  const thousand = Math.floor((n % 100000) / 1000);
+  const rest = n % 1000;
+  if (crore) parts.push(wordsInteger(crore) + ' Crore');
+  if (lakh) parts.push(wordsBelow1000(lakh) + ' Lakh');
+  if (thousand) parts.push(wordsBelow1000(thousand) + ' Thousand');
+  if (rest) parts.push(wordsBelow1000(rest));
+  return parts.join(' ');
+}
+
+/** "Taka Two Hundred Forty Only" — amount in words (lakh / crore system). */
+export function amountInWords(amount: number | string): string {
+  const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+  const total = Math.round(Math.abs(n || 0) * 100);
+  const taka = Math.floor(total / 100);
+  const paisa = total % 100;
+  let out = `Taka ${wordsInteger(taka)}`;
+  if (paisa) out += ` and ${wordsInteger(paisa)} Paisa`;
+  return `${out} Only`;
+}
