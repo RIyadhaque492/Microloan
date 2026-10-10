@@ -68,21 +68,25 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm border-t border-gray-100 pt-4">
-          <div><div className="text-xs text-gray-400">Joined</div><div>📅 {new Date(borrower.created_at).toLocaleDateString()}</div></div>
-          <div><div className="text-xs text-gray-400">Age</div><div>🎂 {borrower.age ?? '—'}</div></div>
-          <div><div className="text-xs text-gray-400">Phone</div><div>📞 {borrower.phone}</div></div>
-          <div><div className="text-xs text-gray-400">Email</div><div>✉️ {borrower.email || '—'}</div></div>
-          <div><div className="text-xs text-gray-400">NID</div><div>🪪 {borrower.nid_number || '—'}</div></div>
-          <div><div className="text-xs text-gray-400">Occupation</div><div>💼 {borrower.occupation || '—'}</div></div>
-          <div><div className="text-xs text-gray-400">Guarantor</div><div>🤝 {borrower.guarantor_name || '—'} {borrower.guarantor_phone ? `(${borrower.guarantor_phone})` : ''}</div></div>
-          <div>
-            <div className="text-xs text-gray-400">Registration Fee</div>
-            <div>🧾 ৳{money(borrower.registration_fee)} {borrower.fee_receipt_no && <span className="text-gray-400">({borrower.fee_receipt_no})</span>}</div>
-          </div>
-          <div className="col-span-2 md:col-span-2">
-            <div className="text-xs text-gray-400">Present Address</div>
-            <div>📍 {borrower.present_address || '—'}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-gray-100 pt-4">
+          {[
+            { icon: '📅', label: 'Joined', value: new Date(borrower.created_at).toLocaleDateString(), cls: 'bg-sky-50 border-sky-200 text-sky-900', sub: 'text-sky-600' },
+            { icon: '🎂', label: 'Age', value: borrower.age ?? '—', cls: 'bg-amber-50 border-amber-200 text-amber-900', sub: 'text-amber-600' },
+            { icon: '📞', label: 'Phone', value: borrower.phone, cls: 'bg-green-50 border-green-200 text-green-900', sub: 'text-green-600' },
+            { icon: '✉️', label: 'Email', value: borrower.email || '—', cls: 'bg-purple-50 border-purple-200 text-purple-900', sub: 'text-purple-600' },
+            { icon: '🪪', label: 'NID', value: borrower.nid_number || '—', cls: 'bg-indigo-50 border-indigo-200 text-indigo-900', sub: 'text-indigo-600' },
+            { icon: '💼', label: 'Occupation', value: borrower.occupation || '—', cls: 'bg-orange-50 border-orange-200 text-orange-900', sub: 'text-orange-600' },
+            { icon: '🤝', label: 'Guarantor', value: `${borrower.guarantor_name || '—'}${borrower.guarantor_phone ? ` (${borrower.guarantor_phone})` : ''}`, cls: 'bg-rose-50 border-rose-200 text-rose-900', sub: 'text-rose-600' },
+            { icon: '🧾', label: 'Registration Fee', value: `৳${money(borrower.registration_fee)}${borrower.fee_receipt_no ? ` (${borrower.fee_receipt_no})` : ''}`, cls: 'bg-teal-50 border-teal-200 text-teal-900', sub: 'text-teal-600' },
+          ].map((f) => (
+            <div key={f.label} className={`rounded-xl border-2 p-3 ${f.cls}`}>
+              <div className={`text-[11px] font-semibold uppercase tracking-wide ${f.sub}`}>{f.icon} {f.label}</div>
+              <div className="font-semibold text-sm mt-1 break-words">{f.value}</div>
+            </div>
+          ))}
+          <div className="col-span-2 md:col-span-4 rounded-xl border-2 p-3 bg-slate-50 border-slate-300 text-slate-900">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">📍 Present Address</div>
+            <div className="font-semibold text-sm mt-1">{borrower.present_address || '—'}</div>
           </div>
         </div>
 

@@ -4,7 +4,7 @@ import PdfPageViewer from '../../../PdfPageViewer';
 
 import { useState } from 'react';
 import { money } from '@/lib/utils';
-import { shareOrDownloadBlob, buildReceiptPdfBlob, buildReceiptExcelBlob } from '@/lib/clientExport';
+import { shareOrDownloadBlob, downloadBlob, buildReceiptPdfBlob, buildReceiptExcelBlob } from '@/lib/clientExport';
 
 type Preview = { kind: 'pdf'; blob: Blob; url: string } | { kind: 'excel' } | { kind: 'text' };
 
@@ -30,10 +30,11 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
     }
   }
 
-  async function confirmShare() {
+  async function confirmShare(mode: 'share' | 'download' = 'share') {
+    const send = (blob: Blob, filename: string, mime: string) => (mode === 'download' ? Promise.resolve(downloadBlob(blob, filename)) : shareOrDownloadBlob(blob, filename, mime));
     if (!preview) return;
     if (preview.kind === 'pdf') {
-      await shareOrDownloadBlob(preview.blob, `receipt-${receipt.receipt_no}.pdf`, 'application/pdf');
+      await send(preview.blob, `receipt-${receipt.receipt_no}.pdf`, 'application/pdf');
       closePreview();
       return;
     }
@@ -41,7 +42,7 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
       setLoading('excel');
       try {
         const blob = await buildReceiptExcelBlob(receipt);
-        await shareOrDownloadBlob(blob, `receipt-${receipt.receipt_no}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await send(blob, `receipt-${receipt.receipt_no}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       } finally {
         setLoading(null);
         closePreview();
@@ -122,8 +123,11 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
                 <button onClick={handleCopyText} type="button" className="btn btn-outline">{copied ? '✅ Copied' : '📋 Copy'}</button>
               )}
               <button onClick={closePreview} type="button" className="btn btn-outline">Cancel</button>
-              <button onClick={confirmShare} disabled={loading === 'excel'} type="button" className="btn btn-primary">
-                {loading === 'excel' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
+              {preview.kind !== 'text' && (
+                <button onClick={() => confirmShare('download')} disabled={loading === 'excel'} type="button" className="btn btn-outline">⬇ Download</button>
+              )}
+              <button onClick={() => confirmShare('share')} disabled={loading === 'excel'} type="button" className="btn btn-primary">
+                {loading === 'excel' ? 'Preparing…' : '📤 Share'}
               </button>
             </div>
           </div>

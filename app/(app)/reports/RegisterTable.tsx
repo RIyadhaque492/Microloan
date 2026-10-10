@@ -31,9 +31,9 @@ export default function RegisterTable({
         <thead>
           <tr>
             {['SL', 'Name (ID)', 'Membership Date', 'Loan Amount', 'Disbursement Date', 'Total Payable', 'Installment Amt', 'Tenure', 'Total Paid', 'Remaining Balance', 'Maturity Date', 'Last Payment Date', 'Contact'].map((h) => (
-              <th key={h} className={th} style={{ backgroundColor: headColor }}>{h}</th>
+              <th key={h} className={`${th} ${['Loan Amount', 'Total Payable', 'Installment Amt', 'Total Paid', 'Remaining Balance'].includes(h) ? 'text-right' : ''}`} style={{ backgroundColor: headColor }}>{h}</th>
             ))}
-            <th className={th} style={{ backgroundColor: '#14958F' }}>Savings</th>
+            <th className={`${th} text-right`} style={{ backgroundColor: '#14958F' }}>Savings</th>
             {showActions && <th className={th} style={{ backgroundColor: headColor }}></th>}
           </tr>
         </thead>
@@ -46,17 +46,17 @@ export default function RegisterTable({
               <td className="font-semibold">{memberSerial(r.borrower_code, i + 1)}</td>
               <td className="whitespace-nowrap">{r.full_name} <span className="text-gray-400">({r.borrower_code})</span></td>
               <td>{fmtDate(r.membership_date)}</td>
-              <td>৳{money(r.loan_amount)}</td>
+              <td className="text-right">৳{money(r.loan_amount)}</td>
               <td>{fmtDate(r.disbursement_date)}</td>
-              <td>৳{money(r.total_payable)}</td>
-              <td>৳{money(r.installment_amount)}</td>
+              <td className="text-right">৳{money(r.total_payable)}</td>
+              <td className="text-right">৳{money(r.installment_amount)}</td>
               <td><span className="inline-block rounded-full bg-teal-50 text-teal-700 px-2 text-[11px] font-semibold">{r.paid_count ?? 0}/{r.total_count || r.tenure}</span></td>
-              <td className="text-green-700 font-semibold">৳{money(r.total_paid)}</td>
-              <td className="text-red-600 font-semibold">৳{money(r.remaining_balance)}</td>
+              <td className="text-green-700 font-semibold text-right">৳{money(r.total_paid)}</td>
+              <td className="text-red-600 font-semibold text-right">৳{money(r.remaining_balance)}</td>
               <td>{fmtDate(r.maturity_date)}</td>
               <td>{fmtDate(r.last_payment_date)}</td>
               <td>{r.phone}</td>
-              <td className="font-bold" style={{ backgroundColor: '#E6F6F5', color: '#0A5A56' }}>{r.savings_balance == null ? '—' : `৳${money(r.savings_balance)}`}</td>
+              <td className="font-bold text-right" style={{ backgroundColor: '#E6F6F5', color: '#0A5A56' }}>{r.savings_balance == null ? '—' : `৳${money(r.savings_balance)}`}</td>
               {showActions && (
                 <td className="whitespace-nowrap">
                   <Link href={`/reports?mode=single&borrower=${r.borrower_id}`} className="text-xs text-teal hover:underline mr-2">View</Link>
@@ -73,9 +73,9 @@ export default function RegisterTable({
                 ['', 1], ['TOTAL', 1], ['', 1], [`৳${money(totals.loanAmount)}`, 1], ['', 1], [`৳${money(totals.totalPayable)}`, 1], ['', 1], ['', 1],
                 [`৳${money(totals.totalPaid)}`, 1], [`৳${money(totals.remaining)}`, 1], ['', 1], ['', 1], ['', 1],
               ].map(([v, _], idx) => (
-                <td key={idx} className="sticky bottom-0 z-10 bg-amber-100 text-navy border-t-2 border-amber-400">{v as string}</td>
+                <td key={idx} className={`sticky bottom-0 z-10 bg-amber-100 text-navy border-t-2 border-amber-400 ${[3, 5, 8, 9].includes(idx) ? "text-right" : ""}`}>{v as string}</td>
               ))}
-              <td className="sticky bottom-0 z-10 border-t-2 border-teal-500 font-bold" style={{ backgroundColor: '#B2E2DE', color: '#0A5A56' }}>৳{money(totals.savings)}</td>
+              <td className="sticky bottom-0 z-10 border-t-2 border-teal-500 font-bold text-right" style={{ backgroundColor: '#B2E2DE', color: '#0A5A56' }}>৳{money(totals.savings)}</td>
               {showActions && <td className="sticky bottom-0 z-10 bg-amber-100 border-t-2 border-amber-400"></td>}
             </tr>
           </tfoot>

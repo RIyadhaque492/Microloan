@@ -50,37 +50,37 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
       </div>
 
       {/* Details — lower section */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-1 space-y-4">
-          <form action={recordAction} className="card p-5 space-y-3">
-            <h3 className="font-semibold text-sm text-navy">Add Receipt</h3>
-            <div>
+      <div className="space-y-4">
+        <div>
+          <form action={recordAction} className="card p-4 flex flex-wrap items-end gap-3">
+            <h3 className="font-semibold text-sm text-navy w-full">Add Receipt</h3>
+            <div className="w-36">
               <label className="label">Type</label>
               <select name="type" className="input" defaultValue="deposit">
                 <option value="deposit">Deposit</option>
                 <option value="withdrawal">Withdrawal</option>
               </select>
             </div>
-            <div>
+            <div className="w-40">
               <label className="label">Amount (৳) *</label>
               <input name="amount" type="number" step="0.01" required className="input" />
             </div>
-            <div>
+            <div className="w-40">
               <label className="label">Date</label>
               <input name="transaction_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
             </div>
-            <div>
+            <div className="flex-1 min-w-[180px]">
               <label className="label">Notes</label>
               <input name="notes" className="input" placeholder="Optional" list="savings-notes-suggestions" />
               <datalist id="savings-notes-suggestions">
                 {notesSuggestions.map((n) => <option key={n} value={n} />)}
               </datalist>
             </div>
-            <button type="submit" className="btn btn-primary w-full">Save Receipt</button>
+            <button type="submit" className="btn btn-primary h-[42px] px-6">💾 Save Receipt</button>
           </form>
         </div>
 
-        <div className="lg:col-span-2">
+        <div>
           <div className="table-wrap">
             <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between items-center">
               <span>Receipt History</span>

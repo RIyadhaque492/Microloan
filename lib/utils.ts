@@ -210,3 +210,31 @@ export function amountInWords(amount: number | string): string {
   if (paisa) out += ` and ${wordsInteger(paisa)} Paisa`;
   return `${out} Only`;
 }
+
+
+/** Does a member ID fall inside a group like "1-20, 25, 30-35"? Empty spec matches everyone. */
+export function matchesIdGroup(code: any, spec?: string): boolean {
+  const text = (spec || '').trim();
+  if (!text) return true;
+  const m = /(\d+)\s*$/.exec(String(code ?? ''));
+  if (!m) return false;
+  const n = Number(m[1]);
+  return text.split(/[,\s]+/).filter(Boolean).some((part) => {
+    const range = /^(\d+)\s*[-–:]\s*(\d+)$/.exec(part);
+    if (range) {
+      const a = Number(range[1]), b = Number(range[2]);
+      return n >= Math.min(a, b) && n <= Math.max(a, b);
+    }
+    return /^\d+$/.test(part) && Number(part) === n;
+  });
+}
+
+/** Is a date (Date or ISO string) between from and to (YYYY-MM-DD, either optional)? */
+export function inDateRange(value: any, from?: string, to?: string): boolean {
+  if (!from && !to) return true;
+  if (!value) return false;
+  const d = value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  if (from && d < from) return false;
+  if (to && d > to) return false;
+  return true;
+}

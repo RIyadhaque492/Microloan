@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getLoans } from '@/lib/data';
-import { money, statusBadgeClass } from '@/lib/utils';
+import { money, statusBadgeClass, matchesIdGroup, inDateRange } from '@/lib/utils';
+import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'All Loans - MicroLoan Admin' };
@@ -8,21 +9,24 @@ export const dynamic = 'force-dynamic';
 
 const STATUSES = ['pending', 'approved', 'active', 'completed', 'rejected', 'defaulted'];
 
-export default async function LoansPage({ searchParams }: { searchParams: { q?: string; status?: string; error?: string } }) {
-  const loans = (await getLoans(searchParams.q, searchParams.status)) as any[];
+export default async function LoansPage({ searchParams }: { searchParams: { q?: string; status?: string; ids?: string; from?: string; to?: string; error?: string } }) {
+  const loans = ((await getLoans(searchParams.q, searchParams.status)) as any[]).filter(
+    (l) => matchesIdGroup(l.borrower_code, searchParams.ids) && inDateRange(l.disbursement_date, searchParams.from, searchParams.to)
+  );
 
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="All Loans" showBack={false} action={<Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>} />
 
-      <form className="flex gap-2 flex-wrap mb-4">
-        <input name="q" defaultValue={searchParams.q} placeholder="Search loan code, member..." className="input max-w-xs" />
-        <select name="status" defaultValue={searchParams.status || ''} className="input max-w-[160px]">
-          <option value="">All Statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <button className="btn btn-outline">Search</button>
-      </form>
+      <FilterBar basePath="/loans" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Loan code, member...">
+        <div>
+          <label className="text-[11px] text-gray-500 block mb-0.5">Status</label>
+          <select name="status" defaultValue={searchParams.status || ''} className="input w-36">
+            <option value="">All Statuses</option>
+            {STATUSES.map((st) => <option key={st} value={st}>{st}</option>)}
+          </select>
+        </div>
+      </FilterBar>
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 

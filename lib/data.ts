@@ -219,8 +219,8 @@ export async function getBorrower(id: number) {
 export async function getLoansForBorrower(borrowerId: number) {
   const rows = (await sql`
     SELECT l.*,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count,
+      LEAST(l.tenure, FLOOR((COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) + 0.005) / NULLIF(l.installment_amount, 0)))::int AS paid_count,
+      l.tenure AS total_count,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,
       (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date
     FROM loans l WHERE l.borrower_id = ${borrowerId} AND l.deleted_at IS NULL ORDER BY l.created_at DESC
@@ -246,8 +246,8 @@ export async function getLoans(search?: string, status?: string) {
   const like = search ? `%${search}%` : null;
   const rows = (await sql`
     SELECT l.*, b.full_name, b.phone, b.borrower_code,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count,
+      LEAST(l.tenure, FLOOR((COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) + 0.005) / NULLIF(l.installment_amount, 0)))::int AS paid_count,
+      l.tenure AS total_count,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid
     FROM loans l JOIN borrowers b ON b.id = l.borrower_id
     WHERE l.deleted_at IS NULL
@@ -445,8 +445,8 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
       COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS savings_raw,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,
       (SELECT MAX(c.payment_date) FROM collections c WHERE c.loan_id = l.id) AS last_payment_date,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id AND li.status = 'paid') AS paid_count,
-      (SELECT COUNT(*)::int FROM loan_installments li WHERE li.loan_id = l.id) AS total_count
+      LEAST(l.tenure, FLOOR((COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) + 0.005) / NULLIF(l.installment_amount, 0)))::int AS paid_count,
+      l.tenure AS total_count
     FROM loans l
     JOIN borrowers b ON b.id = l.borrower_id
     WHERE l.status IN ('active', 'completed', 'defaulted')
@@ -535,6 +535,16 @@ export async function getAllSavingsTotals() {
     deposit: Number(row.deposit), withdraw: Number(row.withdraw),
     depositToday: Number(row.deposit_today), withdrawToday: Number(row.withdraw_today),
   };
+}
+
+/** Member ids that have a savings transaction between from and to (YYYY-MM-DD). */
+export async function getSavingsBorrowerIdsInRange(from?: string, to?: string): Promise<Set<number>> {
+  const rows = (await sql`
+    SELECT DISTINCT borrower_id FROM savings_transactions
+    WHERE (${from || null}::date IS NULL OR transaction_date >= ${from || null}::date)
+      AND (${to || null}::date IS NULL OR transaction_date <= ${to || null}::date)
+  `) as any[];
+  return new Set(rows.map((r) => Number(r.borrower_id)));
 }
 
 export async function getAllMembersSavings(search?: string) {

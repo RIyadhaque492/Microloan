@@ -6,7 +6,7 @@ import RegisterTable from './RegisterTable';
 import { useState } from 'react';
 import { money } from '@/lib/utils';
 import {
-  shareOrDownloadBlob,
+  shareOrDownloadBlob, downloadBlob,
   buildSingleUserPdfBlob,
   buildSingleUserExcelBlob,
   buildSingleUserWordBlob,
@@ -80,7 +80,8 @@ export default function ExportButtons(props: Props) {
     setPreview({ kind: 'text' });
   }
 
-  async function confirmShare() {
+  async function confirmShare(mode: 'share' | 'download' = 'share') {
+    const send = (blob: Blob, filename: string, mime: string) => (mode === 'download' ? Promise.resolve(downloadBlob(blob, filename)) : shareOrDownloadBlob(blob, filename, mime));
     if (!preview) return;
     if (preview.kind === 'excel') {
       setLoading('excel');
@@ -89,7 +90,7 @@ export default function ExportButtons(props: Props) {
           props.mode === 'single'
             ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments)
             : await buildAllUsersExcelBlob(props.loanRows);
-        await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
+        await send(blob, preview.filename, preview.mimeType);
       } finally {
         setLoading(null);
         closePreview();
@@ -103,7 +104,7 @@ export default function ExportButtons(props: Props) {
           props.mode === 'single'
             ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments)
             : await buildAllUsersWordBlob(props.loanRows);
-        await shareOrDownloadBlob(blob, preview.filename, preview.mimeType);
+        await send(blob, preview.filename, preview.mimeType);
       } finally {
         setLoading(null);
         closePreview();
@@ -113,7 +114,7 @@ export default function ExportButtons(props: Props) {
     if (preview.kind === 'pdf') {
       setLoading('pdf');
       try {
-        await shareOrDownloadBlob(preview.blob, preview.filename, 'application/pdf');
+        await send(preview.blob, preview.filename, 'application/pdf');
       } finally {
         setLoading(null);
         closePreview();
@@ -197,8 +198,13 @@ export default function ExportButtons(props: Props) {
                 <button onClick={handleCopyText} type="button" className="btn btn-outline">{copied ? '✅ Copied' : '📋 Copy'}</button>
               )}
               <button onClick={closePreview} type="button" className="btn btn-outline">{preview.kind === 'view' ? '✔ Close' : 'Cancel'}</button>
-              {preview.kind !== 'view' && <button onClick={confirmShare} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-primary">
-                {loading === 'excel' || loading === 'word' || loading === 'pdf' ? 'Preparing…' : preview.kind === 'text' ? '📤 Share' : '📤 Share / Download'}
+              {preview.kind !== 'view' && preview.kind !== 'text' && (
+                <button onClick={() => confirmShare('download')} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-outline">
+                  ⬇ Download
+                </button>
+              )}
+              {preview.kind !== 'view' && <button onClick={() => confirmShare('share')} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-primary">
+                {loading === 'excel' || loading === 'word' || loading === 'pdf' ? 'Preparing…' : '📤 Share'}
               </button>}
             </div>
           </div>

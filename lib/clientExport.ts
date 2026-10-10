@@ -1,5 +1,17 @@
 import { money, memberSerial, amountInWords } from './utils';
 
+/** Saves the file to the device (no share sheet). */
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function shareOrDownloadBlob(blob: Blob, filename: string, mimeType: string) {
   try {
     const file = new File([blob], filename, { type: mimeType });
@@ -240,7 +252,7 @@ function drawReportFooter(doc: any, X: number, totals: ReturnType<typeof loanRep
 
   // Savings cell: different colour, like the Savings column above it
   doc.setFillColor(...RGB_TEAL);
-  doc.rect(xs[13], footerY, widths[13] + 4, 12, 'F');
+  doc.rect(xs[13] - 0.5, footerY, widths[13] + 4.5, 12, 'F');
 
   const cells: [number, string, string][] = [
     [1, 'GRAND TOTAL', ''],
@@ -252,19 +264,20 @@ function drawReportFooter(doc: any, X: number, totals: ReturnType<typeof loanRep
   ];
   doc.setTextColor(255, 255, 255);
   for (const [col, caption, value] of cells) {
-    const cx = xs[col] + 1;
+    const cx = xs[col] + widths[col] - 1.4;
     if (!value) {
+      const lx = xs[col] + 1;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.text(caption, cx, footerY + 7.4);
+      doc.text(caption, lx, footerY + 7.4);
       continue;
     }
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5.2);
-    doc.text(caption, cx, footerY + 4.6);
+    doc.text(caption, cx, footerY + 4.6, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(value.length > 11 ? 5.4 : 6.4);
-    doc.text(value, cx, footerY + 9.2);
+    doc.text(value, cx, footerY + 9.2, { align: 'right' });
   }
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
@@ -362,7 +375,10 @@ function singleReportRow(r: any, sl: number): string[] {
 }
 
 /** Savings (last) column is coloured differently from the rest of the table. */
+const REPORT_MONEY_COLS = [3, 5, 6, 8, 9, 13];
 function reportCellHook(data: any) {
+  // Money columns (and their headers/totals) are right-aligned so digits line up; Savings included.
+  if (REPORT_MONEY_COLS.includes(data.column.index)) data.cell.styles.halign = 'right';
   if (data.column.index !== 13) return;
   if (data.section === 'head') {
     data.cell.styles.fillColor = RGB_TEAL;
@@ -429,7 +445,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     head: [SINGLE_REPORT_HEAD],
     body: loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [REPORT_EMPTY_ROW],
     foot: loanRows.length ? [reportTotalsRow(totals)] : undefined,
-    headStyles: { fillColor: RGB_NAVY, fontSize: 6 },
+    headStyles: { fillColor: RGB_NAVY, fontSize: 6, valign: 'middle' },
     footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.3 },
     styles: { fontSize: 6.3, cellPadding: 1.4 },
     columnStyles: SINGLE_REPORT_COL_STYLES,
@@ -512,7 +528,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
     head: [SINGLE_REPORT_HEAD],
     body: bodyRows,
     foot: loanRows.length ? [reportTotalsRow(totals)] : undefined,
-    headStyles: { fillColor: RGB_GOLD, fontSize: 6 },
+    headStyles: { fillColor: RGB_GOLD, fontSize: 6, valign: 'middle' },
     footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.3 },
     styles: { fontSize: 6.3, cellPadding: 1.4 },
     columnStyles: SINGLE_REPORT_COL_STYLES,

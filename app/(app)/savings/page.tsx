@@ -1,19 +1,24 @@
 import Link from 'next/link';
-import { getAllMembersSavings, getAllSavingsTotals, getSiteSettings } from '@/lib/data';
-import { money } from '@/lib/utils';
+import { getAllMembersSavings, getAllSavingsTotals, getSavingsBorrowerIdsInRange, getSiteSettings } from '@/lib/data';
+import { money, matchesIdGroup } from '@/lib/utils';
+import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string } }) {
-  const rows = await getAllMembersSavings(searchParams.q);
+export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string } }) {
+  let rows = (await getAllMembersSavings(searchParams.q)).filter((r: any) => matchesIdGroup(r.borrower_code, searchParams.ids));
+  if (searchParams.from || searchParams.to) {
+    const inRange = await getSavingsBorrowerIdsInRange(searchParams.from, searchParams.to);
+    rows = rows.filter((r: any) => inRange.has(Number(r.id)));
+  }
   const settings = await getSiteSettings();
   const totals = await getAllSavingsTotals();
   const remaining = rows.reduce((s, r) => s + Number(r.balance), 0);
 
   return (
-    <div>
+    <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="Member Savings" showBack={false} />
 
       <div className="rounded-lg bg-tealight border border-teal-100 p-3 mb-4 text-sm flex items-center justify-between flex-wrap gap-2">
@@ -21,10 +26,7 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
         <span className="font-semibold text-teal">Current rate: {Number(settings?.savings_interest_rate || 0)}% p.a.</span>
       </div>
 
-      <form className="flex gap-2 mb-4 max-w-sm">
-        <input name="q" defaultValue={searchParams.q} placeholder="Search member..." className="input" />
-        <button className="btn btn-outline">Search</button>
-      </form>
+      <FilterBar basePath="/savings" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Savings" qPlaceholder="Search member..." />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(totals.deposit)}</div><div className="text-xs text-sky-700">Total Savings</div></div>
@@ -33,7 +35,7 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
         <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">৳{money(remaining)}</div><div className="text-xs text-purple-700">Remaining Savings</div></div>
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap flex-1 min-h-0 !overflow-auto overscroll-contain [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10">
         <table className="app-table">
           <thead><tr><th>Member ID</th><th>Name</th><th>Phone</th><th>Deposit</th><th>Withdraw</th><th>Remaining</th><th>Last Date</th><th></th></tr></thead>
           <tbody>
