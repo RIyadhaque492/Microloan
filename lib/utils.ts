@@ -238,3 +238,13 @@ export function inDateRange(value: any, from?: string, to?: string): boolean {
   if (to && d > to) return false;
   return true;
 }
+
+
+/** "mobile_banking" -> "Mobile Banking" (every word starts with a capital letter). */
+export function titleCase(value: any): string {
+  return String(value ?? '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/(^|\s)(\S)/g, (_m, sp, ch) => sp + ch.toUpperCase());
+}

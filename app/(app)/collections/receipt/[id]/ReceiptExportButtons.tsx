@@ -1,5 +1,6 @@
 'use client';
 
+import { titleCase } from '@/lib/utils';
 import PdfPageViewer from '../../../PdfPageViewer';
 
 import { useState } from 'react';
@@ -107,7 +108,7 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
                     <tr><td>Date</td><td>{new Date(receipt.payment_date).toLocaleDateString()}</td></tr>
                     <tr><td>Member</td><td>{receipt.full_name} ({receipt.borrower_code})</td></tr>
                     <tr><td>Loan Code</td><td>{receipt.loan_code}</td></tr>
-                    <tr><td>Method</td><td>{receipt.payment_method.replace('_', ' ')}</td></tr>
+                    <tr><td>Method</td><td>{titleCase(receipt.payment_method)}</td></tr>
                     {receipt.notes && <tr><td>Notes</td><td>{receipt.notes}</td></tr>}
                     <tr><td className="font-bold">Amount Paid</td><td className="font-bold">৳{money(receipt.amount_paid)}</td></tr>
                   </tbody>

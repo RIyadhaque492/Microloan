@@ -77,3 +77,10 @@ html[data-sidebar='closed'] .main-shift {
 ::selection {
   background: #c8ebe8;
 }
+
+
+/* Every table uses the same boxed design as Transaction History */
+table.app-table { border-collapse: collapse; }
+table.app-table th { border: 1px solid #6b7280; }
+table.app-table td { border: 1px solid #9ca3af; }
+.table-wrap { border: 2px solid #374151; }

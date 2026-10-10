@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { getBorrowersBasic, getLoanReportRows, getPaymentsForBorrower } from '@/lib/data';
-import { money, buildSingleUserShareText, buildAllUsersShareText } from '@/lib/utils';
+import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
-import RegisterTable, { TotalsBar } from './RegisterTable';
+import RegisterTable from './RegisterTable';
+import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Reports - MicroLoan Admin' };
@@ -27,7 +28,7 @@ function fmtDate(d: any) {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: { mode?: string; borrower?: string; q?: string };
+  searchParams: { mode?: string; borrower?: string; q?: string; ids?: string; from?: string; to?: string };
 }) {
   const mode = searchParams.mode === 'single' ? 'single' : 'all';
 
@@ -76,7 +77,7 @@ export default async function ReportsPage({
 
               <h3 className="font-semibold text-sm text-navy mt-6 mb-2">Payment History — every installment tracked individually</h3>
               <table className="app-table border-2 border-black">
-                <thead><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
+                <thead className="[&_th]:text-center"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
                 <tbody>
                   {orderedPayments.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
                   {(() => {
@@ -85,13 +86,13 @@ export default async function ReportsPage({
                       running += Number(p.amount_paid);
                       const remaining = Math.max(0, totals.totalPayable - running);
                       return (
-                        <tr key={p.id} className="border border-black">
-                          <td className="border border-black">{i + 1}</td>
-                          <td className="border border-black">{p.receipt_no}</td>
-                          <td className="border border-black">{p.notes || 'Installment'}</td>
-                          <td className="border border-black">{fmtDate(p.payment_date)}</td>
-                          <td className="border border-black">৳{money(p.amount_paid)}</td>
-                          <td className="border border-black">৳{money(remaining)}</td>
+                        <tr key={p.id} className="border border-black text-center font-bold bg-sky-50">
+                          <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td>
+                          <td className="border border-black text-center font-bold bg-sky-50">{p.receipt_no}</td>
+                          <td className="border border-black text-center font-bold bg-sky-50">{p.notes || 'Installment'}</td>
+                          <td className="border border-black text-center font-bold bg-sky-50">{fmtDate(p.payment_date)}</td>
+                          <td className="border border-black text-center font-bold bg-sky-50">৳{money(p.amount_paid)}</td>
+                          <td className="border border-black text-center font-bold bg-sky-50">৳{money(remaining)}</td>
                         </tr>
                       );
                     });
@@ -101,12 +102,12 @@ export default async function ReportsPage({
                     const finalRemaining = Math.max(0, totals.totalPayable - totalPaid);
                     return (
                       <tr className="bg-tealight font-bold">
-                        <td className="border border-black"></td>
-                        <td className="border border-black"></td>
-                        <td className="border border-black">TOTAL PAID</td>
-                        <td className="border border-black"></td>
-                        <td className="border border-black">৳{money(totalPaid)}</td>
-                        <td className="border border-black">৳{money(finalRemaining)}</td>
+                        <td className="border border-black text-center font-bold bg-sky-50"></td>
+                        <td className="border border-black text-center font-bold bg-sky-50"></td>
+                        <td className="border border-black text-center font-bold bg-sky-50">TOTAL PAID</td>
+                        <td className="border border-black text-center font-bold bg-sky-50"></td>
+                        <td className="border border-black text-center font-bold bg-sky-50">৳{money(totalPaid)}</td>
+                        <td className="border border-black text-center font-bold bg-sky-50">৳{money(finalRemaining)}</td>
                       </tr>
                     );
                   })()}
@@ -116,14 +117,15 @@ export default async function ReportsPage({
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
             </div>
 
-            <TotalsBar rows={loanRows} />
           </div>
         )}
       </div>
     );
   }
 
-  const loanRows = await getLoanReportRows({ search: searchParams.q });
+  const loanRows = ((await getLoanReportRows({ search: searchParams.q })) as any[]).filter(
+    (r) => matchesIdGroup(r.borrower_code, searchParams.ids) && inDateRange(r.disbursement_date, searchParams.from, searchParams.to)
+  );
   const shareText = buildAllUsersShareText(loanRows);
   const totals = loanTotals(loanRows);
 
@@ -133,11 +135,9 @@ export default async function ReportsPage({
       <ModeSwitch mode={mode} />
 
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-        <form className="flex gap-2">
+        <FilterBar basePath="/reports?mode=all" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Member or loan...">
           <input type="hidden" name="mode" value="all" />
-          <input name="q" defaultValue={searchParams.q} placeholder="Search member or loan..." className="input max-w-xs" />
-          <button className="btn btn-outline">Search</button>
-        </form>
+        </FilterBar>
         <ExportButtons mode="all" loanRows={loanRows} shareText={shareText} />
       </div>
 
@@ -169,7 +169,6 @@ export default async function ReportsPage({
         <div className="p-3 bg-white">
           <RegisterTable rows={loanRows} headColor="#D99A2B" showActions maxHeight="max-h-[55vh]" />
         </div>
-        <TotalsBar rows={loanRows} labelPrefix="Total " />
       </div>
     </div>
   );

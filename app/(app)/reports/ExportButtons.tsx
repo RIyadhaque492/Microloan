@@ -230,7 +230,7 @@ function TablePreview({ props }: { props: Props }) {
         <div>
           <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Payment History ({ordered.length})</h4>
           <table className="app-table border-2 border-black">
-            <thead><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
+            <thead className="[&_th]:text-center"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
             <tbody>
               {ordered.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
               {ordered.map((p: any, i: number) => {
@@ -238,21 +238,21 @@ function TablePreview({ props }: { props: Props }) {
                 const remaining = Math.max(0, totalPayable - running);
                 return (
                   <tr key={p.id}>
-                    <td className="border border-black">{i + 1}</td><td className="border border-black">{p.receipt_no}</td>
-                    <td className="border border-black">{p.notes || 'Installment'}</td>
-                    <td className="border border-black">{fmtDate(p.payment_date)}</td>
-                    <td className="border border-black">৳{money(p.amount_paid)}</td><td className="border border-black font-semibold">৳{money(remaining)}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td><td className="border border-black text-center font-bold bg-sky-50">{p.receipt_no}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">{p.notes || 'Installment'}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">{fmtDate(p.payment_date)}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">৳{money(p.amount_paid)}</td><td className="border border-black text-center font-bold bg-sky-50">৳{money(remaining)}</td>
                   </tr>
                 );
               })}
               {ordered.length > 0 && (
                 <tr className="bg-tealight font-bold">
-                  <td className="border border-black"></td>
-                  <td className="border border-black"></td>
-                  <td className="border border-black">TOTAL PAID</td>
-                  <td className="border border-black"></td>
-                  <td className="border border-black">৳{money(running)}</td>
-                  <td className="border border-black">৳{money(Math.max(0, totalPayable - running))}</td>
+                  <td className="border border-black text-center font-bold bg-sky-50"></td>
+                  <td className="border border-black text-center font-bold bg-sky-50"></td>
+                  <td className="border border-black text-center font-bold bg-sky-50">TOTAL PAID</td>
+                  <td className="border border-black text-center font-bold bg-sky-50"></td>
+                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(running)}</td>
+                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(Math.max(0, totalPayable - running))}</td>
                 </tr>
               )}
             </tbody>

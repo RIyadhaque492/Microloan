@@ -17,3 +17,11 @@
 - Tenure progress follows installment amount (paid 1400 / installment 700 = 2).
 - Report PDFs: money + Savings columns right-aligned, totals bar aligned.
 - PDF/Excel/Word: separate Download button next to Share. PDF preview worker is now bundled (public/pdf.worker.min.js).
+
+# Batch 11
+- Keyboard scrolling fixed and tested in Chromium (arrows/PageUp/PageDown/Home/End scroll the page or the list table, even after clicking the sidebar).
+- Reports page: search by text, member-ID group and disbursement date range (exports follow the filter).
+- Report PDFs: totals sit directly under the table (last page), not in the footer; headers no longer cut words; Payment History is bold, centred, tinted.
+- Receipt: amount in words has the same size/colour as Amount Paid; "Mobile Banking" style capitalisation for payment methods.
+- PDF preview: zoom +/- and Fit.
+- All tables use the boxed Transaction History design.

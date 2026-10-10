@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLoan } from '@/lib/data';
 import { deleteCollectionAction } from '@/lib/actions';
-import { money } from '@/lib/utils';
+import { money, titleCase } from '@/lib/utils';
 import PageHeader from '../../../PageHeader';
 
 export const metadata = { title: 'Transaction History - MicroLoan Admin' };
@@ -76,7 +76,7 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
                       <td><Link href={`/collections/receipt/${p.id}`} className="text-teal font-semibold">{p.receipt_no}</Link></td>
                       <td>{new Date(p.payment_date).toLocaleDateString()}</td>
                       <td>{p.notes || 'Installment'}</td>
-                      <td className="capitalize">{String(p.payment_method || '').replace('_', ' ')}</td>
+                      <td>{titleCase(p.payment_method)}</td>
                       <td className="text-green-700 font-semibold">৳{money(p.amount_paid)}</td>
                       <td>৳{money(cumulativePaid)}</td>
                       <td className="font-semibold text-red-600">৳{money(rowRemaining)}</td>

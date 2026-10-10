@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { getSiteSettings } from '@/lib/data';
-import { money, amountInWords } from '@/lib/utils';
+import { money, amountInWords, titleCase } from '@/lib/utils';
 import ReceiptExportButtons from './ReceiptExportButtons';
 import PageHeader from '../../../PageHeader';
 import { deleteCollectionAction } from '@/lib/actions';
@@ -42,7 +42,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     `Loan Code: ${p.loan_code}`,
     `Amount Paid: ৳${money(p.amount_paid)}`,
     `In words: ${amountInWords(p.amount_paid)}`,
-    `Method: ${p.payment_method}`,
+    `Method: ${titleCase(p.payment_method)}`,
   ].join('\n');
 
   return (
@@ -62,7 +62,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           <Row label="Date" value={new Date(p.payment_date).toLocaleDateString()} />
           <Row label="Member" value={`${p.full_name} (${p.borrower_code})`} />
           <Row label="Loan Code" value={p.loan_code} />
-          <Row label="Method" value={String(p.payment_method || '').replace('_', ' ')} />
+          <Row label="Method" value={titleCase(p.payment_method)} />
           {p.notes && <Row label="Notes" value={p.notes} />}
         </div>
 
@@ -70,7 +70,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           <span className="font-semibold text-sm">Amount Paid</span>
           <span className="font-bold text-teal text-xl">৳{money(p.amount_paid)}</span>
         </div>
-        <p className="text-[11px] italic text-gray-600 -mt-1 mb-3 text-left"><strong className="not-italic text-navy">In words:</strong> {amountInWords(p.amount_paid)}</p>
+        <p className="font-bold text-teal text-xl leading-snug -mt-1 mb-3 text-left">{amountInWords(p.amount_paid)}</p>
 
         {(brand?.doc_footer_address || brand?.doc_footer_contact || brand?.doc_footer_email) && (
           <div className="border-t pt-1.5 mb-3 leading-snug" style={{ borderColor: hs.color, ...css(fsx, 'f') }}>

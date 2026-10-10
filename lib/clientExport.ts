@@ -1,4 +1,4 @@
-import { money, memberSerial, amountInWords } from './utils';
+import { money, memberSerial, amountInWords, titleCase } from './utils';
 
 /** Saves the file to the device (no share sheet). */
 export function downloadBlob(blob: Blob, filename: string) {
@@ -236,51 +236,10 @@ function drawFooter(doc: any, figures: [string, string][]) {
   doc.setFont('helvetica', 'normal');
 }
 
-/** Gold footer bar whose totals sit directly under the register's columns (same x positions as the table),
- *  with the Savings total in its own teal cell. Drawn on every page. */
-function drawReportFooter(doc: any, X: number, totals: ReturnType<typeof loanReportTotals>) {
-  const footerY = 279;
+/** Page footer: only the address / contact / email block (totals now sit right under the table). */
+function drawReportFooter(doc: any, _X: number, _totals: ReturnType<typeof loanReportTotals>) {
   const b = activeBranding;
   if (b && footerLines(b).length) drawFooterBlock(doc, b, 12, 198, 264, 4, 'report');
-  doc.setFillColor(...RGB_GOLD);
-  doc.rect(6, footerY, 198, 12, 'F');
-
-  const widths: number[] = Object.keys(SINGLE_REPORT_COL_STYLES).map((k) => SINGLE_REPORT_COL_STYLES[Number(k)].cellWidth);
-  const xs: number[] = [];
-  let x = X;
-  for (const w of widths) { xs.push(x); x += w; }
-
-  // Savings cell: different colour, like the Savings column above it
-  doc.setFillColor(...RGB_TEAL);
-  doc.rect(xs[13] - 0.5, footerY, widths[13] + 4.5, 12, 'F');
-
-  const cells: [number, string, string][] = [
-    [1, 'GRAND TOTAL', ''],
-    [3, 'Loan Amt', money(totals.loanAmount)],
-    [5, 'Payable', money(totals.totalPayable)],
-    [8, 'Paid', money(totals.totalPaid)],
-    [9, 'Remaining', money(totals.remaining)],
-    [13, 'Savings', money(totals.savings)],
-  ];
-  doc.setTextColor(255, 255, 255);
-  for (const [col, caption, value] of cells) {
-    const cx = xs[col] + widths[col] - 1.4;
-    if (!value) {
-      const lx = xs[col] + 1;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.text(caption, lx, footerY + 7.4);
-      continue;
-    }
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.2);
-    doc.text(caption, cx, footerY + 4.6, { align: 'right' });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(value.length > 11 ? 5.4 : 6.4);
-    doc.text(value, cx, footerY + 9.2, { align: 'right' });
-  }
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'normal');
 }
 
 /** A colored, bordered stat box — like a small stat card. Returns nothing, just draws. */
@@ -349,10 +308,15 @@ const SINGLE_REPORT_HEAD = [
   'Installment Amt', 'Tenure', 'Total Paid', 'Remaining Balance', 'Maturity Date', 'Last Payment Date', 'Contact', 'Savings',
 ];
 const SINGLE_REPORT_COL_STYLES: Record<number, any> = {
-  0: { cellWidth: 7, halign: 'center' }, 1: { cellWidth: 26 }, 2: { cellWidth: 14 }, 3: { cellWidth: 13 },
-  4: { cellWidth: 14 }, 5: { cellWidth: 13 }, 6: { cellWidth: 11 }, 7: { cellWidth: 10, halign: 'center' },
-  8: { cellWidth: 13 }, 9: { cellWidth: 13 }, 10: { cellWidth: 14 }, 11: { cellWidth: 14 }, 12: { cellWidth: 14 }, 13: { cellWidth: 13 },
+  0: { cellWidth: 6, halign: 'center' }, 1: { cellWidth: 21 }, 2: { cellWidth: 13 }, 3: { cellWidth: 13 },
+  4: { cellWidth: 15 }, 5: { cellWidth: 13 }, 6: { cellWidth: 13 }, 7: { cellWidth: 11, halign: 'center' },
+  8: { cellWidth: 13 }, 9: { cellWidth: 13 }, 10: { cellWidth: 13 }, 11: { cellWidth: 13 }, 12: { cellWidth: 17 }, 13: { cellWidth: 12 },
 };
+// PDF headers with manual line breaks so no word is cut in the middle
+const PDF_REPORT_HEAD = [
+  'SL', 'Name (ID)', 'Membership\nDate', 'Loan\nAmount', 'Disbursement\nDate', 'Total\nPayable',
+  'Installment\nAmt', 'Tenure', 'Total\nPaid', 'Remaining\nBalance', 'Maturity\nDate', 'Last Payment\nDate', 'Contact', 'Savings',
+];
 const REPORT_EMPTY_ROW = ['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', ''];
 
 function singleReportRow(r: any, sl: number): string[] {
@@ -394,7 +358,12 @@ function reportCellHook(data: any) {
 }
 
 function reportTotalsRow(totals: ReturnType<typeof loanReportTotals>): string[] {
-  return ['', 'TOTAL', '', money(totals.loanAmount), '', money(totals.totalPayable), '', '', money(totals.totalPaid), money(totals.remaining), '', '', '', money(totals.savings)];
+  // Long totals drop the ".00" so they never wrap inside the narrow money columns.
+  const f = (v: number) => {
+    const t = money(v);
+    return t.length > 10 ? t.replace(/\.00$/, '') : t;
+  };
+  return ['', 'TOTAL', '', f(totals.loanAmount), '', f(totals.totalPayable), '', '', f(totals.totalPaid), f(totals.remaining), '', '', '', f(totals.savings)];
 }
 
 /** Five coloured summary boxes across the top of a report. */
@@ -442,12 +411,13 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
   drawSectionHeader(doc, 'Loan Register', X, y, W, RGB_NAVY);
   autoTable(doc, {
     startY: y + 7,
-    head: [SINGLE_REPORT_HEAD],
+    head: [PDF_REPORT_HEAD],
     body: loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [REPORT_EMPTY_ROW],
     foot: loanRows.length ? [reportTotalsRow(totals)] : undefined,
-    headStyles: { fillColor: RGB_NAVY, fontSize: 6, valign: 'middle' },
-    footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.3 },
-    styles: { fontSize: 6.3, cellPadding: 1.4 },
+    showFoot: 'lastPage',
+    headStyles: { fillColor: RGB_NAVY, fontSize: 5.4, valign: 'middle', cellPadding: { left: 1, right: 1, top: 1.6, bottom: 1.6 } },
+    footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 5.8 },
+    styles: { fontSize: 6.3, cellPadding: { left: 1, right: 1, top: 1.4, bottom: 1.4 } },
     columnStyles: SINGLE_REPORT_COL_STYLES,
     margin: { left: X, right: X, bottom: 32 },
     didParseCell: reportCellHook,
@@ -474,8 +444,10 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     head: [['SL', 'Receipt No.', 'Particulars', 'Date', 'Amount Paid', 'Remaining Balance']],
     body: payBody,
     theme: 'grid',
-    headStyles: { fillColor: RGB_TEAL, lineColor: RGB_BLACK, lineWidth: 0.3 },
-    styles: { fontSize: 7.5, lineColor: RGB_BLACK, lineWidth: 0.3 },
+    headStyles: { fillColor: RGB_TEAL, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold' },
+    // Bold, centred text on a tinted background (alternating white) like the transaction history screen
+    styles: { fontSize: 7.5, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold', textColor: [15, 42, 63], fillColor: [232, 244, 250] },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
     margin: { left: X, right: X, bottom: 32 },
     didParseCell: (data: any) => {
       if (data.section === 'body' && data.row.index === payBody.length - 1 && payments.length > 0) {
@@ -525,12 +497,13 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
 
   autoTable(doc, {
     startY: y + 7,
-    head: [SINGLE_REPORT_HEAD],
+    head: [PDF_REPORT_HEAD],
     body: bodyRows,
     foot: loanRows.length ? [reportTotalsRow(totals)] : undefined,
-    headStyles: { fillColor: RGB_GOLD, fontSize: 6, valign: 'middle' },
-    footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 6.3 },
-    styles: { fontSize: 6.3, cellPadding: 1.4 },
+    showFoot: 'lastPage',
+    headStyles: { fillColor: RGB_GOLD, fontSize: 5.4, valign: 'middle', cellPadding: { left: 1, right: 1, top: 1.6, bottom: 1.6 } },
+    footStyles: { fillColor: [244, 248, 248], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 5.8 },
+    styles: { fontSize: 6.3, cellPadding: { left: 1, right: 1, top: 1.4, bottom: 1.4 } },
     columnStyles: SINGLE_REPORT_COL_STYLES,
     didParseCell: reportCellHook,
     margin: { left: X, right: X, bottom: 32 },
@@ -604,7 +577,7 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
     ['Phone', receipt.phone || '-'],
     ['Loan Code', receipt.loan_code],
     ['Particulars', receipt.notes || 'Installment'],
-    ['Payment Method', receipt.payment_method.replace('_', ' ')],
+    ['Payment Method', titleCase(receipt.payment_method)],
   ];
 
   autoTable(doc, {
@@ -632,11 +605,11 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   doc.text(`Tk ${money(receipt.amount_paid)}`, 185, afterTable + 10, { align: 'right' });
 
   // Amount in words, directly under the Amount Paid box
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(9.5);
-  doc.setTextColor(15, 42, 63);
-  const words = doc.splitTextToSize(`In words: ${amountInWords(receipt.amount_paid)}`, 168);
-  doc.text(words, 22, afterTable + 23);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15); // same size and colour as the Amount Paid figure
+  doc.setTextColor(20, 149, 143);
+  const words = doc.splitTextToSize(amountInWords(receipt.amount_paid), 168);
+  doc.text(words, 22, afterTable + 25);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
 
@@ -929,7 +902,7 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
     ['Phone', receipt.phone || ''],
     ['Loan Code', receipt.loan_code],
     ['Particulars', receipt.notes || 'Installment'],
-    ['Payment Method', receipt.payment_method.replace('_', ' ')],
+    ['Payment Method', titleCase(receipt.payment_method)],
   ];
 
   for (const [label, value] of fields) {
