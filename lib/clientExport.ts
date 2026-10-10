@@ -224,6 +224,52 @@ function drawFooter(doc: any, figures: [string, string][]) {
   doc.setFont('helvetica', 'normal');
 }
 
+/** Gold footer bar whose totals sit directly under the register's columns (same x positions as the table),
+ *  with the Savings total in its own teal cell. Drawn on every page. */
+function drawReportFooter(doc: any, X: number, totals: ReturnType<typeof loanReportTotals>) {
+  const footerY = 279;
+  const b = activeBranding;
+  if (b && footerLines(b).length) drawFooterBlock(doc, b, 12, 198, 264, 4, 'report');
+  doc.setFillColor(...RGB_GOLD);
+  doc.rect(6, footerY, 198, 12, 'F');
+
+  const widths: number[] = Object.keys(SINGLE_REPORT_COL_STYLES).map((k) => SINGLE_REPORT_COL_STYLES[Number(k)].cellWidth);
+  const xs: number[] = [];
+  let x = X;
+  for (const w of widths) { xs.push(x); x += w; }
+
+  // Savings cell: different colour, like the Savings column above it
+  doc.setFillColor(...RGB_TEAL);
+  doc.rect(xs[13], footerY, widths[13] + 4, 12, 'F');
+
+  const cells: [number, string, string][] = [
+    [1, 'GRAND TOTAL', ''],
+    [3, 'Loan Amt', money(totals.loanAmount)],
+    [5, 'Payable', money(totals.totalPayable)],
+    [8, 'Paid', money(totals.totalPaid)],
+    [9, 'Remaining', money(totals.remaining)],
+    [13, 'Savings', money(totals.savings)],
+  ];
+  doc.setTextColor(255, 255, 255);
+  for (const [col, caption, value] of cells) {
+    const cx = xs[col] + 1;
+    if (!value) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.text(caption, cx, footerY + 7.4);
+      continue;
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.2);
+    doc.text(caption, cx, footerY + 4.6);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(value.length > 11 ? 5.4 : 6.4);
+    doc.text(value, cx, footerY + 9.2);
+  }
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+}
+
 /** A colored, bordered stat box — like a small stat card. Returns nothing, just draws. */
 function drawStatBox(doc: any, x: number, y: number, w: number, h: number, label: string, value: string, fill: [number, number, number], text: [number, number, number]) {
   doc.setFillColor(...fill);
@@ -423,20 +469,10 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     },
     didDrawPage: () => {
       drawPageBorder(doc);
-      drawFooter(doc, [
-        ['Loan Amount', `Tk ${money(totals.loanAmount)}`],
-        ['Total Payable', `Tk ${money(totals.totalPayable)}`],
-        ['Total Paid', `Tk ${money(totals.totalPaid)}`],
-        ['Remaining', `Tk ${money(totals.remaining)}`],
-      ]);
+      drawReportFooter(doc, X, totals);
     },
   });
-  drawFooter(doc, [
-    ['Loan Amount', `Tk ${money(totals.loanAmount)}`],
-    ['Total Payable', `Tk ${money(totals.totalPayable)}`],
-    ['Total Paid', `Tk ${money(totals.totalPaid)}`],
-    ['Remaining', `Tk ${money(totals.remaining)}`],
-  ]);
+  drawReportFooter(doc, X, totals);
 
   return doc.output('blob');
 }
@@ -487,10 +523,10 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
     // of a page — this is the fix for the previously "missing" totals bar.
     didDrawPage: () => {
       drawPageBorder(doc);
-      drawFooter(doc, footFigures);
+      drawReportFooter(doc, X, totals);
     },
   });
-  drawFooter(doc, footFigures);
+  drawReportFooter(doc, X, totals);
 
   return doc.output('blob');
 }

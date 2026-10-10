@@ -5,3 +5,6 @@
 - Receipt: amount in words under Amount Paid (screen, PDF, share text).
 - Lists (Collection, Loans, Members): table fills the screen and scrolls inside.
 - Suggestions: father's name, occupation, guarantor name (add + edit member), document title.
+
+# Batch 9
+- Report PDFs: totals bar at the bottom is now column-aligned (totals sit under their table columns, Savings in its own teal cell) on every page.
