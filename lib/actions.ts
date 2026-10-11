@@ -653,6 +653,44 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
   redirect(`/savings/${borrowerId}`);
 }
 
+/** Adds a savings deposit/withdrawal for any member straight from the Savings list page. */
+export async function quickSavingsAction(formData: FormData) {
+  const admin = await requireAdmin();
+
+  const borrowerId = Number(formData.get('borrower_id'));
+  const type = String(formData.get('type') || 'deposit');
+  const amount = Number(formData.get('amount'));
+  const notes = String(formData.get('notes') || '');
+  const transactionDate = String(formData.get('transaction_date') || new Date().toISOString().slice(0, 10));
+  const fail = (msg: string) => redirect('/savings?error=' + encodeURIComponent(msg));
+
+  if (!borrowerId) fail('Please pick a member from the list.');
+  const [member] = await sql`SELECT id FROM borrowers WHERE id = ${borrowerId} AND deleted_at IS NULL`;
+  if (!member) fail('Member not found.');
+  if (!(amount > 0)) fail('Amount must be greater than zero.');
+  if (type !== 'deposit' && type !== 'withdrawal') fail('Invalid transaction type.');
+
+  if (type === 'withdrawal') {
+    const [row] = await sql`
+      SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE -amount END), 0) AS balance
+      FROM savings_transactions WHERE borrower_id = ${borrowerId}
+    `;
+    if (Number(row.balance) < amount) {
+      fail(`Insufficient savings balance (available: ৳${Number(row.balance).toFixed(2)}).`);
+    }
+  }
+
+  const receiptNo = await nextSequentialCode('S', 'savings_transactions', 'receipt_no');
+  await sql`
+    INSERT INTO savings_transactions (borrower_id, receipt_no, type, amount, notes, transaction_date, recorded_by)
+    VALUES (${borrowerId}, ${receiptNo}, ${type}, ${amount}, ${notes}, ${transactionDate}, ${admin.adminId})
+  `;
+
+  revalidatePath(`/savings/${borrowerId}`);
+  revalidatePath('/savings');
+  redirect('/savings?added=' + encodeURIComponent(receiptNo));
+}
+
 export async function editSavingsTransactionAction(borrowerId: number, transactionId: number, formData: FormData) {
   await requireAdmin();
 

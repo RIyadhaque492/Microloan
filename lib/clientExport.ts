@@ -174,6 +174,7 @@ const RGB_GREEN_LIGHT: [number, number, number] = [220, 252, 231];
 const RGB_RED: [number, number, number] = [185, 28, 28];
 const RGB_RED_LIGHT: [number, number, number] = [254, 226, 226];
 const RGB_BLACK: [number, number, number] = [0, 0, 0];
+const RGB_PURPLE: [number, number, number] = [91, 61, 163];
 
 function drawPageBorder(doc: any) {
   doc.setDrawColor(...RGB_NAVY);
@@ -259,13 +260,14 @@ function drawStatBox(doc: any, x: number, y: number, w: number, h: number, label
 }
 
 /** A colored section-header bar (e.g. "Loan History") spanning the content width. */
-function drawSectionHeader(doc: any, text: string, x: number, y: number, w: number, fill: [number, number, number] = RGB_TEAL) {
+function drawSectionHeader(doc: any, text: string, x: number, y: number, w: number, fill: [number, number, number] = RGB_TEAL, centered = false) {
   doc.setFillColor(...fill);
   doc.rect(x, y, w, 7, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(text, x + 3, y + 5);
+  if (centered) doc.text(text, x + w / 2, y + 5, { align: 'center' });
+  else doc.text(text, x + 3, y + 5);
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
 }
@@ -428,23 +430,25 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
   // oldest first, with a remaining-balance column. The final row's "TOTAL PAID"
   // label sits in the Particulars column with the grand total under Amount Paid.
   y = (doc as any).lastAutoTable.finalY + 8;
-  drawSectionHeader(doc, 'Payment History', X, y, W, RGB_TEAL);
+  drawSectionHeader(doc, 'Payment History', X, y, W, RGB_PURPLE, true);
   const ordered = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
   let running = 0;
+  let lastRemaining = Math.max(0, totals.totalPayable);
   const payBody = ordered.map((p, i) => {
     running += Number(p.amount_paid);
-    const remaining = Math.max(0, totals.totalPayable - running);
+    const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totals.totalPayable - running);
+    lastRemaining = remaining;
     return [String(i + 1), p.receipt_no, p.notes || 'Installment', fmtDate(p.payment_date), `Tk ${money(p.amount_paid)}`, `Tk ${money(remaining)}`];
   });
   if (payBody.length === 0) payBody.push(['', 'No payments recorded.', '', '', '', '']);
-  else payBody.push(['', '', 'TOTAL PAID', '', `Tk ${money(running)}`, `Tk ${money(Math.max(0, totals.totalPayable - running))}`]);
+  else payBody.push(['', '', 'TOTAL PAID', '', `Tk ${money(running)}`, `Tk ${money(lastRemaining)}`]);
 
   autoTable(doc, {
     startY: y + 7,
     head: [['SL', 'Receipt No.', 'Particulars', 'Date', 'Amount Paid', 'Remaining Balance']],
     body: payBody,
     theme: 'grid',
-    headStyles: { fillColor: RGB_TEAL, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold' },
+    headStyles: { fillColor: RGB_PURPLE, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold' },
     // Bold, centred text on a tinted background (alternating white) like the transaction history screen
     styles: { fontSize: 7.5, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold', textColor: [15, 42, 63], fillColor: [232, 244, 250] },
     alternateRowStyles: { fillColor: [255, 255, 255] },

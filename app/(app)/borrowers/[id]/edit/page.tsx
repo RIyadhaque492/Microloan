@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getBorrower, getMemberFieldSuggestions } from '@/lib/data';
+import { getBorrower, getMemberFieldSuggestions, getAgeSuggestions } from '@/lib/data';
 import { updateBorrowerAction, deleteBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../../PageHeader';
 
@@ -13,12 +13,14 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
 
   const updateAction = updateBorrowerAction.bind(null, id);
   const fieldSuggestions = await getMemberFieldSuggestions();
+  const ageSuggestions = await getAgeSuggestions();
 
   return (
     <div>
       <PageHeader title="Edit Member" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
+      <datalist id="age-suggestions">{ageSuggestions.map((a) => <option key={a} value={a} />)}</datalist>
       <datalist id="father-suggestions">{fieldSuggestions.fathers.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="occupation-suggestions">{fieldSuggestions.occupations.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="guarantor-suggestions">{fieldSuggestions.guarantors.map((v) => <option key={v} value={v} />)}</datalist>
@@ -37,7 +39,7 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
               <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
             </select>
           </div>
-          <div><label className="label">Age</label><input name="age" type="number" min="0" max="120" inputMode="numeric" defaultValue={borrower.age ?? ''} className="input" /></div>
+          <div><label className="label">Age</label><input name="age" type="number" min="0" max="120" inputMode="numeric" list="age-suggestions" defaultValue={borrower.age ?? ''} className="input" /></div>
           <div><label className="label">Phone *</label><input name="phone" required defaultValue={borrower.phone} className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" defaultValue={borrower.email} className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" defaultValue={borrower.nid_number} className="input" /></div>

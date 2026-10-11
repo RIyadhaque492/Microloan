@@ -170,6 +170,17 @@ export async function getMemberFieldSuggestions() {
   };
 }
 
+/** Ages already used (most common first), padded with a normal adult range — powers the Age suggestions. */
+export async function getAgeSuggestions(): Promise<number[]> {
+  const rows = (await sql`
+    SELECT age, COUNT(*) AS n FROM borrowers WHERE age IS NOT NULL AND deleted_at IS NULL
+    GROUP BY age ORDER BY n DESC, age ASC LIMIT 15
+  `) as any[];
+  const used = rows.map((r) => Number(r.age));
+  const rest = Array.from({ length: 53 }, (_, i) => 18 + i).filter((a) => !used.includes(a));
+  return [...used, ...rest];
+}
+
 /** Loan purposes already used — powers the suggestion list on Loan Registration. */
 export async function getLoanPurposeSuggestions(): Promise<string[]> {
   const rows = (await sql`

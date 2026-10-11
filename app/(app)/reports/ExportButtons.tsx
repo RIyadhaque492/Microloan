@@ -228,14 +228,14 @@ function TablePreview({ props }: { props: Props }) {
         <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Loan Register</h4>
         {loanTable}
         <div>
-          <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Payment History ({ordered.length})</h4>
+          <div className="text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History ({ordered.length})</div>
           <table className="app-table border-2 border-black">
-            <thead className="[&_th]:text-center"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
+            <thead className="[&_th]:text-center [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
             <tbody>
               {ordered.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
               {ordered.map((p: any, i: number) => {
                 running += Number(p.amount_paid);
-                const remaining = Math.max(0, totalPayable - running);
+                const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totalPayable - running);
                 return (
                   <tr key={p.id}>
                     <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td><td className="border border-black text-center font-bold bg-sky-50">{p.receipt_no}</td>
@@ -252,7 +252,7 @@ function TablePreview({ props }: { props: Props }) {
                   <td className="border border-black text-center font-bold bg-sky-50">TOTAL PAID</td>
                   <td className="border border-black text-center font-bold bg-sky-50"></td>
                   <td className="border border-black text-center font-bold bg-sky-50">৳{money(running)}</td>
-                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(Math.max(0, totalPayable - running))}</td>
+                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(ordered.length ? (ordered[ordered.length - 1].remaining_after != null ? Number(ordered[ordered.length - 1].remaining_after) : Math.max(0, totalPayable - running)) : 0)}</td>
                 </tr>
               )}
             </tbody>

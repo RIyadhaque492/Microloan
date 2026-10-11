@@ -3,6 +3,7 @@ import { getBorrowersBasic, getLoanReportRows, getPaymentsForBorrower } from '@/
 import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
 import RegisterTable from './RegisterTable';
+import MemberPicker from './MemberPicker';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
@@ -37,10 +38,21 @@ export default async function ReportsPage({
     const members = (await getBorrowersBasic()) as any[];
     const selected = borrowerId ? members.find((m) => m.id === borrowerId) : null;
     const loanRows = selected ? await getLoanReportRows({ borrowerId: selected.id }) : [];
-    const payments = selected ? ((await getPaymentsForBorrower(selected.id)) as any[]) : [];
-    const orderedPayments = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
-    const shareText = selected ? buildSingleUserShareText(selected, loanRows) : '';
+    const allPayments = selected ? ((await getPaymentsForBorrower(selected.id)) as any[]) : [];
     const totals = loanTotals(loanRows);
+    // Oldest first (receipt order within a day); the running balance is worked out on the FULL history so a
+    // date-filtered report still shows the true remaining balance after each payment.
+    const fullOrdered = [...allPayments].sort(
+      (a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime() || Number(a.id) - Number(b.id)
+    );
+    let runningAll = 0;
+    const withBalance = fullOrdered.map((p) => {
+      runningAll += Number(p.amount_paid);
+      return { ...p, remaining_after: Math.max(0, totals.totalPayable - runningAll) };
+    });
+    const orderedPayments = withBalance.filter((p) => inDateRange(p.payment_date, searchParams.from, searchParams.to));
+    const payments = orderedPayments;
+    const shareText = selected ? buildSingleUserShareText(selected, loanRows) : '';
 
     return (
       <div>
@@ -49,16 +61,19 @@ export default async function ReportsPage({
 
         <form className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
           <input type="hidden" name="mode" value="single" />
-          <div className="flex-1 min-w-[220px]">
-            <label className="label">Choose a member</label>
-            <select name="borrower" defaultValue={borrowerId || ''} className="input">
-              <option value="">-- Select a member --</option>
-              {members.map((m: any) => (
-                <option key={m.id} value={m.id}>{m.borrower_code} — {m.full_name}</option>
-              ))}
-            </select>
+          <MemberPicker members={members} defaultId={borrowerId || undefined} />
+          <div>
+            <label className="label">Payment date from</label>
+            <input name="from" type="date" defaultValue={searchParams.from} className="input w-40" />
           </div>
-          <button className="btn btn-primary">View Report</button>
+          <div>
+            <label className="label">Payment date to</label>
+            <input name="to" type="date" defaultValue={searchParams.to} className="input w-40" />
+          </div>
+          <button className="btn btn-primary">🔍 View Report</button>
+          {(searchParams.from || searchParams.to) && borrowerId > 0 && (
+            <Link href={`/reports?mode=single&borrower=${borrowerId}`} className="btn btn-outline">Clear dates</Link>
+          )}
         </form>
 
         {selected && (
@@ -75,16 +90,16 @@ export default async function ReportsPage({
               <h3 className="font-semibold text-sm text-navy mb-2">Loan Register</h3>
               <RegisterTable rows={loanRows} headColor="#0F2A3F" maxHeight="max-h-[45vh]" />
 
-              <h3 className="font-semibold text-sm text-navy mt-6 mb-2">Payment History — every installment tracked individually</h3>
+              <div className="mt-6 text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History</div>
               <table className="app-table border-2 border-black">
-                <thead className="[&_th]:text-center"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
+                <thead className="[&_th]:text-center [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
                 <tbody>
                   {orderedPayments.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
                   {(() => {
                     let running = 0;
                     return orderedPayments.map((p, i) => {
                       running += Number(p.amount_paid);
-                      const remaining = Math.max(0, totals.totalPayable - running);
+                      const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totals.totalPayable - running);
                       return (
                         <tr key={p.id} className="border border-black text-center font-bold bg-sky-50">
                           <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td>
@@ -99,7 +114,7 @@ export default async function ReportsPage({
                   })()}
                   {orderedPayments.length > 0 && (() => {
                     const totalPaid = orderedPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
-                    const finalRemaining = Math.max(0, totals.totalPayable - totalPaid);
+                    const finalRemaining = orderedPayments[orderedPayments.length - 1].remaining_after != null ? Number(orderedPayments[orderedPayments.length - 1].remaining_after) : Math.max(0, totals.totalPayable - totalPaid);
                     return (
                       <tr className="bg-tealight font-bold">
                         <td className="border border-black text-center font-bold bg-sky-50"></td>

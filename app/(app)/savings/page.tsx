@@ -1,25 +1,30 @@
 import Link from 'next/link';
-import { getAllMembersSavings, getAllSavingsTotals, getSavingsBorrowerIdsInRange, getSiteSettings } from '@/lib/data';
+import { getAllMembersSavings, getAllSavingsTotals, getSavingsBorrowerIdsInRange, getSiteSettings, getBorrowersBasic, getSavingsNotesSuggestions } from '@/lib/data';
 import { money, matchesIdGroup } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
+import SavingsQuickAdd from './SavingsQuickAdd';
 
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string } }) {
+export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string; added?: string; error?: string } }) {
   let rows = (await getAllMembersSavings(searchParams.q)).filter((r: any) => matchesIdGroup(r.borrower_code, searchParams.ids));
   if (searchParams.from || searchParams.to) {
     const inRange = await getSavingsBorrowerIdsInRange(searchParams.from, searchParams.to);
     rows = rows.filter((r: any) => inRange.has(Number(r.id)));
   }
   const settings = await getSiteSettings();
+  const members = (await getBorrowersBasic()) as any[];
+  const notesSuggestions = await getSavingsNotesSuggestions();
   const totals = await getAllSavingsTotals();
   const remaining = rows.reduce((s, r) => s + Number(r.balance), 0);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
-      <PageHeader title="Member Savings" showBack={false} />
+      <PageHeader title="Member Savings" showBack={false} action={<SavingsQuickAdd members={members} notesSuggestions={notesSuggestions} />} />
+      {searchParams.added && <div className="mb-3 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2 flex-shrink-0">✅ Savings saved (receipt {searchParams.added}).</div>}
+      {searchParams.error && <div className="mb-3 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2 flex-shrink-0">{searchParams.error}</div>}
 
       <div className="rounded-lg bg-tealight border border-teal-100 p-3 mb-4 text-sm flex items-center justify-between flex-wrap gap-2">
         <span>🏦 Savings are tracked separately from loans and never count toward loan/debt calculations.</span>

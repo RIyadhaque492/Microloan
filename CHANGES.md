@@ -25,3 +25,12 @@
 - Receipt: amount in words has the same size/colour as Amount Paid; "Mobile Banking" style capitalisation for payment methods.
 - PDF preview: zoom +/- and Fit.
 - All tables use the boxed Transaction History design.
+
+# Batch 12
+- Savings page: "➕ Savings" button opens a quick form (pick member, deposit/withdrawal, amount, date, notes) and saves without opening the member profile.
+
+# Batch 13
+- Single-member report: member search with suggestions (ID / name / phone, opens when picked) + payment date range filter (running balance stays correct).
+- Add/Edit member: Age suggestions.
+- Report PDF + screen: "Payment History" bar centred with its own colour (purple).
+- PDF preview: Fit = exactly 100% fit; +/- in 25% steps with a live % label.
