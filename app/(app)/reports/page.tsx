@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getBorrowersBasic, getLoanReportRows, getPaymentsForBorrower } from '@/lib/data';
-import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange } from '@/lib/utils';
+import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange, formatDMY, formatDMYTime } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
 import RegisterTable from './RegisterTable';
 import MemberPicker from './MemberPicker';
@@ -21,9 +21,7 @@ function loanTotals(rows: any[]) {
 }
 
 function fmtDate(d: any) {
-  if (!d) return '—';
-  const dt = new Date(d);
-  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString();
+  return formatDMY(d);
 }
 
 export default async function ReportsPage({
@@ -81,7 +79,7 @@ export default async function ReportsPage({
             <div className="bg-navy text-white px-5 py-4 flex flex-wrap justify-between items-center gap-3">
               <div>
                 <h2 className="font-bold text-lg">Member Credit / Debt Report</h2>
-                <p className="text-teal-100 text-xs opacity-90">Generated: {new Date().toLocaleString()}</p>
+                <p className="text-teal-100 text-xs opacity-90">Generated: {formatDMYTime()}</p>
               </div>
               <ExportButtons mode="single" member={selected} loanRows={loanRows} payments={payments} shareText={shareText} onDark />
             </div>

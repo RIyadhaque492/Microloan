@@ -34,3 +34,6 @@
 - Add/Edit member: Age suggestions.
 - Report PDF + screen: "Payment History" bar centred with its own colour (purple).
 - PDF preview: Fit = exactly 100% fit; +/- in 25% steps with a live % label.
+
+# Batch 14
+- All report dates (screen, PDF, Excel, Word, share text) and the receipt PDF date are dd-mm-yyyy; "Generated" shows dd-mm-yyyy, hh:mm AM/PM.

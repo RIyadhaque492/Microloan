@@ -4,7 +4,7 @@ import PdfPageViewer from '../PdfPageViewer';
 import RegisterTable from './RegisterTable';
 
 import { useState } from 'react';
-import { money } from '@/lib/utils';
+import { money, formatDMY } from '@/lib/utils';
 import {
   shareOrDownloadBlob, downloadBlob,
   buildSingleUserPdfBlob,
@@ -27,9 +27,7 @@ type Preview =
   | { kind: 'view' };
 
 function fmtDate(d: any) {
-  if (!d) return '—';
-  const dt = new Date(d);
-  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString();
+  return formatDMY(d);
 }
 
 export default function ExportButtons(props: Props) {

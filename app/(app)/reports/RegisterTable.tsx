@@ -1,10 +1,8 @@
 import Link from 'next/link';
-import { money, memberSerial, reportTotals } from '@/lib/utils';
+import { money, memberSerial, reportTotals, formatDMY } from '@/lib/utils';
 
 function fmtDate(d: any) {
-  if (!d) return '—';
-  const dt = new Date(d);
-  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString();
+  return formatDMY(d);
 }
 
 /** The loan register used by every report screen — same columns, order and colours as the PDF:

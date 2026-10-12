@@ -110,7 +110,7 @@ export function buildSingleUserShareText(member: { full_name: string; borrower_c
       `TOTAL Remaining: ৳${money(totalRemaining)}`
     );
   }
-  lines.push('', `Generated: ${new Date().toLocaleString()}`);
+  lines.push('', `Generated: ${formatDMYTime()}`);
   return lines.join('\n');
 }
 
@@ -121,7 +121,7 @@ export function buildAllUsersShareText(rows: any[]): string {
   const totalPaid = rows.reduce((s, r) => s + Number(r.total_paid), 0);
   const totalRemaining = rows.reduce((s, r) => s + Number(r.remaining_balance), 0);
 
-  const lines = [`*MicroLoan - All Loans Summary*`, `Generated: ${new Date().toLocaleString()}`, ''];
+  const lines = [`*MicroLoan - All Loans Summary*`, `Generated: ${formatDMYTime()}`, ''];
   rows.forEach((r, i) => {
     lines.push(
       `${i + 1}. ${r.full_name} (${r.borrower_code}) — ${r.loan_code}: Loan ৳${money(r.loan_amount)}, Payable ৳${money(r.total_payable)}, Paid ৳${money(r.total_paid)}, Remaining ৳${money(r.remaining_balance)}`
@@ -247,4 +247,27 @@ export function titleCase(value: any): string {
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/(^|\s)(\S)/g, (_m, sp, ch) => sp + ch.toUpperCase());
+}
+
+
+/** Date as dd-mm-yyyy (e.g. 30-09-2026). Accepts a Date, an ISO string or a YYYY-MM-DD string. */
+export function formatDMY(value: any): string {
+  if (!value) return '—';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split('-');
+    return `${d}-${m}-${y}`;
+  }
+  const dt = value instanceof Date ? value : new Date(value);
+  if (isNaN(dt.getTime())) return '—';
+  return `${String(dt.getDate()).padStart(2, '0')}-${String(dt.getMonth() + 1).padStart(2, '0')}-${dt.getFullYear()}`;
+}
+
+/** Date and time as dd-mm-yyyy, hh:mm AM/PM — used for "Generated:" lines. */
+export function formatDMYTime(value: any = new Date()): string {
+  const dt = value instanceof Date ? value : new Date(value);
+  if (isNaN(dt.getTime())) return '—';
+  let h = dt.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${formatDMY(dt)}, ${String(h).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')} ${ampm}`;
 }

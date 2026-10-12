@@ -1,4 +1,4 @@
-import { money, memberSerial, amountInWords, titleCase } from './utils';
+import { money, memberSerial, amountInWords, titleCase, formatDMY, formatDMYTime } from './utils';
 
 /** Saves the file to the device (no share sheet). */
 export function downloadBlob(blob: Blob, filename: string) {
@@ -285,10 +285,7 @@ function fitTextWidth(doc: any, text: string, maxWidth: number): string {
 }
 
 function fmtDate(d: any): string {
-  if (!d) return '—';
-  const dt = d instanceof Date ? d : new Date(d);
-  if (isNaN(dt.getTime())) return '—';
-  return dt.toLocaleDateString();
+  return formatDMY(d);
 }
 
 // =====================================================================
@@ -404,7 +401,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
   const totals = loanReportTotals(loanRows);
 
   drawPageBorder(doc);
-  drawBanner(doc, 'Member Credit / Debt Report', `Generated: ${new Date().toLocaleString()}  •  ${member.full_name} (${member.borrower_code})`);
+  drawBanner(doc, 'Member Credit / Debt Report', `Generated: ${formatDMYTime()}  •  ${member.full_name} (${member.borrower_code})`);
 
   const boxY = 32, boxH = 16;
   drawReportStats(doc, X, boxY, totals);
@@ -482,7 +479,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
   const totals = loanReportTotals(loanRows);
 
   drawPageBorder(doc);
-  drawBanner(doc, 'All Loans - Full Register', `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`);
+  drawBanner(doc, 'All Loans - Full Register', `Generated: ${formatDMYTime()}  •  ${loanRows.length} loan(s)`);
 
   const boxY = 32, boxH = 16;
   drawReportStats(doc, X, boxY, totals);
@@ -576,7 +573,7 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
 
   const rows = [
     ['Receipt No.', receipt.receipt_no],
-    ['Date', new Date(receipt.payment_date).toLocaleDateString()],
+    ['Date', formatDMY(receipt.payment_date)],
     ['Member', `${receipt.full_name} (${receipt.borrower_code})`],
     ['Phone', receipt.phone || '-'],
     ['Loan Code', receipt.loan_code],
@@ -724,15 +721,15 @@ function addSingleReportRow(ws: any, r: any, sl: number, striped: boolean) {
     r.savings_balance == null ? null : Number(r.savings_balance),
   ]);
   styleDataRow(row, striped);
-  row.getCell(3).numFmt = 'yyyy-mm-dd';
+  row.getCell(3).numFmt = 'dd-mm-yyyy';
   row.getCell(4).numFmt = MONEY_FMT;
-  row.getCell(5).numFmt = 'yyyy-mm-dd';
+  row.getCell(5).numFmt = 'dd-mm-yyyy';
   row.getCell(6).numFmt = MONEY_FMT;
   row.getCell(7).numFmt = MONEY_FMT;
   row.getCell(9).numFmt = MONEY_FMT;
   row.getCell(10).numFmt = MONEY_FMT;
-  row.getCell(11).numFmt = 'yyyy-mm-dd';
-  row.getCell(12).numFmt = 'yyyy-mm-dd';
+  row.getCell(11).numFmt = 'dd-mm-yyyy';
+  row.getCell(12).numFmt = 'dd-mm-yyyy';
   row.getCell(14).numFmt = MONEY_FMT;
   // Savings column: its own colour
   row.getCell(14).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
@@ -758,14 +755,14 @@ function addLoanReportRow(ws: any, r: any, sl: number, striped: boolean) {
     r.phone || '',
   ]);
   styleDataRow(row, striped);
-  row.getCell(2).numFmt = 'yyyy-mm-dd';
+  row.getCell(2).numFmt = 'dd-mm-yyyy';
   row.getCell(5).numFmt = MONEY_FMT;
   row.getCell(6).numFmt = MONEY_FMT;
   row.getCell(7).numFmt = MONEY_FMT;
   row.getCell(10).numFmt = MONEY_FMT;
   row.getCell(11).numFmt = MONEY_FMT;
-  row.getCell(12).numFmt = 'yyyy-mm-dd';
-  row.getCell(13).numFmt = 'yyyy-mm-dd';
+  row.getCell(12).numFmt = 'dd-mm-yyyy';
+  row.getCell(13).numFmt = 'dd-mm-yyyy';
   return row;
 }
 
@@ -782,7 +779,7 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
     pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
   });
   titleRow(summary, 'MicroLoan Admin — All Loans Register', EXCEL_SINGLE_HEADERS.length);
-  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`, EXCEL_SINGLE_HEADERS.length);
+  subtitleRow(summary, 2, `Generated: ${formatDMYTime()}  •  ${loanRows.length} loan(s)`, EXCEL_SINGLE_HEADERS.length);
   summary.addRow([]);
   const headerRow = summary.addRow(EXCEL_SINGLE_HEADERS);
   styleHeaderRow(headerRow);
@@ -821,7 +818,7 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
 
   const summary = wb.addWorksheet('Loan Register', { pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' } });
   titleRow(summary, `Member Credit / Debt Report — ${member.full_name} (${member.borrower_code})`, EXCEL_SINGLE_HEADERS.length);
-  subtitleRow(summary, 2, `Generated: ${new Date().toLocaleString()}`, EXCEL_SINGLE_HEADERS.length);
+  subtitleRow(summary, 2, `Generated: ${formatDMYTime()}`, EXCEL_SINGLE_HEADERS.length);
   summary.addRow([]);
   const headerRow = summary.addRow(EXCEL_SINGLE_HEADERS);
   styleHeaderRow(headerRow);
@@ -860,7 +857,7 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
     const r = paySheet.addRow([i + 1, p.receipt_no, p.notes || 'Installment', new Date(p.payment_date), Number(p.amount_paid), remaining]);
     styleDataRow(r, i % 2 === 1);
     styleDataRowBlackBorder(r);
-    r.getCell(4).numFmt = 'yyyy-mm-dd';
+    r.getCell(4).numFmt = 'dd-mm-yyyy';
     r.getCell(5).numFmt = MONEY_FMT;
     r.getCell(6).numFmt = MONEY_FMT;
   });
@@ -913,7 +910,7 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
     const row = ws.addRow([label, value]);
     row.getCell(1).font = { bold: true, color: { argb: BRAND_NAVY } };
     if (value instanceof Date) {
-      row.getCell(2).numFmt = 'yyyy-mm-dd';
+      row.getCell(2).numFmt = 'dd-mm-yyyy';
       row.getCell(2).alignment = { horizontal: 'left' };
     }
   }
@@ -1052,7 +1049,7 @@ export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [],
         ...docxBranding(Docx, branding),
         children: [
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'Member Credit / Debt Report', bold: true, size: 32, color: DOCX_NAVY })] }),
-          new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${member.full_name} (${member.borrower_code})`, italics: true, size: 18, color: '6B7C85' })] }),
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${formatDMYTime()}  •  ${member.full_name} (${member.borrower_code})`, italics: true, size: 18, color: '6B7C85' })] }),
           new Docx.Paragraph({ text: '' }),
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'Loan Register', bold: true, size: 22, color: DOCX_NAVY })] }),
           docxSummaryTable(Docx, SINGLE_REPORT_HEAD, loanTableRows, DOCX_NAVY),
@@ -1091,7 +1088,7 @@ export async function buildAllUsersWordBlob(loanRows: any[]): Promise<Blob> {
         ...docxBranding(Docx, branding),
         children: [
           new Docx.Paragraph({ children: [new Docx.TextRun({ text: 'All Loans - Full Register', bold: true, size: 32, color: DOCX_NAVY })] }),
-          new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${new Date().toLocaleString()}  •  ${loanRows.length} loan(s)`, italics: true, size: 18, color: '6B7C85' })] }),
+          new Docx.Paragraph({ children: [new Docx.TextRun({ text: `Generated: ${formatDMYTime()}  •  ${loanRows.length} loan(s)`, italics: true, size: 18, color: '6B7C85' })] }),
           new Docx.Paragraph({ text: '' }),
           docxSummaryTable(Docx, SINGLE_REPORT_HEAD, loanTableRows, DOCX_GOLD),
           new Docx.Paragraph({ text: '' }),
