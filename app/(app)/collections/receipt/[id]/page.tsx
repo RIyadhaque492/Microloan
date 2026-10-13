@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { getSiteSettings } from '@/lib/data';
-import { money, amountInWords, titleCase } from '@/lib/utils';
+import { money, amountInWords, titleCase, formatDMY } from '@/lib/utils';
 import ReceiptExportButtons from './ReceiptExportButtons';
 import PageHeader from '../../../PageHeader';
 import { deleteCollectionAction } from '@/lib/actions';
@@ -37,7 +37,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
   const shareText = [
     `*MicroLoan Payment Receipt*`,
     `Receipt No: ${p.receipt_no}`,
-    `Date: ${new Date(p.payment_date).toLocaleDateString()}`,
+    `Date: ${formatDMY(p.payment_date)}`,
     `Member: ${p.full_name} (${p.borrower_code})`,
     `Loan Code: ${p.loan_code}`,
     `Amount Paid: ৳${money(p.amount_paid)}`,
@@ -59,7 +59,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
 
         <div className="text-left text-xs space-y-1">
           <Row label="Receipt No." value={p.receipt_no} />
-          <Row label="Date" value={new Date(p.payment_date).toLocaleDateString()} />
+          <Row label="Date" value={formatDMY(p.payment_date)} />
           <Row label="Member" value={`${p.full_name} (${p.borrower_code})`} />
           <Row label="Loan Code" value={p.loan_code} />
           <Row label="Method" value={titleCase(p.payment_method)} />

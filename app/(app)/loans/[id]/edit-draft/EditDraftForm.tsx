@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { generateScheduleFromInstallment } from '@/lib/utils';
+import DateInput from '@/app/(app)/DateInput';
 
 export default function EditDraftForm({ loan, borrowers, updateAction, submitLabel = 'Save Draft Changes' }: { loan: any; borrowers: any[]; updateAction: (formData: FormData) => void | Promise<void>; submitLabel?: string }) {
   const [amount, setAmount] = useState<number>(Number(loan.loan_amount) || 0);
@@ -68,16 +69,16 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
         </div>
         <div>
           <label className="label">Disbursement Date</label>
-          <input name="disbursement_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input" />
+          <DateInput name="disbursement_date" value={startDate} onChange={(v: string) => setStartDate(v)} className="input" />
         </div>
         <div>
           <label className="label">Maturity Date</label>
-          <input
+          <DateInput
             name="maturity_date"
-            type="date"
+           
             className="input"
             value={maturityDate}
-            onChange={(e) => { setMaturityTouched(true); setMaturityDate(e.target.value); }}
+            onChange={(v: string) => { setMaturityTouched(true); setMaturityDate(v); }}
           />
           <p className="text-xs text-gray-400 mt-1">
             Auto-calculated from tenure + repayment frequency — still editable

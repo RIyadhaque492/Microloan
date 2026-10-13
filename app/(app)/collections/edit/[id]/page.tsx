@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 import { updateCollectionAction } from '@/lib/actions';
 import { getCollectionNotesSuggestions } from '@/lib/data';
 import PageHeader from '../../../PageHeader';
+import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Edit Payment - MicroLoan Admin' };
 
@@ -53,7 +54,7 @@ export default async function EditCollectionPage({ params, searchParams }: { par
         </div>
         <div>
           <label className="label">Payment Date</label>
-          <input name="payment_date" type="date" defaultValue={new Date(collection.payment_date).toISOString().slice(0, 10)} className="input" />
+          <DateInput name="payment_date" defaultValue={new Date(collection.payment_date).toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
           <label className="label">Notes</label>

@@ -99,7 +99,7 @@ export function buildSingleUserShareText(member: { full_name: string; borrower_c
     lines.push('Loans:');
     for (const r of loanRows) {
       lines.push(
-        `- ${r.loan_code}: Loan ৳${money(r.loan_amount)}, Payable ৳${money(r.total_payable)}, Paid ৳${money(r.total_paid)}, Remaining ৳${money(r.remaining_balance)}, Maturity ${r.maturity_date ? new Date(r.maturity_date).toLocaleDateString() : '—'}`
+        `- ${r.loan_code}: Loan ৳${money(r.loan_amount)}, Payable ৳${money(r.total_payable)}, Paid ৳${money(r.total_paid)}, Remaining ৳${money(r.remaining_balance)}, Maturity ${r.maturity_date ? formatDMY(r.maturity_date) : '—'}`
       );
     }
     lines.push(

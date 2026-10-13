@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { getActiveLoansWithBalance, refreshOverdueInstallments } from '@/lib/data';
-import { money, matchesIdGroup } from '@/lib/utils';
+import { money, matchesIdGroup, formatDMY } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
+import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Loan Collection - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
@@ -22,26 +23,26 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
       <FilterBar basePath="/collections" q={searchParams.q} ids={searchParams.ids} showDates={false} qPlaceholder="Member or loan code...">
         <div>
           <label className="text-[11px] text-gray-500 block mb-0.5">Payment date</label>
-          <input name="d" type="date" defaultValue={searchParams.d} className="input w-36" aria-label="Payment date" />
+          <DateInput name="d" defaultValue={searchParams.d} className="input w-36" aria-label="Payment date" />
         </div>
       </FilterBar>
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="card p-4 border-l-4 border-l-red-500 bg-red-50">
+      <div className="grid grid-cols-2 gap-2 mb-2 flex-shrink-0">
+        <div className="card px-3 py-1.5 border-l-4 border-l-red-500 bg-red-50">
           <div className="text-xs text-red-700">{dateMode ? 'Remaining Balance (these loans)' : 'Total Remaining Balance'}</div>
-          <div className="text-xl font-bold text-red-800">৳{money(totalBalance)}</div>
+          <div className="text-base font-bold text-red-800">৳{money(totalBalance)}</div>
         </div>
         {dateMode ? (
-          <div className="card p-4 border-l-4 border-l-green-500 bg-green-50">
-            <div className="text-xs text-green-700">Collected on {new Date(searchParams.d + 'T00:00:00').toLocaleDateString()}</div>
-            <div className="text-xl font-bold text-green-800">৳{money(dayTotal)}</div>
+          <div className="card px-3 py-1.5 border-l-4 border-l-green-500 bg-green-50">
+            <div className="text-xs text-green-700">Collected on {formatDMY(searchParams.d + 'T00:00:00')}</div>
+            <div className="text-base font-bold text-green-800">৳{money(dayTotal)}</div>
           </div>
         ) : (
-          <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50">
+          <div className="card px-3 py-1.5 border-l-4 border-l-amber-500 bg-amber-50">
             <div className="text-xs text-amber-700">Waiting to be collected</div>
-            <div className="text-xl font-bold text-amber-800">{dueCount} loan{dueCount !== 1 ? 's' : ''}</div>
+            <div className="text-base font-bold text-amber-800">{dueCount} loan{dueCount !== 1 ? 's' : ''}</div>
           </div>
         )}
       </div>
@@ -57,7 +58,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
                 <tr key={l.id} className={l.needs_collection && l.due_now > 0 ? 'row-overdue' : ''}>
                   <td>{l.borrower_code}</td>
                   <td>{l.full_name}<div className="text-xs text-gray-400">{l.loan_code}</div></td>
-                  <td>{l.last_payment_date ? new Date(l.last_payment_date).toLocaleDateString() : '—'}</td>
+                  <td>{l.last_payment_date ? formatDMY(l.last_payment_date) : '—'}</td>
                   <td className="text-green-700 font-semibold">৳{money(l.total_paid)}</td>
                   <td className="font-semibold text-red-600">৳{money(l.balance)}</td>
                   <td className="whitespace-nowrap">

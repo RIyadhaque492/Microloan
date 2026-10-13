@@ -37,3 +37,9 @@
 
 # Batch 14
 - All report dates (screen, PDF, Excel, Word, share text) and the receipt PDF date are dd-mm-yyyy; "Generated" shows dd-mm-yyyy, hh:mm AM/PM.
+
+# Batch 15
+- Every date in the app shows dd-mm-yyyy; every date box is a dd-mm-yyyy field (type digits, dashes auto, 📅 calendar) that still saves normally.
+- Longer tables: compact page header, search bar and cards on Members, Loans, Collection, Savings and Reports.
+- Single-member report screen now has the same 5 coloured summary cards as the PDF.
+- reset_all_data.sql: wipes all data (keeps admin + settings). Run manually in Neon when ready.

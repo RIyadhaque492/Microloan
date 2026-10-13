@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { generateScheduleFromInstallment, money, frequencyShortLabel } from '@/lib/utils';
+import { generateScheduleFromInstallment, money, frequencyShortLabel, formatDMY } from '@/lib/utils';
+import DateInput from '@/app/(app)/DateInput';
 
 export default function CalculatorClient() {
   const [principal, setPrincipal] = useState(10000);
@@ -49,7 +50,7 @@ export default function CalculatorClient() {
           </div>
           <div>
             <label className="label">Start Date</label>
-            <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <DateInput className="input" value={startDate} onChange={(v: string) => setStartDate(v)} />
           </div>
         </div>
 
@@ -79,7 +80,7 @@ export default function CalculatorClient() {
                     {schedule.installments.map((i) => (
                       <tr key={i.installmentNo}>
                         <td>{i.installmentNo}</td>
-                        <td>{new Date(i.dueDate + 'T00:00:00').toLocaleDateString()}</td>
+                        <td>{formatDMY(i.dueDate + 'T00:00:00')}</td>
                         <td>৳{money(i.amount)}</td>
                       </tr>
                     ))}

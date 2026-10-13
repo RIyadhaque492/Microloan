@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getDashboardStats, generateDueNotifications } from '@/lib/data';
-import { money, statusBadgeClass } from '@/lib/utils';
+import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Dashboard - MicroLoan Admin' };
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
               <tr key={l.id}>
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
                 <td>{l.full_name}</td>
-                <td>{l.disbursement_date ? new Date(l.disbursement_date).toLocaleDateString() : '—'}</td>
+                <td>{l.disbursement_date ? formatDMY(l.disbursement_date) : '—'}</td>
                 <td>৳{money(l.loan_amount)}</td>
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
               </tr>

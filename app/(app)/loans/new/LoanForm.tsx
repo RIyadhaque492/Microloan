@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { createLoanAction, saveDraftLoanAction } from '@/lib/actions';
 import { generateScheduleFromInstallment, money } from '@/lib/utils';
+import DateInput from '@/app/(app)/DateInput';
 
 function RegisterButton() {
   const { pending } = useFormStatus();
@@ -119,16 +120,16 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
         </div>
         <div>
           <label className="label">Disbursement Date</label>
-          <input name="disbursement_date" type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <DateInput name="disbursement_date" className="input" value={startDate} onChange={(v: string) => setStartDate(v)} />
         </div>
         <div>
           <label className="label">Maturity Date</label>
-          <input
+          <DateInput
             name="maturity_date"
-            type="date"
+           
             className="input"
             value={maturityDate}
-            onChange={(e) => { setMaturityTouched(true); setMaturityDate(e.target.value); }}
+            onChange={(v: string) => { setMaturityTouched(true); setMaturityDate(v); }}
           />
           <p className="text-xs text-gray-400 mt-1">
             Auto-calculated from tenure + repayment frequency — still editable

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getBorrowers } from '@/lib/data';
-import { statusBadgeClass, matchesIdGroup, inDateRange } from '@/lib/utils';
+import { statusBadgeClass, matchesIdGroup, inDateRange, formatDMY } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
@@ -28,7 +28,7 @@ export default async function BorrowersPage({ searchParams }: { searchParams: { 
             {borrowers.map((b) => (
               <tr key={b.id} className={b.overdue_count > 0 ? 'row-overdue' : ''}>
                 <td>{b.borrower_code}</td>
-                <td>{new Date(b.created_at).toLocaleDateString()}</td>
+                <td>{formatDMY(b.created_at)}</td>
                 <td>{b.full_name}</td>
                 <td>{b.phone}</td>
                 <td>{b.loan_count}</td>

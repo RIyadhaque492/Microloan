@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getBinContents } from '@/lib/data';
 import { restoreBorrowerAction, restoreLoanAction } from '@/lib/actions';
-import { money, statusBadgeClass } from '@/lib/utils';
+import { money, statusBadgeClass, formatDMYTime } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Bin - MicroLoan Admin' };
@@ -28,7 +28,7 @@ export default async function BinPage() {
                 <td>{b.borrower_code}</td>
                 <td>{b.full_name}</td>
                 <td>{b.phone}</td>
-                <td>{new Date(b.deleted_at).toLocaleString()}</td>
+                <td>{formatDMYTime(b.deleted_at)}</td>
                 <td className="text-right">
                   <form action={restoreBorrowerAction.bind(null, b.id)}>
                     <button className="btn btn-outline !py-1 !px-2 text-xs">↩ Restore</button>
@@ -52,7 +52,7 @@ export default async function BinPage() {
                 <td>{l.full_name} ({l.borrower_code}){l.borrower_deleted_at && <span className="text-xs text-red-500 block">member also in Bin</span>}</td>
                 <td>৳{money(l.loan_amount)}</td>
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
-                <td>{new Date(l.deleted_at).toLocaleString()}</td>
+                <td>{formatDMYTime(l.deleted_at)}</td>
                 <td className="text-right">
                   <form action={restoreLoanAction.bind(null, l.id)}>
                     <button className="btn btn-outline !py-1 !px-2 text-xs">↩ Restore</button>

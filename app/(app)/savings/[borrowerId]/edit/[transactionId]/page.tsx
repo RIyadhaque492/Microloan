@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { editSavingsTransactionAction } from '@/lib/actions';
 import { getSavingsNotesSuggestions } from '@/lib/data';
 import PageHeader from '../../../../PageHeader';
+import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Edit Savings Transaction - MicroLoan Admin' };
 
@@ -44,7 +45,7 @@ export default async function EditSavingsTransactionPage({
         </div>
         <div>
           <label className="label">Date</label>
-          <input name="transaction_date" type="date" defaultValue={new Date(transaction.transaction_date).toISOString().slice(0, 10)} className="input" />
+          <DateInput name="transaction_date" defaultValue={new Date(transaction.transaction_date).toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
           <label className="label">Notes</label>

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLoan } from '@/lib/data';
 import { deleteCollectionAction } from '@/lib/actions';
-import { money, titleCase } from '@/lib/utils';
+import { money, titleCase, formatDMY } from '@/lib/utils';
 import PageHeader from '../../../PageHeader';
 
 export const metadata = { title: 'Transaction History - MicroLoan Admin' };
@@ -33,7 +33,7 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-3 flex-shrink-0">
         <div className="rounded-lg bg-purple-50 border border-purple-200 p-2.5">
           <div className="text-[11px] text-purple-700">Disbursement Date</div>
-          <div className="text-base font-bold text-purple-800">{loan.disbursement_date ? new Date(loan.disbursement_date).toLocaleDateString() : '—'}</div>
+          <div className="text-base font-bold text-purple-800">{loan.disbursement_date ? formatDMY(loan.disbursement_date) : '—'}</div>
         </div>
         <div className="rounded-lg bg-sky-50 border border-sky-200 p-2.5">
           <div className="text-[11px] text-sky-700">Loan Amount</div>
@@ -74,7 +74,7 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
                     <tr key={p.id}>
                       <td>{i + 1}</td>
                       <td><Link href={`/collections/receipt/${p.id}`} className="text-teal font-semibold">{p.receipt_no}</Link></td>
-                      <td>{new Date(p.payment_date).toLocaleDateString()}</td>
+                      <td>{formatDMY(p.payment_date)}</td>
                       <td>{p.notes || 'Installment'}</td>
                       <td>{titleCase(p.payment_method)}</td>
                       <td className="text-green-700 font-semibold">৳{money(p.amount_paid)}</td>

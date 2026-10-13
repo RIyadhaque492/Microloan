@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { collectPaymentAction } from '@/lib/actions';
+import DateInput from '@/app/(app)/DateInput';
+import { formatDMY } from '@/lib/utils';
 
 type Installment = { id: number; installment_no: number; due_date: string; amount: string; paid_amount: string; status: string };
 
@@ -56,7 +58,7 @@ export default function CollectForm({
           <select name="installment_id" className="input" value={selectedId} onChange={(e) => onSelectChange(Number(e.target.value))}>
             {installments.map((i) => (
               <option key={i.id} value={i.id}>
-                #{i.installment_no} — Due {new Date(i.due_date).toLocaleDateString()} — ৳{(Number(i.amount) - Number(i.paid_amount)).toFixed(2)} due ({i.status})
+                #{i.installment_no} — Due {formatDMY(i.due_date)} — ৳{(Number(i.amount) - Number(i.paid_amount)).toFixed(2)} due ({i.status})
               </option>
             ))}
           </select>
@@ -76,7 +78,7 @@ export default function CollectForm({
         </div>
         <div>
           <label className="label !mb-0.5">Payment Date</label>
-          <input name="payment_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
+          <DateInput name="payment_date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
         </div>
         <div>
           <label className="label !mb-0.5">Notes</label>

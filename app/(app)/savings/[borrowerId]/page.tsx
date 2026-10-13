@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getBorrower, getSavingsBalance, getSavingsSummary, getSavingsTransactions, getSiteSettings, getSavingsNotesSuggestions } from '@/lib/data';
-import { money, statusBadgeClass } from '@/lib/utils';
+import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import { recordSavingsTransactionAction, deleteSavingsTransactionAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
+import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
 
@@ -45,7 +46,7 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
         <div className="card p-4 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(summary.deposit)}</div><div className="text-xs text-green-700">Total Deposit</div></div>
         <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(summary.withdraw)}</div><div className="text-xs text-amber-700">Total Withdraw</div></div>
         <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">৳{money(balance)}</div><div className="text-xs text-purple-700">Remaining Savings</div></div>
-        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">{summary.lastDate ? new Date(summary.lastDate).toLocaleDateString() : '—'}</div><div className="text-xs text-sky-700">Last Savings Date</div></div>
+        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">{summary.lastDate ? formatDMY(summary.lastDate) : '—'}</div><div className="text-xs text-sky-700">Last Savings Date</div></div>
         <div className="card p-4 border-l-4 border-l-red-500 bg-red-50 col-span-2 lg:col-span-1"><div className="text-lg font-bold text-red-800">{summary.receipts}</div><div className="text-xs text-red-700">Receipts · {Number(settings?.savings_interest_rate || 0)}% p.a.</div></div>
       </div>
 
@@ -67,7 +68,7 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
             </div>
             <div className="w-40">
               <label className="label">Date</label>
-              <input name="transaction_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
+              <DateInput name="transaction_date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
             </div>
             <div className="flex-1 min-w-[180px]">
               <label className="label">Notes</label>
@@ -98,7 +99,7 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
                       <tr key={t.id}>
                         <td>{i + 1}</td>
                         <td>{t.receipt_no || '—'}</td>
-                        <td>{new Date(t.transaction_date).toLocaleDateString()}</td>
+                        <td>{formatDMY(t.transaction_date)}</td>
                         <td><span className={`badge ${statusBadgeClass(t.type)}`}>{t.type}</span></td>
                         <td className={t.type === 'deposit' ? 'text-green-700' : 'text-amber-700'}>
                           {t.type === 'deposit' ? '+' : '-'}৳{money(t.amount)}

@@ -215,7 +215,7 @@ export default function ExportButtons(props: Props) {
 function TablePreview({ props }: { props: Props }) {
   const loanRows = props.loanRows;
 
-  const loanTable = <RegisterTable rows={loanRows} headColor={props.mode === 'single' ? '#0F2A3F' : '#D99A2B'} maxHeight="max-h-[70vh]" />;
+  const loanTable = <RegisterTable rows={loanRows} headColor={props.mode === 'single' ? '#0F2A3F' : '#D99A2B'} maxHeight="max-h-[calc(100dvh-9rem)]" />;
 
   if (props.mode === 'single') {
     const totalPayable = loanRows.reduce((s, r) => s + Number(r.total_payable), 0);

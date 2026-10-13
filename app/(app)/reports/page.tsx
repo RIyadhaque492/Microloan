@@ -6,6 +6,7 @@ import RegisterTable from './RegisterTable';
 import MemberPicker from './MemberPicker';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
+import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Reports - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
@@ -62,11 +63,11 @@ export default async function ReportsPage({
           <MemberPicker members={members} defaultId={borrowerId || undefined} />
           <div>
             <label className="label">Payment date from</label>
-            <input name="from" type="date" defaultValue={searchParams.from} className="input w-40" />
+            <DateInput name="from" defaultValue={searchParams.from} className="input w-40" />
           </div>
           <div>
             <label className="label">Payment date to</label>
-            <input name="to" type="date" defaultValue={searchParams.to} className="input w-40" />
+            <DateInput name="to" defaultValue={searchParams.to} className="input w-40" />
           </div>
           <button className="btn btn-primary">🔍 View Report</button>
           {(searchParams.from || searchParams.to) && borrowerId > 0 && (
@@ -86,7 +87,14 @@ export default async function ReportsPage({
 
             <div className="bg-white p-5">
               <h3 className="font-semibold text-sm text-navy mb-2">Loan Register</h3>
-              <RegisterTable rows={loanRows} headColor="#0F2A3F" maxHeight="max-h-[45vh]" />
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
+                <div className="rounded-lg border border-slate-300 px-3 py-1.5" style={{ backgroundColor: '#E0E7F1' }}><div className="text-[10px] text-navy">LOAN AMOUNT</div><div className="font-bold text-navy">৳{money(totals.loanAmount)}</div></div>
+                <div className="rounded-lg border border-slate-300 px-3 py-1.5" style={{ backgroundColor: '#E0E7F1' }}><div className="text-[10px] text-navy">PAYABLE</div><div className="font-bold text-navy">৳{money(totals.totalPayable)}</div></div>
+                <div className="rounded-lg border border-green-300 bg-green-50 px-3 py-1.5"><div className="text-[10px] text-green-700">PAID</div><div className="font-bold text-green-800">৳{money(totals.totalPaid)}</div></div>
+                <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5"><div className="text-[10px] text-red-700">REMAINING</div><div className="font-bold text-red-800">৳{money(totals.remaining)}</div></div>
+                <div className="rounded-lg border border-teal-300 px-3 py-1.5 col-span-2 md:col-span-1" style={{ backgroundColor: '#E6F6F5' }}><div className="text-[10px] text-teal-700">SAVINGS</div><div className="font-bold" style={{ color: '#0A5A56' }}>৳{money(totals.savings)}</div></div>
+              </div>
+              <RegisterTable rows={loanRows} headColor="#0F2A3F" maxHeight="max-h-[60vh]" />
 
               <div className="mt-6 text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History</div>
               <table className="app-table border-2 border-black">
@@ -180,7 +188,7 @@ export default async function ReportsPage({
       <div className="rounded-xl border-2 border-navy/10 overflow-hidden">
         <div className="bg-gold text-white px-5 py-3 font-semibold text-sm" style={{ backgroundColor: '#d99a2b' }}>All Loans Register — {loanRows.length} loan(s)</div>
         <div className="p-3 bg-white">
-          <RegisterTable rows={loanRows} headColor="#D99A2B" showActions maxHeight="max-h-[55vh]" />
+          <RegisterTable rows={loanRows} headColor="#D99A2B" showActions maxHeight="max-h-[calc(100dvh-17rem)]" />
         </div>
       </div>
     </div>

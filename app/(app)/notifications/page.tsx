@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getNotifications, generateDueNotifications } from '@/lib/data';
 import { markNotificationReadAction, markAllNotificationsReadAction } from '@/lib/actions';
 import PageHeader from '../PageHeader';
+import { formatDMYTime } from '@/lib/utils';
 
 export const metadata = { title: 'Notifications - MicroLoan Admin' };
 
@@ -36,7 +37,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
             <div className="flex-1">
               <p className="font-semibold text-sm">{n.title}</p>
               <p className="text-sm text-gray-600">{n.message}</p>
-              <p className="text-xs text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+              <p className="text-xs text-gray-400 mt-1">{formatDMYTime(n.created_at)}</p>
             </div>
             {!n.is_read && (
               <form action={markNotificationReadAction.bind(null, n.id)}>

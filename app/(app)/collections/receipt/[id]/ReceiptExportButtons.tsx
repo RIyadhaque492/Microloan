@@ -1,6 +1,6 @@
 'use client';
 
-import { titleCase } from '@/lib/utils';
+import { titleCase, formatDMY } from '@/lib/utils';
 import PdfPageViewer from '../../../PdfPageViewer';
 
 import { useState } from 'react';
@@ -105,7 +105,7 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
                 <table className="app-table text-sm">
                   <tbody>
                     <tr><td>Receipt No.</td><td>{receipt.receipt_no}</td></tr>
-                    <tr><td>Date</td><td>{new Date(receipt.payment_date).toLocaleDateString()}</td></tr>
+                    <tr><td>Date</td><td>{formatDMY(receipt.payment_date)}</td></tr>
                     <tr><td>Member</td><td>{receipt.full_name} ({receipt.borrower_code})</td></tr>
                     <tr><td>Loan Code</td><td>{receipt.loan_code}</td></tr>
                     <tr><td>Method</td><td>{titleCase(receipt.payment_method)}</td></tr>

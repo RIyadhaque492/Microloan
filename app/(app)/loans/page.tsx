@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getLoans } from '@/lib/data';
-import { money, statusBadgeClass, matchesIdGroup, inDateRange } from '@/lib/utils';
+import { money, statusBadgeClass, matchesIdGroup, inDateRange, formatDMY } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
@@ -21,7 +21,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
       <FilterBar basePath="/loans" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Loan code, member...">
         <div>
           <label className="text-[11px] text-gray-500 block mb-0.5">Status</label>
-          <select name="status" defaultValue={searchParams.status || ''} className="input w-36">
+          <select name="status" defaultValue={searchParams.status || ''} className="input w-32 !py-1 !text-sm">
             <option value="">All Statuses</option>
             {STATUSES.map((st) => <option key={st} value={st}>{st}</option>)}
           </select>
@@ -45,7 +45,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
                 <td>{l.full_name} <span className="text-xs text-gray-400">({l.borrower_code})</span><div className="text-xs text-gray-400">{l.phone}</div></td>
                 <td className="font-semibold text-navy">৳{money(l.loan_amount)}</td>
-                <td>{l.disbursement_date ? new Date(l.disbursement_date).toLocaleDateString() : '—'}</td>
+                <td>{l.disbursement_date ? formatDMY(l.disbursement_date) : '—'}</td>
                 <td>৳{money(l.total_payable)}</td>
                 <td className="text-green-700 font-semibold">৳{money(l.total_paid)}</td>
                 <td className="font-semibold text-red-600">৳{money(l.remaining_balance)}</td>

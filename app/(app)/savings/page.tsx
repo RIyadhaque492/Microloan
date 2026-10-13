@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getAllMembersSavings, getAllSavingsTotals, getSavingsBorrowerIdsInRange, getSiteSettings, getBorrowersBasic, getSavingsNotesSuggestions } from '@/lib/data';
-import { money, matchesIdGroup } from '@/lib/utils';
+import { money, matchesIdGroup, formatDMY } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 import SavingsQuickAdd from './SavingsQuickAdd';
@@ -33,11 +33,11 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
 
       <FilterBar basePath="/savings" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Savings" qPlaceholder="Search member..." />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(totals.deposit)}</div><div className="text-xs text-sky-700">Total Savings</div></div>
-        <div className="card p-4 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(totals.depositToday)}</div><div className="text-xs text-green-700">Deposit (Today)</div></div>
-        <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(totals.withdrawToday)}</div><div className="text-xs text-amber-700">Withdraw (Today)</div></div>
-        <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">৳{money(remaining)}</div><div className="text-xs text-purple-700">Remaining Savings</div></div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2 flex-shrink-0">
+        <div className="card px-3 py-1.5 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-base font-bold text-sky-800">৳{money(totals.deposit)}</div><div className="text-xs text-sky-700">Total Savings</div></div>
+        <div className="card px-3 py-1.5 border-l-4 border-l-green-500 bg-green-50"><div className="text-base font-bold text-green-800">৳{money(totals.depositToday)}</div><div className="text-xs text-green-700">Deposit (Today)</div></div>
+        <div className="card px-3 py-1.5 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-base font-bold text-amber-800">৳{money(totals.withdrawToday)}</div><div className="text-xs text-amber-700">Withdraw (Today)</div></div>
+        <div className="card px-3 py-1.5 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-base font-bold text-purple-800">৳{money(remaining)}</div><div className="text-xs text-purple-700">Remaining Savings</div></div>
       </div>
 
       <div className="table-wrap flex-1 min-h-0 !overflow-auto overscroll-contain [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10">
@@ -53,7 +53,7 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
                 <td className="text-green-700 font-semibold">৳{money(r.total_deposit)}</td>
                 <td className="text-amber-700 font-semibold">৳{money(r.total_withdraw)}</td>
                 <td className="font-semibold text-purple-700">৳{money(r.balance)}</td>
-                <td>{r.last_savings_date ? new Date(r.last_savings_date).toLocaleDateString() : '—'}</td>
+                <td>{r.last_savings_date ? formatDMY(r.last_savings_date) : '—'}</td>
                 <td className="whitespace-nowrap">
                   <Link href={`/savings/${r.id}`} className="btn btn-outline !py-1 !px-2 text-xs">View</Link>
                   {r.last_transaction_id ? (

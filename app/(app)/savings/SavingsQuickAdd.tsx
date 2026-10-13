@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { quickSavingsAction } from '@/lib/actions';
+import DateInput from '@/app/(app)/DateInput';
 
 type Member = { id: number; borrower_code: string; full_name: string; phone: string };
 
@@ -69,7 +70,7 @@ export default function SavingsQuickAdd({ members, notesSuggestions = [] }: { me
               </div>
               <div>
                 <label className="label">Date</label>
-                <input name="transaction_date" type="date" defaultValue={today} className="input" />
+                <DateInput name="transaction_date" defaultValue={today} className="input" />
               </div>
               <div>
                 <label className="label">Notes</label>

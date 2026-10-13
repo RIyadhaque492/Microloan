@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getLoanForCollection, getCollectionNotesSuggestions } from '@/lib/data';
-import { money, titleCase } from '@/lib/utils';
+import { money, titleCase, formatDMY } from '@/lib/utils';
 import PageHeader from '../../PageHeader';
 import CollectForm from './CollectForm';
 
@@ -46,7 +46,7 @@ export default async function CollectPage({
             <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Total Paid</div><div className="font-bold">৳{money(totalPaid)}</div></div>
             <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Remaining</div><div className="font-bold">৳{money(remaining)}</div></div>
             <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Last Payment</div><div className="font-bold">{lastPayment ? `৳${money(lastPayment.amount_paid)}` : '—'}</div></div>
-            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Last Date · Method</div><div className="font-bold">{lastPayment ? `${new Date(lastPayment.payment_date).toLocaleDateString()} · ${titleCase(lastPayment.payment_method)}` : '—'}</div></div>
+            <div><div className="uppercase text-[10px] text-teal-100 opacity-80">Last Date · Method</div><div className="font-bold">{lastPayment ? `${formatDMY(lastPayment.payment_date)} · ${titleCase(lastPayment.payment_method)}` : '—'}</div></div>
           </div>
         </div>
       </div>
