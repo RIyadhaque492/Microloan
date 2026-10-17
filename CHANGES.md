@@ -43,3 +43,9 @@
 - Longer tables: compact page header, search bar and cards on Members, Loans, Collection, Savings and Reports.
 - Single-member report screen now has the same 5 coloured summary cards as the PDF.
 - reset_all_data.sql: wipes all data (keeps admin + settings). Run manually in Neon when ready.
+
+# Batch 16
+- Member profile picture: round photo on the member profile with a pencil button (add / change / remove). Photos are shrunk in the browser and stored in a new table (run migration_all_pending.sql).
+- Dashboard no longer crashes if the processing_fee column is missing.
+- Single-member report screen now follows the PDF order/colours: summary cards, navy Loan Register bar, alternating Payment History rows, light-teal TOTAL PAID; PDF register total row is the same amber as the screen.
+- migration_all_pending.sql: one safe-to-rerun SQL with every pending change.

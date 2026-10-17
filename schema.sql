@@ -173,3 +173,11 @@ CREATE INDEX IF NOT EXISTS idx_collections_borrower ON collections(borrower_id);
 INSERT INTO admins (full_name, email, phone, password, role)
 VALUES ('System Administrator', 'admin@microloan.com', '0100000000', '$2a$10$5WK7uDYfQwnu/7upbgtxVueJO14nOl25FY5RyjLnJbR54mF/mqgSi', 'super_admin')
 ON CONFLICT (email) DO NOTHING;
+
+-- Member profile pictures
+CREATE TABLE IF NOT EXISTS borrower_photos (
+    borrower_id INTEGER PRIMARY KEY REFERENCES borrowers(id) ON DELETE CASCADE,
+    mime_type VARCHAR(100) NOT NULL,
+    photo_data TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

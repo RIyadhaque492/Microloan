@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance } from '@/lib/data';
+import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance, getBorrowerPhotoVersion } from '@/lib/data';
 import { money, statusBadgeClass, frequencyShortLabel, formatDMY } from '@/lib/utils';
 import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 import UploadForm from './UploadForm';
 import UploadSuccessToast from './UploadSuccessToast';
 import RemoveMenu from './RemoveMenu';
+import ProfilePhoto from './ProfilePhoto';
 
 export const metadata = { title: 'Member Profile - MicroLoan Admin' };
 
@@ -28,6 +29,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
   const loans = (await getLoansForBorrower(id)) as any[];
   const documents = (await getBorrowerDocuments(id)) as any[];
   const savingsBalance = await getSavingsBalance(id);
+  const photoVersion = await getBorrowerPhotoVersion(id);
 
   const uploadAction = uploadDocumentAction.bind(null, id);
 
@@ -50,9 +52,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
       {/* Member details — landscape / horizontal layout */}
       <div className="card p-5 mb-4">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 rounded-full bg-tealight flex items-center justify-center text-2xl font-bold text-teal flex-shrink-0">
-            {borrower.full_name.charAt(0)}
-          </div>
+          <ProfilePhoto borrowerId={id} name={borrower.full_name} version={photoVersion} />
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-bold text-navy text-lg">{borrower.full_name}</h2>

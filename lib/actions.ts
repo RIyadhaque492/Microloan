@@ -653,6 +653,44 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
   redirect(`/savings/${borrowerId}`);
 }
 
+/** Sets or replaces a member's profile picture (the browser shrinks it to ~480px before sending). */
+export async function updateBorrowerPhotoAction(borrowerId: number, formData: FormData) {
+  await requireAdmin();
+  const back = (msg?: string) => `/borrowers/${borrowerId}${msg ? '?error=' + encodeURIComponent(msg) : ''}`;
+
+  const file = formData.get('photo') as File | null;
+  if (!file || file.size === 0) redirect(back('Please choose a photo.'));
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file!.type)) redirect(back('Photo must be a JPG, PNG or WEBP image.'));
+  if (file!.size > 2 * 1024 * 1024) redirect(back('Photo is too large (max 2MB).'));
+
+  const base64 = Buffer.from(await file!.arrayBuffer()).toString('base64');
+  try {
+    await sql`
+      INSERT INTO borrower_photos (borrower_id, mime_type, photo_data, updated_at)
+      VALUES (${borrowerId}, ${file!.type}, ${base64}, now())
+      ON CONFLICT (borrower_id) DO UPDATE SET mime_type = EXCLUDED.mime_type, photo_data = EXCLUDED.photo_data, updated_at = now()
+    `;
+  } catch (err: any) {
+    if (String(err?.message || '').includes('borrower_photos')) {
+      redirect(back('Run migration_add_member_photo.sql in Neon first, then try again.'));
+    }
+    throw err;
+  }
+  revalidatePath(`/borrowers/${borrowerId}`);
+  redirect(`/borrowers/${borrowerId}`);
+}
+
+export async function removeBorrowerPhotoAction(borrowerId: number) {
+  await requireAdmin();
+  try {
+    await sql`DELETE FROM borrower_photos WHERE borrower_id = ${borrowerId}`;
+  } catch {
+    // table not created yet — nothing to remove
+  }
+  revalidatePath(`/borrowers/${borrowerId}`);
+  redirect(`/borrowers/${borrowerId}`);
+}
+
 /** Adds a savings deposit/withdrawal for any member straight from the Savings list page. */
 export async function quickSavingsAction(formData: FormData) {
   const admin = await requireAdmin();

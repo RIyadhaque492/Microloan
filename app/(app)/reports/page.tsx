@@ -86,7 +86,6 @@ export default async function ReportsPage({
             </div>
 
             <div className="bg-white p-5">
-              <h3 className="font-semibold text-sm text-navy mb-2">Loan Register</h3>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
                 <div className="rounded-lg border border-slate-300 px-3 py-1.5" style={{ backgroundColor: '#E0E7F1' }}><div className="text-[10px] text-navy">LOAN AMOUNT</div><div className="font-bold text-navy">৳{money(totals.loanAmount)}</div></div>
                 <div className="rounded-lg border border-slate-300 px-3 py-1.5" style={{ backgroundColor: '#E0E7F1' }}><div className="text-[10px] text-navy">PAYABLE</div><div className="font-bold text-navy">৳{money(totals.totalPayable)}</div></div>
@@ -94,6 +93,7 @@ export default async function ReportsPage({
                 <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5"><div className="text-[10px] text-red-700">REMAINING</div><div className="font-bold text-red-800">৳{money(totals.remaining)}</div></div>
                 <div className="rounded-lg border border-teal-300 px-3 py-1.5 col-span-2 md:col-span-1" style={{ backgroundColor: '#E6F6F5' }}><div className="text-[10px] text-teal-700">SAVINGS</div><div className="font-bold" style={{ color: '#0A5A56' }}>৳{money(totals.savings)}</div></div>
               </div>
+              <div className="text-white font-bold text-sm px-4 py-2 rounded-t" style={{ backgroundColor: '#0F2A3F' }}>Loan Register</div>
               <RegisterTable rows={loanRows} headColor="#0F2A3F" maxHeight="max-h-[60vh]" />
 
               <div className="mt-6 text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History</div>
@@ -107,13 +107,13 @@ export default async function ReportsPage({
                       running += Number(p.amount_paid);
                       const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totals.totalPayable - running);
                       return (
-                        <tr key={p.id} className="border border-black text-center font-bold bg-sky-50">
-                          <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td>
-                          <td className="border border-black text-center font-bold bg-sky-50">{p.receipt_no}</td>
-                          <td className="border border-black text-center font-bold bg-sky-50">{p.notes || 'Installment'}</td>
-                          <td className="border border-black text-center font-bold bg-sky-50">{fmtDate(p.payment_date)}</td>
-                          <td className="border border-black text-center font-bold bg-sky-50">৳{money(p.amount_paid)}</td>
-                          <td className="border border-black text-center font-bold bg-sky-50">৳{money(remaining)}</td>
+                        <tr key={p.id} className={`border border-black text-center font-bold ${i % 2 === 0 ? 'bg-sky-50' : 'bg-white'}`}>
+                          <td className="border border-black text-center font-bold">{i + 1}</td>
+                          <td className="border border-black text-center font-bold">{p.receipt_no}</td>
+                          <td className="border border-black text-center font-bold">{p.notes || 'Installment'}</td>
+                          <td className="border border-black text-center font-bold">{fmtDate(p.payment_date)}</td>
+                          <td className="border border-black text-center font-bold">৳{money(p.amount_paid)}</td>
+                          <td className="border border-black text-center font-bold">৳{money(remaining)}</td>
                         </tr>
                       );
                     });
@@ -123,12 +123,12 @@ export default async function ReportsPage({
                     const finalRemaining = orderedPayments[orderedPayments.length - 1].remaining_after != null ? Number(orderedPayments[orderedPayments.length - 1].remaining_after) : Math.max(0, totals.totalPayable - totalPaid);
                     return (
                       <tr className="bg-tealight font-bold">
-                        <td className="border border-black text-center font-bold bg-sky-50"></td>
-                        <td className="border border-black text-center font-bold bg-sky-50"></td>
-                        <td className="border border-black text-center font-bold bg-sky-50">TOTAL PAID</td>
-                        <td className="border border-black text-center font-bold bg-sky-50"></td>
-                        <td className="border border-black text-center font-bold bg-sky-50">৳{money(totalPaid)}</td>
-                        <td className="border border-black text-center font-bold bg-sky-50">৳{money(finalRemaining)}</td>
+                        <td className="border border-black text-center font-bold bg-teal-100 text-navy"></td>
+                        <td className="border border-black text-center font-bold bg-teal-100 text-navy"></td>
+                        <td className="border border-black text-center font-bold bg-teal-100 text-navy">TOTAL PAID</td>
+                        <td className="border border-black text-center font-bold bg-teal-100 text-navy"></td>
+                        <td className="border border-black text-center font-bold bg-teal-100 text-navy">৳{money(totalPaid)}</td>
+                        <td className="border border-black text-center font-bold bg-teal-100 text-navy">৳{money(finalRemaining)}</td>
                       </tr>
                     );
                   })()}

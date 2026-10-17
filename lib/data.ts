@@ -6,7 +6,11 @@ export async function getDashboardStats() {
   const [disbursed] = await sql`SELECT COALESCE(SUM(loan_amount),0) AS s FROM loans WHERE status IN ('active','completed','defaulted') AND deleted_at IS NULL`;
   const [collected] = await sql`SELECT COALESCE(SUM(c.amount_paid),0) AS s FROM collections c JOIN loans l ON l.id = c.loan_id WHERE l.deleted_at IS NULL`;
   const [payableRow] = await sql`SELECT COALESCE(SUM(total_payable),0) AS s FROM loans WHERE status IN ('active','completed','defaulted') AND deleted_at IS NULL`;
-  const [procFees] = await sql`SELECT COALESCE(SUM(processing_fee),0) AS s FROM loans WHERE deleted_at IS NULL AND status != 'draft'`;
+  // processing_fee exists only after migration_add_age_processing_fee.sql — don't crash the dashboard without it
+  let procFees = { s: 0 } as any;
+  try {
+    [procFees] = await sql`SELECT COALESCE(SUM(processing_fee),0) AS s FROM loans WHERE deleted_at IS NULL AND status != 'draft'`;
+  } catch {}
   const [overdueCount] = await sql`SELECT COUNT(*)::int AS c FROM loan_installments li JOIN loans l ON l.id = li.loan_id WHERE li.status = 'overdue' AND l.deleted_at IS NULL`;
   const [pendingLoans] = await sql`SELECT COUNT(*)::int AS c FROM loans WHERE status = 'pending' AND deleted_at IS NULL`;
   const [outstanding] = await sql`
@@ -225,6 +229,16 @@ export async function getBorrowers(search?: string) {
 export async function getBorrower(id: number) {
   const [borrower] = await sql`SELECT * FROM borrowers WHERE id = ${id}`;
   return borrower || null;
+}
+
+/** When the member's photo was last changed (null = no photo). Safe if the photo table doesn't exist yet. */
+export async function getBorrowerPhotoVersion(borrowerId: number): Promise<number | null> {
+  try {
+    const [row] = await sql`SELECT updated_at FROM borrower_photos WHERE borrower_id = ${borrowerId}`;
+    return row ? new Date(row.updated_at).getTime() : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getLoansForBorrower(borrowerId: number) {
