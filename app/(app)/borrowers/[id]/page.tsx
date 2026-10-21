@@ -1,5 +1,9 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { sql } from '@/lib/db';
+import { getSession } from '@/lib/auth';
+import DateInput from '@/app/(app)/DateInput';
 import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance, getBorrowerPhotoVersion } from '@/lib/data';
 import { money, statusBadgeClass, frequencyShortLabel, formatDMY } from '@/lib/utils';
 import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
@@ -23,6 +27,21 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 
 export default async function BorrowerViewPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string; uploaded?: string } }) {
   const id = Number(params.id);
+
+  // Saves the membership (joining) date typed in the editor below.
+  async function saveMembershipDate(formData: FormData) {
+    'use server';
+    if (!(await getSession())) redirect('/login');
+    const date = String(formData.get('membership_date') || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      redirect(`/borrowers/${id}?error=` + encodeURIComponent('Enter the membership date as dd-mm-yyyy.'));
+    }
+    await sql`UPDATE borrowers SET created_at = ${date}::timestamp + interval '12 hours' WHERE id = ${id}`;
+    revalidatePath(`/borrowers/${id}`);
+    revalidatePath('/borrowers');
+    revalidatePath('/reports');
+    redirect(`/borrowers/${id}`);
+  }
   if (!id || isNaN(id)) notFound();
   const borrower = await getBorrower(id);
   if (!borrower) notFound();
@@ -89,6 +108,18 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
             <div className="font-semibold text-sm mt-1">{borrower.present_address || '—'}</div>
           </div>
         </div>
+
+        <form action={saveMembershipDate} className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-3">
+          <span className="text-xs text-gray-500 font-semibold">📅 Membership Date:</span>
+          <DateInput
+            name="membership_date"
+            required
+            defaultValue={borrower.created_at ? new Date(borrower.created_at).toLocaleDateString('en-CA') : ''}
+            className="input !py-1 !px-2 text-sm w-40"
+          />
+          <button type="submit" className="btn btn-outline !py-1 !px-3 text-xs">Save</button>
+          <span className="text-[11px] text-gray-400">Shown as “Joined” here and as Membership Date in reports.</span>
+        </form>
 
         <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-100">
           <div className="rounded-lg bg-tealight p-3 flex items-center justify-between">
@@ -189,4 +220,3 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
     </div>
   );
 }
-
