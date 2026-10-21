@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { sql } from '@/lib/db';
+import { getSession } from '@/lib/auth';
 import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
@@ -19,6 +22,35 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
 
   const paidTotal = (installments as any[]).reduce((s, i) => s + Number(i.paid_amount), 0);
   const isDraft = loan.status === 'draft';
+  const isoDate = (d: any) => (d ? (typeof d === 'string' ? d.slice(0, 10) : new Date(d).toLocaleDateString('en-CA')) : '');
+
+  // Changes the loan (disbursement) date. Every installment due date and the maturity date move by the
+  // same number of days, so the schedule keeps its shape.
+  async function saveLoanDate(formData: FormData) {
+    'use server';
+    if (!(await getSession())) redirect('/login');
+    const next = String(formData.get('disbursement_date') || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) redirect(`/loans/${id}`);
+    await sql`
+      UPDATE loan_installments
+      SET due_date = due_date + COALESCE(${next}::date - (SELECT disbursement_date::date FROM loans WHERE id = ${id}), 0)::int
+      WHERE loan_id = ${id}
+    `;
+    await sql`
+      UPDATE loans
+      SET maturity_date = maturity_date + COALESCE(${next}::date - disbursement_date::date, 0)::int,
+          disbursement_date = ${next}::date
+      WHERE id = ${id}
+    `;
+    // moved into the future -> no longer overdue; moved into the past -> overdue
+    await sql`UPDATE loan_installments SET status = 'pending' WHERE loan_id = ${id} AND status = 'overdue' AND due_date >= CURRENT_DATE`;
+    await sql`UPDATE loan_installments SET status = 'overdue' WHERE loan_id = ${id} AND status = 'pending' AND due_date < CURRENT_DATE`;
+    revalidatePath(`/loans/${id}`);
+    revalidatePath('/loans');
+    revalidatePath('/collections');
+    revalidatePath('/reports');
+    redirect(`/loans/${id}`);
+  }
 
   return (
     <div>
@@ -73,6 +105,18 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
 
       {!isDraft && (
         <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+          <span className="text-xs text-gray-500 font-semibold">📅 Loan (Disbursement) Date:</span>
+          <form action={saveLoanDate} className="flex items-center gap-2">
+            <DateInput
+              name="disbursement_date"
+              required
+              defaultValue={isoDate(loan.disbursement_date)}
+              className="input !py-1 !px-2 text-sm w-40"
+            />
+            <button type="submit" className="btn btn-outline !py-1 !px-3 text-xs">Save</button>
+          </form>
+          <span className="text-[11px] text-gray-400">Moves every installment due date by the same number of days.</span>
+          <span className="w-full border-t border-gray-100" />
           <span className="text-xs text-gray-500 font-semibold">📅 Maturity Date:</span>
           <form action={updateLoanMaturityDateAction.bind(null, id)} className="flex items-center gap-2">
             <DateInput
