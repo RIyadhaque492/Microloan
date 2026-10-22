@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getBorrowersBasic, getLoanReportRows, getPaymentsForBorrower } from '@/lib/data';
 import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange, formatDMY, formatDMYTime } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
-import RegisterTable from './RegisterTable';
+import { SingleReportBody, AllReportBody } from './ReportView';
 import MemberPicker from './MemberPicker';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
@@ -86,54 +86,7 @@ export default async function ReportsPage({
             </div>
 
             <div className="bg-white p-5">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
-                <div className="rounded-lg border border-slate-300 px-3 py-1.5" style={{ backgroundColor: '#E0E7F1' }}><div className="text-[10px] text-navy">LOAN AMOUNT</div><div className="font-bold text-navy">৳{money(totals.loanAmount)}</div></div>
-                <div className="rounded-lg border border-slate-300 px-3 py-1.5" style={{ backgroundColor: '#E0E7F1' }}><div className="text-[10px] text-navy">PAYABLE</div><div className="font-bold text-navy">৳{money(totals.totalPayable)}</div></div>
-                <div className="rounded-lg border border-green-300 bg-green-50 px-3 py-1.5"><div className="text-[10px] text-green-700">PAID</div><div className="font-bold text-green-800">৳{money(totals.totalPaid)}</div></div>
-                <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5"><div className="text-[10px] text-red-700">REMAINING</div><div className="font-bold text-red-800">৳{money(totals.remaining)}</div></div>
-                <div className="rounded-lg border border-teal-300 px-3 py-1.5 col-span-2 md:col-span-1" style={{ backgroundColor: '#E6F6F5' }}><div className="text-[10px] text-teal-700">SAVINGS</div><div className="font-bold" style={{ color: '#0A5A56' }}>৳{money(totals.savings)}</div></div>
-              </div>
-              <div className="text-white font-bold text-sm px-4 py-2 rounded-t" style={{ backgroundColor: '#0F2A3F' }}>Loan Register</div>
-              <RegisterTable rows={loanRows} headColor="#0F2A3F" maxHeight="max-h-[60vh]" />
-
-              <div className="mt-6 text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History</div>
-              <table className="app-table border-2 border-black">
-                <thead className="[&_th]:text-center [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
-                <tbody>
-                  {orderedPayments.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
-                  {(() => {
-                    let running = 0;
-                    return orderedPayments.map((p, i) => {
-                      running += Number(p.amount_paid);
-                      const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totals.totalPayable - running);
-                      return (
-                        <tr key={p.id} className={`border border-black text-center font-bold ${i % 2 === 0 ? 'bg-sky-50' : 'bg-white'}`}>
-                          <td className="border border-black text-center font-bold">{i + 1}</td>
-                          <td className="border border-black text-center font-bold">{p.receipt_no}</td>
-                          <td className="border border-black text-center font-bold">{p.notes || 'Installment'}</td>
-                          <td className="border border-black text-center font-bold">{fmtDate(p.payment_date)}</td>
-                          <td className="border border-black text-center font-bold">৳{money(p.amount_paid)}</td>
-                          <td className="border border-black text-center font-bold">৳{money(remaining)}</td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                  {orderedPayments.length > 0 && (() => {
-                    const totalPaid = orderedPayments.reduce((s, p) => s + Number(p.amount_paid), 0);
-                    const finalRemaining = orderedPayments[orderedPayments.length - 1].remaining_after != null ? Number(orderedPayments[orderedPayments.length - 1].remaining_after) : Math.max(0, totals.totalPayable - totalPaid);
-                    return (
-                      <tr className="bg-tealight font-bold">
-                        <td className="border border-black text-center font-bold bg-teal-100 text-navy"></td>
-                        <td className="border border-black text-center font-bold bg-teal-100 text-navy"></td>
-                        <td className="border border-black text-center font-bold bg-teal-100 text-navy">TOTAL PAID</td>
-                        <td className="border border-black text-center font-bold bg-teal-100 text-navy"></td>
-                        <td className="border border-black text-center font-bold bg-teal-100 text-navy">৳{money(totalPaid)}</td>
-                        <td className="border border-black text-center font-bold bg-teal-100 text-navy">৳{money(finalRemaining)}</td>
-                      </tr>
-                    );
-                  })()}
-                </tbody>
-              </table>
+              <SingleReportBody rows={loanRows} payments={orderedPayments} totals={totals} />
 
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
             </div>
@@ -162,35 +115,7 @@ export default async function ReportsPage({
         <ExportButtons mode="all" loanRows={loanRows} shareText={shareText} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-          <div className="text-xs text-sky-700">Total Loan Amount</div>
-          <div className="text-lg font-bold text-navy">৳{money(totals.loanAmount)}</div>
-        </div>
-        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-          <div className="text-xs text-sky-700">Total Payable</div>
-          <div className="text-lg font-bold text-navy">৳{money(totals.totalPayable)}</div>
-        </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <div className="text-xs text-green-700">Total Paid</div>
-          <div className="text-lg font-bold text-green-800">৳{money(totals.totalPaid)}</div>
-        </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <div className="text-xs text-red-700">Total Remaining Balance</div>
-          <div className="text-lg font-bold text-red-800">৳{money(totals.remaining)}</div>
-        </div>
-        <div className="rounded-xl border border-teal-300 p-4 col-span-2 md:col-span-1" style={{ backgroundColor: '#E6F6F5' }}>
-          <div className="text-xs text-teal-700">Total Savings</div>
-          <div className="text-lg font-bold" style={{ color: '#0A5A56' }}>৳{money(totals.savings)}</div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border-2 border-navy/10 overflow-hidden">
-        <div className="bg-gold text-white px-5 py-3 font-semibold text-sm" style={{ backgroundColor: '#d99a2b' }}>All Loans Register — {loanRows.length} loan(s)</div>
-        <div className="p-3 bg-white">
-          <RegisterTable rows={loanRows} headColor="#D99A2B" showActions maxHeight="max-h-[calc(100dvh-17rem)]" />
-        </div>
-      </div>
+      <AllReportBody rows={loanRows} totals={totals} showActions />
     </div>
   );
 }

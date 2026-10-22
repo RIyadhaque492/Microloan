@@ -24,6 +24,12 @@ const nextConfig = {
   },
 };
 
+// Shown at the bottom of the sidebar so you can tell at a glance which version is live.
+nextConfig.env = {
+  NEXT_PUBLIC_APP_VERSION: 'Update 22',
+  NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+};
+
 nextConfig.webpack = (config) => {
   // pdf.js tries to load the optional Node-only 'canvas' package; the browser doesn't need it.
   config.resolve.alias.canvas = false;

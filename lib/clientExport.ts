@@ -76,6 +76,10 @@ function pdfFontStyle(st: TextStyle): string {
 const HEADER_PT = { report: { sm: 12, md: 15, lg: 19 }, receipt: { sm: 13, md: 16, lg: 20 } };
 const FOOTER_PT = { report: { sm: 6.5, md: 7.5, lg: 9 }, receipt: { sm: 7.5, md: 8.5, lg: 10 } };
 
+/** Page size (mm) of the document being built — reports are landscape A4, receipts portrait. */
+let PAGE_W = 210;
+let PAGE_H = 297;
+
 /** The branding of the document currently being built (set at the start of each builder). */
 let activeBranding: Branding | null = null;
 
@@ -179,7 +183,7 @@ const RGB_PURPLE: [number, number, number] = [91, 61, 163];
 function drawPageBorder(doc: any) {
   doc.setDrawColor(...RGB_NAVY);
   doc.setLineWidth(0.5);
-  doc.rect(6, 6, 198, 285);
+  doc.rect(6, 6, PAGE_W - 12, PAGE_H - 12);
 }
 
 /** Full-width colored banner at the top of a page, with a title and optional subtitle. */
@@ -193,27 +197,27 @@ function drawBanner(doc: any, title: string, subtitle: string) {
       doc.addImage(b.logo.dataUrl, b.logo.format, 11, 8 + (14 - h) / 2, w, h);
       x = 11 + w + 4;
     }
-    drawHeaderText(doc, b, x, 198, 15, 'report');
+    drawHeaderText(doc, b, x, PAGE_W - 12, 15, 'report');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(90, 100, 110);
-    doc.text(fitTextWidth(doc, `${title}  •  ${subtitle}`, 198 - x), b.headerStyle.align === 'right' ? 198 : b.headerStyle.align === 'center' ? (x + 198) / 2 : x, 21.5, { align: b.headerStyle.align });
+    doc.text(fitTextWidth(doc, `${title}  •  ${subtitle}`, PAGE_W - 12 - x), b.headerStyle.align === 'right' ? PAGE_W - 12 : b.headerStyle.align === 'center' ? (x + PAGE_W - 12) / 2 : x, 21.5, { align: b.headerStyle.align });
     doc.setDrawColor(...hexToRgb(b.headerStyle.color));
     doc.setLineWidth(0.8);
-    doc.line(10, 25.5, 200, 25.5);
+    doc.line(10, 25.5, PAGE_W - 10, 25.5);
     doc.setLineWidth(0.5);
     doc.setTextColor(0, 0, 0);
     return;
   }
   doc.setFillColor(...RGB_NAVY);
-  doc.rect(6, 6, 198, 22, 'F');
+  doc.rect(6, 6, PAGE_W - 12, 22, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
-  doc.text(fitTextWidth(doc, title, 190), 12, 17);
+  doc.text(fitTextWidth(doc, title, PAGE_W - 20), 12, 17);
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(fitTextWidth(doc, subtitle, 190), 12, 24);
+  doc.text(fitTextWidth(doc, subtitle, PAGE_W - 20), 12, 24);
   doc.setTextColor(0, 0, 0);
 }
 
@@ -240,7 +244,7 @@ function drawFooter(doc: any, figures: [string, string][]) {
 /** Page footer: only the address / contact / email block (totals now sit right under the table). */
 function drawReportFooter(doc: any, _X: number, _totals: ReturnType<typeof loanReportTotals>) {
   const b = activeBranding;
-  if (b && footerLines(b).length) drawFooterBlock(doc, b, 12, 198, 264, 4, 'report');
+  if (b && footerLines(b).length) drawFooterBlock(doc, b, 12, PAGE_W - 12, PAGE_H - 22, 4, 'report');
 }
 
 /** A colored, bordered stat box — like a small stat card. Returns nothing, just draws. */
@@ -307,9 +311,9 @@ const SINGLE_REPORT_HEAD = [
   'Installment Amt', 'Tenure', 'Total Paid', 'Remaining Balance', 'Maturity Date', 'Last Payment Date', 'Contact', 'Savings',
 ];
 const SINGLE_REPORT_COL_STYLES: Record<number, any> = {
-  0: { cellWidth: 6, halign: 'center' }, 1: { cellWidth: 21 }, 2: { cellWidth: 13 }, 3: { cellWidth: 13 },
-  4: { cellWidth: 15 }, 5: { cellWidth: 13 }, 6: { cellWidth: 13 }, 7: { cellWidth: 11, halign: 'center' },
-  8: { cellWidth: 13 }, 9: { cellWidth: 13 }, 10: { cellWidth: 13 }, 11: { cellWidth: 13 }, 12: { cellWidth: 17 }, 13: { cellWidth: 12 },
+  0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 33 }, 2: { cellWidth: 19 }, 3: { cellWidth: 20 },
+  4: { cellWidth: 21 }, 5: { cellWidth: 20 }, 6: { cellWidth: 18 }, 7: { cellWidth: 15, halign: 'center' },
+  8: { cellWidth: 20 }, 9: { cellWidth: 20 }, 10: { cellWidth: 19 }, 11: { cellWidth: 19 }, 12: { cellWidth: 22 }, 13: { cellWidth: 19 },
 };
 // PDF headers with manual line breaks so no word is cut in the middle
 const PDF_REPORT_HEAD = [
@@ -340,8 +344,12 @@ function singleReportRow(r: any, sl: number): string[] {
 /** Savings (last) column is coloured differently from the rest of the table. */
 const REPORT_MONEY_COLS = [3, 5, 6, 8, 9, 13];
 function reportCellHook(data: any) {
-  // Money columns (and their headers/totals) are right-aligned so digits line up; Savings included.
-  if (REPORT_MONEY_COLS.includes(data.column.index)) data.cell.styles.halign = 'right';
+  // Header text is centred and white; money columns (body/totals) are right-aligned so digits line up.
+  if (data.section === 'head') {
+    data.cell.styles.halign = 'center';
+    data.cell.styles.valign = 'middle';
+    data.cell.styles.textColor = [255, 255, 255];
+  } else if (REPORT_MONEY_COLS.includes(data.column.index)) data.cell.styles.halign = 'right';
   if (data.column.index !== 13) return;
   if (data.section === 'head') {
     data.cell.styles.fillColor = RGB_TEAL;
@@ -367,7 +375,8 @@ function reportTotalsRow(totals: ReturnType<typeof loanReportTotals>): string[] 
 
 /** Five coloured summary boxes across the top of a report. */
 function drawReportStats(doc: any, X: number, y: number, totals: ReturnType<typeof loanReportTotals>) {
-  const w = 33.6, gap = 4.5, h = 16;
+  const gap = 6, h = 16;
+  const w = (PAGE_W - 2 * X - 4 * gap) / 5;
   const items: [string, number, [number, number, number], [number, number, number]][] = [
     ['LOAN AMOUNT', totals.loanAmount, [224, 231, 241], RGB_NAVY],
     ['PAYABLE', totals.totalPayable, [224, 231, 241], RGB_NAVY],
@@ -390,13 +399,125 @@ function loanReportTotals(rows: any[]) {
 
 /** Single member report — a loan-register table (one row per disbursed loan for this
  *  member) plus every individual payment across all of that member's loans. */
+/**
+ * Turns the on-screen report (the same banner, cards and tables the website shows) into a landscape A4 PDF,
+ * so the PDF looks exactly like the website view: same colours, text sizes, alignment and box sizes.
+ * The saved header (logo + text) and footer (address / contact / email) are added on every page.
+ * Page breaks fall between table rows.
+ */
+export async function buildReportPdfFromElement(el: HTMLElement): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const b = await loadBranding();
+  activeBranding = b;
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  PAGE_W = 297;
+  PAGE_H = 210;
+  const X = 12;
+  const hasHeader = !!(b && (b.headerText || b.logo));
+  const hasFooter = footerLines(b).length > 0;
+  const topY = hasHeader ? 28 : 8;
+  const bottomY = hasFooter ? PAGE_H - 24 : PAGE_H - 8;
+
+  const widthPx = el.offsetWidth;
+  const mmPerPx = (PAGE_W - 2 * X) / widthPx;
+  const limitPx = (bottomY - topY) / mmPerPx;
+
+  // Where a page may end: the bottom edge of any table row / marked block.
+  const top = el.getBoundingClientRect().top;
+  const breaks = Array.from(el.querySelectorAll('tr, [data-break]'))
+    .map((n) => Math.round(n.getBoundingClientRect().bottom - top))
+    .sort((a, c) => a - c);
+
+  // Very long reports could exceed the browser's canvas limits — let the caller fall back to the drawn PDF.
+  if (el.scrollHeight * 1.6 > 30000) throw new Error('report too long to capture');
+
+  const headEl = el.querySelector('thead[data-repeat-head]') as HTMLElement | null;
+  const headTop = headEl ? Math.round(headEl.getBoundingClientRect().top - top) : 0;
+  const headBottom = headEl ? Math.round(headEl.getBoundingClientRect().bottom - top) : 0;
+  const headPx = headBottom - headTop;
+
+  const canvas = await html2canvas(el, {
+    scale: 1.6,
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    logging: false,
+    windowWidth: widthPx,
+    onclone: (_d: Document, node: HTMLElement) => {
+      node.style.left = '0px';
+      node.style.top = '0px';
+    },
+  });
+  const ratio = canvas.width / widthPx;
+  const totalPx = canvas.height / ratio;
+
+  // The table header, kept as a picture so it can be repeated on every following page.
+  let headImg = '';
+  if (headEl && headPx > 0) {
+    const hc = document.createElement('canvas');
+    hc.width = canvas.width;
+    hc.height = Math.max(1, Math.round(headPx * ratio));
+    hc.getContext('2d')!.drawImage(canvas, 0, Math.round(headTop * ratio), canvas.width, hc.height, 0, 0, hc.width, hc.height);
+    headImg = hc.toDataURL('image/jpeg', 0.88);
+  }
+
+  let start = 0;
+  let page = 0;
+  while (start < totalPx - 1) {
+    const repeat = !!headImg && start > headBottom + 2;
+    const avail = repeat ? limitPx - headPx : limitPx;
+    const hardEnd = start + avail;
+    let end = totalPx;
+    if (hardEnd < totalPx) {
+      const fits = breaks.filter((y) => y > start + avail * 0.35 && y <= hardEnd);
+      end = fits.length ? fits[fits.length - 1] : hardEnd;
+    }
+    const slice = document.createElement('canvas');
+    slice.width = canvas.width;
+    slice.height = Math.max(1, Math.round((end - start) * ratio));
+    const ctx = slice.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, slice.width, slice.height);
+    ctx.drawImage(canvas, 0, Math.round(start * ratio), canvas.width, slice.height, 0, 0, slice.width, slice.height);
+
+    if (page > 0) doc.addPage();
+    if (hasHeader && b) {
+      // logo + header text + line, same look as the saved header setting
+      let hx = 12;
+      if (b.logo) {
+        const { w, h } = logoSizeMm(b, 14);
+        doc.addImage(b.logo.dataUrl, b.logo.format, 11, 8 + (14 - h) / 2, w, h);
+        hx = 11 + w + 4;
+      }
+      drawHeaderText(doc, b, hx, PAGE_W - 12, 17, 'report');
+      doc.setDrawColor(...hexToRgb(b.headerStyle.color));
+      doc.setLineWidth(0.8);
+      doc.line(10, 23.5, PAGE_W - 10, 23.5);
+      doc.setLineWidth(0.5);
+    }
+    let y = topY;
+    if (repeat) {
+      doc.addImage(headImg, 'JPEG', X, y, PAGE_W - 2 * X, headPx * mmPerPx);
+      y += headPx * mmPerPx;
+    }
+    doc.addImage(slice.toDataURL('image/jpeg', 0.85), 'JPEG', X, y, PAGE_W - 2 * X, (end - start) * mmPerPx);
+    if (hasFooter && b) drawFooterBlock(doc, b, 12, PAGE_W - 12, PAGE_H - 22, 4, 'report');
+    start = end;
+    page += 1;
+  }
+  return doc.output('blob');
+}
+
 export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   activeBranding = await loadBranding();
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  PAGE_W = 297;
+  PAGE_H = 210;
   const X = 12;
-  const W = 186;
+  const W = PAGE_W - 24;
 
   const totals = loanReportTotals(loanRows);
 
@@ -407,18 +528,18 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
   drawReportStats(doc, X, boxY, totals);
 
   let y = boxY + boxH + 8;
-  drawSectionHeader(doc, 'Loan Register', X, y, W, RGB_NAVY);
+  drawSectionHeader(doc, 'Loan Register', X, y, W, RGB_NAVY, true);
   autoTable(doc, {
     startY: y + 7,
     head: [PDF_REPORT_HEAD],
     body: loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [REPORT_EMPTY_ROW],
     foot: loanRows.length ? [reportTotalsRow(totals)] : undefined,
     showFoot: 'lastPage',
-    headStyles: { fillColor: RGB_NAVY, fontSize: 5.4, valign: 'middle', cellPadding: { left: 1, right: 1, top: 1.6, bottom: 1.6 } },
-    footStyles: { fillColor: [254, 243, 199], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 5.8 },
-    styles: { fontSize: 6.3, cellPadding: { left: 1, right: 1, top: 1.4, bottom: 1.4 } },
+    headStyles: { fillColor: RGB_NAVY, fontSize: 6.8, valign: 'middle', cellPadding: { left: 1.2, right: 1.2, top: 2.2, bottom: 2.2 } },
+    footStyles: { fillColor: [254, 243, 199], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 8, textColor: [15, 42, 63], cellPadding: { left: 1.2, right: 1.2, top: 2, bottom: 2 } },
     columnStyles: SINGLE_REPORT_COL_STYLES,
-    margin: { left: X, right: X, bottom: 32 },
+    margin: { left: X, right: X, bottom: 28 },
     didParseCell: reportCellHook,
     didDrawPage: () => drawPageBorder(doc),
   });
@@ -445,11 +566,11 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     head: [['SL', 'Receipt No.', 'Particulars', 'Date', 'Amount Paid', 'Remaining Balance']],
     body: payBody,
     theme: 'grid',
-    headStyles: { fillColor: RGB_PURPLE, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold' },
+    headStyles: { fillColor: RGB_PURPLE, textColor: [255, 255, 255], lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold' },
     // Bold, centred text on a tinted background (alternating white) like the transaction history screen
-    styles: { fontSize: 7.5, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold', textColor: [15, 42, 63], fillColor: [232, 244, 250] },
-    alternateRowStyles: { fillColor: [255, 255, 255] },
-    margin: { left: X, right: X, bottom: 32 },
+    styles: { fontSize: 9, cellPadding: 2.2, lineColor: RGB_BLACK, lineWidth: 0.3, halign: 'center', valign: 'middle', fontStyle: 'bold', textColor: [15, 42, 63], fillColor: [255, 255, 255] },
+    alternateRowStyles: { fillColor: [232, 244, 250] },
+    margin: { left: X, right: X, bottom: 28 },
     didParseCell: (data: any) => {
       if (data.section === 'body' && data.row.index === payBody.length - 1 && payments.length > 0) {
         data.cell.styles.fontStyle = 'bold';
@@ -472,9 +593,11 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   activeBranding = await loadBranding();
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  PAGE_W = 297;
+  PAGE_H = 210;
   const X = 12;
-  const W = 186;
+  const W = PAGE_W - 24;
 
   const totals = loanReportTotals(loanRows);
 
@@ -485,7 +608,7 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
   drawReportStats(doc, X, boxY, totals);
 
   const y = boxY + boxH + 8;
-  drawSectionHeader(doc, 'All Loans Register', X, y, W, RGB_GOLD);
+  drawSectionHeader(doc, 'All Loans Register', X, y, W, RGB_GOLD, true);
 
   const bodyRows = loanRows.length ? loanRows.map((r, i) => singleReportRow(r, i + 1)) : [REPORT_EMPTY_ROW];
   const footFigures: [string, string][] = [
@@ -502,12 +625,12 @@ export async function buildAllUsersPdfBlob(loanRows: any[]): Promise<Blob> {
     body: bodyRows,
     foot: loanRows.length ? [reportTotalsRow(totals)] : undefined,
     showFoot: 'lastPage',
-    headStyles: { fillColor: RGB_GOLD, fontSize: 5.4, valign: 'middle', cellPadding: { left: 1, right: 1, top: 1.6, bottom: 1.6 } },
-    footStyles: { fillColor: [254, 243, 199], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 5.8 },
-    styles: { fontSize: 6.3, cellPadding: { left: 1, right: 1, top: 1.4, bottom: 1.4 } },
+    headStyles: { fillColor: RGB_GOLD, fontSize: 6.8, valign: 'middle', cellPadding: { left: 1.2, right: 1.2, top: 2.2, bottom: 2.2 } },
+    footStyles: { fillColor: [254, 243, 199], textColor: RGB_NAVY, fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 8, textColor: [15, 42, 63], cellPadding: { left: 1.2, right: 1.2, top: 2, bottom: 2 } },
     columnStyles: SINGLE_REPORT_COL_STYLES,
     didParseCell: reportCellHook,
-    margin: { left: X, right: X, bottom: 32 },
+    margin: { left: X, right: X, bottom: 28 },
     // The bottom-total footer bar is drawn on EVERY page (not just the last), so a
     // multi-page loan register never loses its running grand totals off the bottom
     // of a page — this is the fix for the previously "missing" totals bar.
@@ -526,6 +649,8 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   const autoTable = (await import('jspdf-autotable')).default;
   const branding = await loadBranding();
   activeBranding = branding;
+  PAGE_W = 210;
+  PAGE_H = 297;
   const doc = new jsPDF();
 
   // Outer border around the whole receipt

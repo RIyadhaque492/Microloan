@@ -2,6 +2,7 @@
 
 import { titleCase, formatDMY } from '@/lib/utils';
 import PdfPageViewer from '../../../PdfPageViewer';
+import ShareLinks from '../../../ShareLinks';
 
 import { useState } from 'react';
 import { money } from '@/lib/utils';
@@ -83,6 +84,12 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
         <button onClick={() => setPreview({ kind: 'text' })} type="button" className="btn btn-outline">
           💬 Share
         </button>
+        <ShareLinks
+          bare
+          only={['telegram', 'gmail']}
+          title={`Receipt ${receipt.receipt_no}`}
+          getFile={async () => ({ blob: await buildReceiptPdfBlob(receipt), filename: `receipt-${receipt.receipt_no}.pdf` })}
+        />
       </div>
 
       {preview && (
@@ -96,6 +103,17 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
               </h3>
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
+
+            {(preview.kind === 'pdf' || preview.kind === 'excel') && (
+              <ShareLinks
+                title={`Receipt ${receipt.receipt_no}`}
+                getFile={async () => {
+                  if (preview.kind === 'pdf') return { blob: preview.blob, filename: `receipt-${receipt.receipt_no}.pdf` };
+                  const blob = await buildReceiptExcelBlob(receipt);
+                  return { blob, filename: `receipt-${receipt.receipt_no}.xlsx` };
+                }}
+              />
+            )}
 
             <div className={`flex-1 min-h-0 overflow-auto ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {preview.kind === 'pdf' && (

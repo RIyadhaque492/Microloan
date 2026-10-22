@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = token ? await verifySessionToken(token) : null;
 
-  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+  const isPublicPath = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/s/');
   const isLoginPage = pathname === '/login';
 
   if (!session && !isPublicPath) {

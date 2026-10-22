@@ -2,12 +2,17 @@
 
 import PdfPageViewer from '../PdfPageViewer';
 import RegisterTable from './RegisterTable';
+import ShareLinks from '../ShareLinks';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { ReportPrintView } from './ReportView';
+import { reportTotals } from '@/lib/utils';
 import { money, formatDMY } from '@/lib/utils';
 import {
   shareOrDownloadBlob, downloadBlob,
   buildSingleUserPdfBlob,
+  buildReportPdfFromElement,
   buildSingleUserExcelBlob,
   buildSingleUserWordBlob,
   buildAllUsersPdfBlob,
@@ -34,6 +39,27 @@ export default function ExportButtons(props: Props) {
   const [loading, setLoading] = useState<null | 'pdf' | 'excel' | 'word'>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [copied, setCopied] = useState(false);
+  const [printMount, setPrintMount] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // The PDF is a picture of the website's own report view (so they always match). If capturing ever fails,
+  // fall back to the plain drawn PDF so exporting still works.
+  async function makeReportPdf(): Promise<Blob> {
+    try {
+      flushSync(() => setPrintMount(true));
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      try { await (document as any).fonts?.ready; } catch {}
+      const el = printRef.current;
+      if (!el) throw new Error('print view missing');
+      return await buildReportPdfFromElement(el);
+    } catch {
+      return props.mode === 'single'
+        ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments)
+        : await buildAllUsersPdfBlob(props.loanRows);
+    } finally {
+      flushSync(() => setPrintMount(false));
+    }
+  }
 
   const btnClass = props.onDark
     ? 'btn bg-white/15 backdrop-blur border border-white/30 text-white hover:bg-white/25 !py-1.5 !px-3 text-xs'
@@ -52,10 +78,7 @@ export default function ExportButtons(props: Props) {
   async function openPdfPreview() {
     setLoading('pdf');
     try {
-      const blob =
-        props.mode === 'single'
-          ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments)
-          : await buildAllUsersPdfBlob(props.loanRows);
+      const blob = await makeReportPdf();
       const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : `all-loans-report.pdf`;
       const blobUrl = URL.createObjectURL(blob);
       setPreview({ kind: 'pdf', filename, blob, blobUrl });
@@ -158,6 +181,15 @@ export default function ExportButtons(props: Props) {
         <button onClick={openTextPreview} type="button" className={btnClass}>
           💬 Share Text
         </button>
+        <ShareLinks
+          bare
+          only={['telegram', 'gmail']}
+          title={props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : 'all-loans-report.pdf'}
+          getFile={async () => {
+            const blob = await makeReportPdf();
+            return { blob, filename: props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : 'all-loans-report.pdf' };
+          }}
+        />
       </div>
 
       {preview && (
@@ -180,6 +212,21 @@ export default function ExportButtons(props: Props) {
               </h3>
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
+
+            {(preview.kind === 'pdf' || preview.kind === 'excel' || preview.kind === 'word') && (
+              <ShareLinks
+                title={preview.kind === 'pdf' || preview.kind === 'excel' || preview.kind === 'word' ? preview.filename : 'Report'}
+                getFile={async () => {
+                  if (preview.kind === 'pdf') return { blob: preview.blob, filename: preview.filename };
+                  if (preview.kind === 'excel') {
+                    const blob = props.mode === 'single' ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments) : await buildAllUsersExcelBlob(props.loanRows);
+                    return { blob, filename: preview.filename };
+                  }
+                  const blob = props.mode === 'single' ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments) : await buildAllUsersWordBlob(props.loanRows);
+                  return { blob, filename: (preview as any).filename };
+                }}
+              />
+            )}
 
             <div className={`flex-1 overflow-auto min-h-0 ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {(preview.kind === 'excel' || preview.kind === 'word' || preview.kind === 'view') && <TablePreview props={props} />}
@@ -208,6 +255,19 @@ export default function ExportButtons(props: Props) {
           </div>
         </div>
       )}
+
+      {/* Off-screen copy of the website report: this is what gets photographed into the PDF. */}
+      {printMount && (
+        <div ref={printRef} aria-hidden="true" style={{ position: 'fixed', left: -20000, top: 0, width: 1300, background: '#fff', color: '#1f2937' }}>
+          <ReportPrintView
+            mode={props.mode}
+            member={props.mode === 'single' ? props.member : undefined}
+            rows={props.loanRows}
+            payments={props.mode === 'single' ? props.payments : []}
+            totals={reportTotals(props.loanRows)}
+          />
+        </div>
+      )}
     </>
   );
 }
@@ -227,8 +287,8 @@ function TablePreview({ props }: { props: Props }) {
         {loanTable}
         <div>
           <div className="text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History ({ordered.length})</div>
-          <table className="app-table border-2 border-black">
-            <thead className="[&_th]:text-center [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
+          <table className="app-table border-2 border-black [&_td]:!border-black [&_th]:!border-black">
+            <thead className="[&_th]:text-center [&_th]:!normal-case [&_th]:!tracking-normal [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
             <tbody>
               {ordered.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
               {ordered.map((p: any, i: number) => {
