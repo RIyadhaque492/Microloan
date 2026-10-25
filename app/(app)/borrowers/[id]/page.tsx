@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { setFlash } from '@/lib/flash';
 import DateInput from '@/app/(app)/DateInput';
 import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance, getBorrowerPhotoVersion } from '@/lib/data';
 import { money, statusBadgeClass, frequencyShortLabel, formatDMY } from '@/lib/utils';
@@ -40,6 +41,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
     revalidatePath(`/borrowers/${id}`);
     revalidatePath('/borrowers');
     revalidatePath('/reports');
+    setFlash('Membership date saved');
     redirect(`/borrowers/${id}`);
   }
   if (!id || isNaN(id)) notFound();

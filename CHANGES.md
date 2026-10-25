@@ -50,7 +50,6 @@
 - Single-member report screen now follows the PDF order/colours: summary cards, navy Loan Register bar, alternating Payment History rows, light-teal TOTAL PAID; PDF register total row is the same amber as the screen.
 - migration_all_pending.sql: one safe-to-rerun SQL with every pending change.
 
-# Batch 22
-- Report PDF is now a picture of the website report view itself (same colours, text, alignment, box sizes, taka sign). Landscape A4, header repeats on every page, saved header/footer added. Falls back to the drawn PDF if capturing fails.
-- Website report screens share the same components as the PDF (reports/ReportView.tsx).
-- Version stamp: Update 22.
+# Batch 23
+- Pop-up notifications (toasts) for every action: saved, updated, deleted, restored, registered, payment collected, photo, settings, documents... plus red pop-ups for error messages.
+- Version stamp: Update 23.

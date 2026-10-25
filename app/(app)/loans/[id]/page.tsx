@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { setFlash } from '@/lib/flash';
 import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
@@ -49,6 +50,7 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
     revalidatePath('/loans');
     revalidatePath('/collections');
     revalidatePath('/reports');
+    setFlash('Loan date saved');
     redirect(`/loans/${id}`);
   }
 

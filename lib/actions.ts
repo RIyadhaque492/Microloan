@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { sql } from './db';
+import { setFlash } from './flash';
 import { createSession, destroySession, getSession } from './auth';
 import { generateScheduleFromInstallment } from './utils';
 
@@ -109,6 +110,7 @@ export async function createBorrowerAction(formData: FormData) {
 
   revalidatePath('/borrowers');
   revalidatePath('/loans/new');
+  setFlash('Member added successfully');
   redirect(`/borrowers/${row.id}`);
 }
 
@@ -151,6 +153,7 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
   revalidatePath('/borrowers');
   revalidatePath(`/borrowers/${id}`);
   revalidatePath('/loans/new');
+  setFlash('Member updated successfully');
   redirect(`/borrowers/${id}`);
 }
 
@@ -173,6 +176,7 @@ export async function deleteBorrowerAction(id: number, formData?: FormData) {
   revalidatePath('/borrowers');
   revalidatePath('/loans');
   revalidatePath('/bin');
+  setFlash('Member deleted (moved to Bin)');
   redirect('/borrowers');
 }
 
@@ -183,6 +187,7 @@ export async function restoreBorrowerAction(id: number) {
   revalidatePath('/borrowers');
   revalidatePath('/loans');
   revalidatePath('/bin');
+  setFlash('Member restored successfully');
   redirect('/bin');
 }
 
@@ -268,6 +273,7 @@ export async function saveDraftLoanAction(formData: FormData) {
   `;
 
   revalidatePath('/loans');
+  setFlash('Draft saved');
   redirect(`/loans/${loan.id}`);
 }
 
@@ -302,6 +308,7 @@ export async function finalizeDraftLoanAction(id: number) {
 
   revalidatePath('/loans');
   revalidatePath(`/loans/${id}`);
+  setFlash('Loan registered successfully');
   redirect('/loans');
 }
 
@@ -326,6 +333,7 @@ export async function updateDraftLoanAction(id: number, formData: FormData) {
   `;
 
   revalidatePath(`/loans/${id}`);
+  setFlash('Draft updated');
   redirect(`/loans/${id}`);
 }
 
@@ -334,6 +342,7 @@ export async function updateInstallmentParticularsAction(loanId: number, install
   const particulars = String(formData.get('particulars') || '').trim() || null;
   await sql`UPDATE loan_installments SET particulars = ${particulars} WHERE id = ${installmentId} AND loan_id = ${loanId}`;
   revalidatePath(`/loans/${loanId}`);
+  setFlash('Particulars saved');
   redirect(`/loans/${loanId}`);
 }
 
@@ -343,6 +352,7 @@ export async function updateLoanMaturityDateAction(loanId: number, formData: For
   const maturityDate = String(formData.get('maturity_date') || '') || null;
   await sql`UPDATE loans SET maturity_date = ${maturityDate} WHERE id = ${loanId}`;
   revalidatePath(`/loans/${loanId}`);
+  setFlash('Maturity date saved');
   redirect(`/loans/${loanId}`);
 }
 
@@ -360,6 +370,7 @@ export async function updateLoanStatusAction(id: number, action: string): Promis
   if (!newStatus) return;
 
   await sql`UPDATE loans SET status = ${newStatus}, approved_by = ${admin.adminId} WHERE id = ${id}`;
+  setFlash('Loan status updated');
   revalidatePath(`/loans/${id}`);
   revalidatePath('/loans');
 }
@@ -376,6 +387,7 @@ export async function deleteLoanAction(id: number, formData?: FormData) {
   revalidatePath('/collections');
   revalidatePath('/dashboard');
   revalidatePath('/bin');
+  setFlash('Loan deleted (moved to Bin)');
   redirect('/loans');
 }
 
@@ -389,6 +401,7 @@ export async function removeLoanFromMemberAction(borrowerId: number, loanId: num
   revalidatePath('/dashboard');
   revalidatePath('/bin');
   revalidatePath(`/borrowers/${borrowerId}`);
+  setFlash('Loan deleted (moved to Bin)');
   redirect(`/borrowers/${borrowerId}`);
 }
 
@@ -437,6 +450,7 @@ export async function updateLoanAction(id: number, formData: FormData) {
   revalidatePath('/loans');
   revalidatePath('/collections');
   revalidatePath('/dashboard');
+  setFlash('Loan updated successfully');
   redirect(`/loans/${id}`);
 }
 
@@ -452,6 +466,7 @@ export async function restoreLoanAction(id: number) {
   revalidatePath('/loans');
   revalidatePath('/borrowers');
   revalidatePath('/bin');
+  setFlash('Loan restored successfully');
   redirect('/bin');
 }
 
@@ -535,6 +550,7 @@ export async function deleteCollectionAction(id: number, formData?: FormData) {
   revalidatePath(`/loans/${loanId}`);
   revalidatePath('/collections');
   revalidatePath('/dashboard');
+  setFlash('Receipt deleted');
   redirect(`/collections/history/${loanId}`);
 }
 
@@ -588,6 +604,7 @@ export async function collectPaymentAction(formData: FormData) {
 
   revalidatePath('/collections');
   revalidatePath(`/loans/${loanId}`);
+  setFlash('Payment collected successfully');
   redirect(`/collections/receipt/${collection.id}`);
 }
 
@@ -612,6 +629,7 @@ export async function updateCollectionAction(id: number, formData: FormData) {
 
   revalidatePath(`/loans/${loanId}`);
   revalidatePath('/collections');
+  setFlash('Payment updated successfully');
   redirect(`/loans/${loanId}`);
 }
 
@@ -650,6 +668,7 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
 
   revalidatePath(`/savings/${borrowerId}`);
   revalidatePath('/savings');
+  setFlash('Savings saved successfully');
   redirect(`/savings/${borrowerId}`);
 }
 
@@ -677,6 +696,7 @@ export async function updateBorrowerPhotoAction(borrowerId: number, formData: Fo
     throw err;
   }
   revalidatePath(`/borrowers/${borrowerId}`);
+  setFlash('Photo saved');
   redirect(`/borrowers/${borrowerId}`);
 }
 
@@ -688,6 +708,7 @@ export async function removeBorrowerPhotoAction(borrowerId: number) {
     // table not created yet — nothing to remove
   }
   revalidatePath(`/borrowers/${borrowerId}`);
+  setFlash('Photo removed');
   redirect(`/borrowers/${borrowerId}`);
 }
 
@@ -726,6 +747,7 @@ export async function quickSavingsAction(formData: FormData) {
 
   revalidatePath(`/savings/${borrowerId}`);
   revalidatePath('/savings');
+  setFlash('Savings saved successfully');
   redirect('/savings?added=' + encodeURIComponent(receiptNo));
 }
 
@@ -762,6 +784,7 @@ export async function editSavingsTransactionAction(borrowerId: number, transacti
 
   revalidatePath(`/savings/${borrowerId}`);
   revalidatePath('/savings');
+  setFlash('Savings updated successfully');
   redirect(`/savings/${borrowerId}`);
 }
 
@@ -771,6 +794,7 @@ export async function deleteSavingsTransactionAction(borrowerId: number, transac
   await sql`DELETE FROM savings_transactions WHERE id = ${transactionId} AND borrower_id = ${borrowerId}`;
   revalidatePath(`/savings/${borrowerId}`);
   revalidatePath('/savings');
+  setFlash('Savings entry deleted');
   redirect(`/savings/${borrowerId}`);
 }
 
@@ -823,6 +847,7 @@ export async function updateSiteSettingsAction(formData: FormData) {
 
   revalidatePath('/settings');
   revalidatePath('/');
+  setFlash('Settings saved');
   redirect('/settings?saved=1');
 }
 
@@ -867,6 +892,7 @@ export async function updateDocumentBrandingAction(formData: FormData) {
   }
 
   revalidatePath('/settings');
+  setFlash('Header & footer saved');
   redirect('/settings?saved=doc#documents');
 }
 
@@ -933,6 +959,7 @@ export async function uploadDocumentAction(borrowerId: number, formData: FormDat
   }
 
   revalidatePath(`/borrowers/${borrowerId}`);
+  setFlash('Document uploaded successfully');
   redirect(`/borrowers/${borrowerId}?uploaded=1#documents`);
 }
 
@@ -941,6 +968,7 @@ export async function deleteDocumentAction(borrowerId: number, docId: number, fo
   checkDeletePassword(formData, `/borrowers/${borrowerId}`);
   await sql`DELETE FROM borrower_documents WHERE id = ${docId} AND borrower_id = ${borrowerId}`;
   revalidatePath(`/borrowers/${borrowerId}`);
+  setFlash('Document deleted');
   redirect(`/borrowers/${borrowerId}#documents`);
 }
 
