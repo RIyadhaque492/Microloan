@@ -1,0 +1,189 @@
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { sql } from '@/lib/db';
+import { getSession } from '@/lib/auth';
+import { setFlash } from '@/lib/flash';
+import { getLoan, refreshOverdueInstallments } from '@/lib/data';
+import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
+import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
+import BackLink from '../../BackLink';
+import RegisteredToast from './RegisteredToast';
+import DateInput from '@/app/(app)/DateInput';
+
+export const metadata = { title: 'Loan Details - MicroLoan Admin' };
+
+export default async function LoanViewPage({ params, searchParams }: { params: { id: string }; searchParams: { registered?: string } }) {
+  const id = Number(params.id);
+  if (!id || isNaN(id)) notFound();
+  await refreshOverdueInstallments();
+  const data = await getLoan(id);
+  if (!data) notFound();
+  const { loan, installments } = data;
+
+  const paidTotal = (installments as any[]).reduce((s, i) => s + Number(i.paid_amount), 0);
+  const isDraft = loan.status === 'draft';
+  const isoDate = (d: any) => (d ? (typeof d === 'string' ? d.slice(0, 10) : new Date(d).toLocaleDateString('en-CA')) : '');
+
+  // Changes the loan (disbursement) date. Every installment due date and the maturity date move by the
+  // same number of days, so the schedule keeps its shape.
+  async function saveLoanDate(formData: FormData) {
+    'use server';
+    if (!(await getSession())) redirect('/login');
+    const next = String(formData.get('disbursement_date') || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) redirect(`/loans/${id}`);
+    await sql`
+      UPDATE loan_installments
+      SET due_date = due_date + COALESCE(${next}::date - (SELECT disbursement_date::date FROM loans WHERE id = ${id}), 0)::int
+      WHERE loan_id = ${id}
+    `;
+    await sql`
+      UPDATE loans
+      SET maturity_date = maturity_date + COALESCE(${next}::date - disbursement_date::date, 0)::int,
+          disbursement_date = ${next}::date
+      WHERE id = ${id}
+    `;
+    // moved into the future -> no longer overdue; moved into the past -> overdue
+    await sql`UPDATE loan_installments SET status = 'pending' WHERE loan_id = ${id} AND status = 'overdue' AND due_date >= CURRENT_DATE`;
+    await sql`UPDATE loan_installments SET status = 'overdue' WHERE loan_id = ${id} AND status = 'pending' AND due_date < CURRENT_DATE`;
+    revalidatePath(`/loans/${id}`);
+    revalidatePath('/loans');
+    revalidatePath('/collections');
+    revalidatePath('/reports');
+    setFlash('Loan date saved');
+    redirect(`/loans/${id}`);
+  }
+
+  return (
+    <div>
+      {searchParams.registered === '1' && <RegisteredToast />}
+      <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <BackLink />
+          <div>
+            <h1 className="text-lg font-bold text-navy flex items-center gap-2">
+              {loan.loan_code} <span className={`badge ${statusBadgeClass(loan.status)}`}>{loan.status}</span>
+            </h1>
+            <p className="text-gray-500 text-sm">
+              Member: <Link href={`/borrowers/${loan.borrower_id}`} className="text-teal">{loan.full_name}</Link> ({loan.borrower_code}) — {loan.phone}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {!isDraft && <Link href={`/loans/${id}/edit`} className="btn btn-outline">✏️ Edit</Link>}
+          {isDraft && (
+            <>
+              <Link href={`/loans/${id}/edit-draft`} className="btn btn-outline">✏️ Edit Draft</Link>
+              <form action={finalizeDraftLoanAction.bind(null, id)}><button className="btn btn-primary">✔ Done — Register Loan</button></form>
+            </>
+          )}
+          {loan.status === 'pending' && (
+            <>
+              <form action={updateLoanStatusAction.bind(null, id, 'approve')}><button className="btn btn-primary !bg-green-600">✅ Approve</button></form>
+              <form action={updateLoanStatusAction.bind(null, id, 'reject')}><button className="btn btn-danger-outline">❌ Reject</button></form>
+            </>
+          )}
+          {loan.status === 'approved' && (
+            <form action={updateLoanStatusAction.bind(null, id, 'activate')}><button className="btn btn-primary">▶ Mark Active / Disburse</button></form>
+          )}
+          {loan.status === 'rejected' && (
+            <form action={updateLoanStatusAction.bind(null, id, 'approve')}><button className="btn btn-primary !bg-green-600">✅ Give Loan (Approve)</button></form>
+          )}
+          {!isDraft && <Link href={`/collections/${id}`} className="btn btn-outline">💵 Collect Payment</Link>}
+          <Link href="/loans" prefetch={false} className="btn btn-outline">✔ Done</Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div className="card p-4 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-lg font-bold text-sky-800">৳{money(loan.loan_amount)}</div><div className="text-xs text-sky-700">Loan Amount</div></div>
+        <div className="card p-4 border-l-4 border-l-purple-500 bg-purple-50"><div className="text-lg font-bold text-purple-800">{loan.disbursement_date ? formatDMY(loan.disbursement_date) : '—'}</div><div className="text-xs text-purple-700">Disbursement Date</div></div>
+        <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50"><div className="text-lg font-bold text-amber-800">৳{money(loan.total_payable)}</div><div className="text-xs text-amber-700">Total Payable</div></div>
+        <div className="card p-4 border-l-4 border-l-green-500 bg-green-50"><div className="text-lg font-bold text-green-800">৳{money(paidTotal)}</div><div className="text-xs text-green-700">Total Paid</div></div>
+        <div className="card p-4 border-l-4 border-l-red-500 bg-red-50 col-span-2 lg:col-span-1"><div className="text-lg font-bold text-red-800">৳{money(Math.max(0, Number(loan.total_payable) - paidTotal))}</div><div className="text-xs text-red-700">Balance Remaining</div></div>
+      </div>
+      {Number(loan.processing_fee) > 0 && (
+        <p className="text-xs text-gray-500 -mt-2 mb-4">Processing fee: <strong>৳{money(loan.processing_fee)}</strong></p>
+      )}
+
+      {!isDraft && (
+        <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+          <span className="text-xs text-gray-500 font-semibold">📅 Loan (Disbursement) Date:</span>
+          <form action={saveLoanDate} className="flex items-center gap-2">
+            <DateInput
+              name="disbursement_date"
+              required
+              defaultValue={isoDate(loan.disbursement_date)}
+              className="input !py-1 !px-2 text-sm w-40"
+            />
+            <button type="submit" className="btn btn-outline !py-1 !px-3 text-xs">Save</button>
+          </form>
+          <span className="text-[11px] text-gray-400">Moves every installment due date by the same number of days.</span>
+          <span className="w-full border-t border-gray-100" />
+          <span className="text-xs text-gray-500 font-semibold">📅 Maturity Date:</span>
+          <form action={updateLoanMaturityDateAction.bind(null, id)} className="flex items-center gap-2">
+            <DateInput
+             
+              name="maturity_date"
+              defaultValue={loan.maturity_date ? new Date(loan.maturity_date).toISOString().slice(0, 10) : ''}
+              className="input !py-1 !px-2 text-sm w-40"
+            />
+            <button type="submit" className="btn btn-outline !py-1 !px-3 text-xs">Save</button>
+          </form>
+        </div>
+      )}
+
+      {isDraft ? (
+        <div className="card p-6 text-center text-gray-500 text-sm">
+          This loan is still a draft — no installment schedule has been generated yet. Click <strong>Edit Draft</strong> to fill in the details, then <strong>Done — Register Loan</strong> to finalize it.
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Installment Schedule</div>
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Date</th><th>Particulars</th><th>Amount</th><th>Total Paid</th>
+                <th>Remaining Balance</th><th>Receipt</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                let cumulativePaid = 0;
+                return (installments as any[]).map((i) => {
+                  cumulativePaid += Number(i.paid_amount);
+                  // "Total Paid" and "Remaining Balance" here are running totals for the
+                  // WHOLE loan through this installment — not just this row's own amount —
+                  // so they read the same way a bank passbook does.
+                  const totalRemaining = Math.max(0, Number(loan.total_payable) - cumulativePaid);
+                  return (
+                    <tr key={i.id}>
+                      <td>{i.installment_no}</td>
+                      <td>{formatDMY(i.due_date)}</td>
+                      <td>
+                        <form action={updateInstallmentParticularsAction.bind(null, id, i.id)} className="flex gap-1">
+                          <input name="particulars" defaultValue={i.particulars || ''} placeholder="Installment" className="input !py-1 !px-2 text-xs w-28" />
+                          <button type="submit" className="text-xs text-teal hover:underline flex-shrink-0">Save</button>
+                        </form>
+                      </td>
+                      <td>৳{money(i.amount)}</td>
+                      <td>৳{money(cumulativePaid)}</td>
+                      <td className="font-semibold">৳{money(totalRemaining)}</td>
+                      <td>{i.receipt_no ? <Link href={`/collections/receipt/${i.receipt_id}`} className="text-teal text-xs">{i.receipt_no}</Link> : '—'}</td>
+                      <td><span className={`badge ${statusBadgeClass(i.status)}`}>{i.status}</span></td>
+                      <td>{i.status !== 'paid' && <Link href={`/collections/${id}?installment_id=${i.id}`} className="btn btn-outline !py-1 !px-2 text-xs">Collect</Link>}</td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <form action={deleteLoanAction.bind(null, id)} className="mt-4">
+        <button className="btn btn-danger-outline confirm-delete">🗑 Remove this loan</button>
+        <p className="text-xs text-gray-400 mt-1">Moves it to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
+      </form>
+    </div>
+  );
+}

@@ -1,0 +1,327 @@
+'use client';
+
+import PdfPageViewer from '../PdfPageViewer';
+import RegisterTable from './RegisterTable';
+import ShareMenu from '../ShareMenu';
+
+import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { ReportPrintView } from './ReportView';
+import { reportTotals } from '@/lib/utils';
+import { money, formatDMY } from '@/lib/utils';
+import {
+  shareOrDownloadBlob, downloadBlob,
+  buildSingleUserPdfBlob,
+  buildReportPdfFromElement,
+  buildSingleUserExcelBlob,
+  buildSingleUserWordBlob,
+  buildAllUsersPdfBlob,
+  buildAllUsersExcelBlob,
+  buildAllUsersWordBlob,
+} from '@/lib/clientExport';
+
+type Props =
+  | { mode: 'single'; member: any; loanRows: any[]; payments: any[]; shareText: string; onDark?: boolean }
+  | { mode: 'all'; loanRows: any[]; shareText: string; onDark?: boolean };
+
+type Preview =
+  | { kind: 'excel'; filename: string; mimeType: string }
+  | { kind: 'word'; filename: string; mimeType: string }
+  | { kind: 'pdf'; filename: string; blob: Blob; blobUrl: string }
+  | { kind: 'text' }
+  | { kind: 'view' };
+
+function fmtDate(d: any) {
+  return formatDMY(d);
+}
+
+export default function ExportButtons(props: Props) {
+  const [loading, setLoading] = useState<null | 'pdf' | 'excel' | 'word'>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [printMount, setPrintMount] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // The PDF is a picture of the website's own report view (so they always match). If capturing ever fails,
+  // fall back to the plain drawn PDF so exporting still works.
+  async function makeReportPdf(): Promise<Blob> {
+    try {
+      flushSync(() => setPrintMount(true));
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      try { await (document as any).fonts?.ready; } catch {}
+      const el = printRef.current;
+      if (!el) throw new Error('print view missing');
+      return await buildReportPdfFromElement(el);
+    } catch {
+      return props.mode === 'single'
+        ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments)
+        : await buildAllUsersPdfBlob(props.loanRows);
+    } finally {
+      flushSync(() => setPrintMount(false));
+    }
+  }
+
+  const btnClass = props.onDark
+    ? 'btn bg-white/15 backdrop-blur border border-white/30 text-white hover:bg-white/25 !py-1.5 !px-3 text-xs'
+    : 'btn btn-outline';
+
+  function closePreview() {
+    if (preview?.kind === 'pdf') URL.revokeObjectURL(preview.blobUrl);
+    setPreview(null);
+    setCopied(false);
+  }
+
+  // Shows the PDF in an in-app preview (so it can be checked on-screen first) with
+  // its own Share/Download button, the same "view, then share" flow as Excel/Word —
+  // rather than window.open'ing a new tab, which mobile browsers can silently block
+  // as a popup, making it look like nothing happened.
+  async function openPdfPreview() {
+    setLoading('pdf');
+    try {
+      const blob = await makeReportPdf();
+      const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : `all-loans-report.pdf`;
+      const blobUrl = URL.createObjectURL(blob);
+      setPreview({ kind: 'pdf', filename, blob, blobUrl });
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  function openExcelPreview() {
+    const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.xlsx` : `all-loans-report.xlsx`;
+    setPreview({ kind: 'excel', filename, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  function openWordPreview() {
+    const filename = props.mode === 'single' ? `member-${props.member.borrower_code}.docx` : `all-loans-report.docx`;
+    setPreview({ kind: 'word', filename, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  }
+
+  function openTextPreview() {
+    setPreview({ kind: 'text' });
+  }
+
+  async function confirmShare(mode: 'share' | 'download' = 'share') {
+    const send = (blob: Blob, filename: string, mime: string) => (mode === 'download' ? Promise.resolve(downloadBlob(blob, filename)) : shareOrDownloadBlob(blob, filename, mime));
+    if (!preview) return;
+    if (preview.kind === 'excel') {
+      setLoading('excel');
+      try {
+        const blob =
+          props.mode === 'single'
+            ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments)
+            : await buildAllUsersExcelBlob(props.loanRows);
+        await send(blob, preview.filename, preview.mimeType);
+      } finally {
+        setLoading(null);
+        closePreview();
+      }
+      return;
+    }
+    if (preview.kind === 'word') {
+      setLoading('word');
+      try {
+        const blob =
+          props.mode === 'single'
+            ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments)
+            : await buildAllUsersWordBlob(props.loanRows);
+        await send(blob, preview.filename, preview.mimeType);
+      } finally {
+        setLoading(null);
+        closePreview();
+      }
+      return;
+    }
+    if (preview.kind === 'pdf') {
+      setLoading('pdf');
+      try {
+        await send(preview.blob, preview.filename, 'application/pdf');
+      } finally {
+        setLoading(null);
+        closePreview();
+      }
+      return;
+    }
+    if (preview.kind === 'text') {
+      const nav = navigator as any;
+      if (nav.share) {
+        try {
+          await nav.share({ title: 'MicroLoan Report', text: props.shareText });
+        } catch {
+          /* cancelled */
+        }
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(props.shareText)}`, '_blank');
+      }
+      closePreview();
+    }
+  }
+
+  async function handleCopyText() {
+    await navigator.clipboard.writeText(props.shareText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <>
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => setPreview({ kind: 'view' })} type="button" className={btnClass}>
+          👁 View
+        </button>
+        <button onClick={openPdfPreview} disabled={loading === 'pdf'} type="button" className={btnClass}>
+          {loading === 'pdf' ? 'Preparing…' : '📄 PDF'}
+        </button>
+        <button onClick={openWordPreview} type="button" className={btnClass}>
+          📝 Word
+        </button>
+        <button onClick={openExcelPreview} type="button" className={btnClass}>
+          📊 Excel
+        </button>
+        <button onClick={openTextPreview} type="button" className={btnClass}>
+          💬 Share Text
+        </button>
+        <ShareMenu
+          className={btnClass}
+          title={props.mode === 'single' ? `Credit report — ${props.member.full_name} (${props.member.borrower_code})` : 'All loans report'}
+          getFile={async () => {
+            const blob = await makeReportPdf();
+            return { blob, filename: props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : 'all-loans-report.pdf' };
+          }}
+        />
+      </div>
+
+      {preview && (
+        <div className={`fixed inset-0 z-[100] bg-black/60 flex items-center justify-center ${preview.kind === 'pdf' || preview.kind === 'view' ? '' : 'p-3'}`} onClick={closePreview}>
+          <div
+            className={
+              preview.kind === 'pdf' || preview.kind === 'view'
+                ? 'bg-white w-full h-full flex flex-col overflow-hidden'
+                : 'bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden'
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-navy text-sm">
+                {preview.kind === 'excel' && 'Preview — Excel'}
+                {preview.kind === 'word' && 'Preview — Word'}
+                {preview.kind === 'pdf' && 'Preview — PDF'}
+                {preview.kind === 'view' && 'Report — Full View'}
+                {preview.kind === 'text' && 'Preview — Message Text'}
+              </h3>
+              <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
+            </div>
+
+            <div className={`flex-1 overflow-auto min-h-0 ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
+              {(preview.kind === 'excel' || preview.kind === 'word' || preview.kind === 'view') && <TablePreview props={props} />}
+              {preview.kind === 'pdf' && (
+                <PdfPageViewer url={preview.blobUrl} />
+              )}
+              {preview.kind === 'text' && (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 rounded-lg p-3 border border-gray-200">{props.shareText}</pre>
+              )}
+            </div>
+
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
+              {preview.kind === 'text' && (
+                <button onClick={handleCopyText} type="button" className="btn btn-outline">{copied ? '✅ Copied' : '📋 Copy'}</button>
+              )}
+              <button onClick={closePreview} type="button" className="btn btn-outline">{preview.kind === 'view' ? '✔ Close' : 'Cancel'}</button>
+              {preview.kind !== 'view' && preview.kind !== 'text' && (
+                <button onClick={() => confirmShare('download')} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-outline">
+                  ⬇ Download
+                </button>
+              )}
+              {(preview.kind === 'pdf' || preview.kind === 'excel' || preview.kind === 'word') && (
+                <ShareMenu
+                  openUp
+                  className="btn btn-primary"
+                  title={props.mode === 'single' ? `Credit report — ${props.member.full_name} (${props.member.borrower_code})` : 'All loans report'}
+                  getFile={async () => {
+                    if (preview.kind === 'pdf') return { blob: preview.blob, filename: preview.filename };
+                    if (preview.kind === 'excel') {
+                      const blob = props.mode === 'single' ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments) : await buildAllUsersExcelBlob(props.loanRows);
+                      return { blob, filename: preview.filename };
+                    }
+                    const blob = props.mode === 'single' ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments) : await buildAllUsersWordBlob(props.loanRows);
+                    return { blob, filename: preview.filename };
+                  }}
+                />
+              )}
+              {preview.kind === 'text' && <button onClick={() => confirmShare('share')} type="button" className="btn btn-primary">📤 Share</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Off-screen copy of the website report: this is what gets photographed into the PDF. */}
+      {printMount && (
+        <div ref={printRef} aria-hidden="true" style={{ position: 'fixed', left: -20000, top: 0, width: 1300, background: '#fff', color: '#1f2937' }}>
+          <ReportPrintView
+            mode={props.mode}
+            member={props.mode === 'single' ? props.member : undefined}
+            rows={props.loanRows}
+            payments={props.mode === 'single' ? props.payments : []}
+            totals={reportTotals(props.loanRows)}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function TablePreview({ props }: { props: Props }) {
+  const loanRows = props.loanRows;
+
+  const loanTable = <RegisterTable rows={loanRows} headColor={props.mode === 'single' ? '#0F2A3F' : '#D99A2B'} maxHeight="max-h-[calc(100dvh-9rem)]" />;
+
+  if (props.mode === 'single') {
+    const totalPayable = loanRows.reduce((s, r) => s + Number(r.total_payable), 0);
+    const ordered = [...props.payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
+    let running = 0;
+    return (
+      <div className="space-y-4">
+        <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Loan Register</h4>
+        {loanTable}
+        <div>
+          <div className="text-center text-white font-bold text-sm py-2 rounded-t" style={{ backgroundColor: '#5B3DA3' }}>Payment History ({ordered.length})</div>
+          <table className="app-table border-2 border-black [&_td]:!border-black [&_th]:!border-black">
+            <thead className="[&_th]:text-center [&_th]:!normal-case [&_th]:!tracking-normal [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
+            <tbody>
+              {ordered.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
+              {ordered.map((p: any, i: number) => {
+                running += Number(p.amount_paid);
+                const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totalPayable - running);
+                return (
+                  <tr key={p.id}>
+                    <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td><td className="border border-black text-center font-bold bg-sky-50">{p.receipt_no}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">{p.notes || 'Installment'}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">{fmtDate(p.payment_date)}</td>
+                    <td className="border border-black text-center font-bold bg-sky-50">৳{money(p.amount_paid)}</td><td className="border border-black text-center font-bold bg-sky-50">৳{money(remaining)}</td>
+                  </tr>
+                );
+              })}
+              {ordered.length > 0 && (
+                <tr className="bg-tealight font-bold">
+                  <td className="border border-black text-center font-bold bg-sky-50"></td>
+                  <td className="border border-black text-center font-bold bg-sky-50"></td>
+                  <td className="border border-black text-center font-bold bg-sky-50">TOTAL PAID</td>
+                  <td className="border border-black text-center font-bold bg-sky-50"></td>
+                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(running)}</td>
+                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(ordered.length ? (ordered[ordered.length - 1].remaining_after != null ? Number(ordered[ordered.length - 1].remaining_after) : Math.max(0, totalPayable - running)) : 0)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-sm">
+      <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">{loanRows.length} loan(s)</h4>
+      {loanTable}
+    </div>
+  );
+}

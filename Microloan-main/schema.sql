@@ -1,0 +1,195 @@
+-- =====================================================
+-- MicroLoan Admin — Neon/Postgres schema (complete, current)
+-- Run this once against your Neon database (Neon SQL Editor,
+-- or `psql $DATABASE_URL -f schema.sql`).
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    phone VARCHAR(30),
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'admin',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS borrowers (
+    id SERIAL PRIMARY KEY,
+    borrower_code VARCHAR(40) NOT NULL UNIQUE,
+    full_name VARCHAR(150) NOT NULL,
+    father_name VARCHAR(150),
+    gender VARCHAR(10),
+    age INTEGER,
+    date_of_birth DATE,
+    phone VARCHAR(30) NOT NULL,
+    email VARCHAR(150),
+    nid_number VARCHAR(50),
+    present_address TEXT,
+    occupation VARCHAR(100),
+    monthly_income NUMERIC(12,2) NOT NULL DEFAULT 0,
+    guarantor_name VARCHAR(150),
+    guarantor_relationship VARCHAR(100),
+    guarantor_phone VARCHAR(30),
+    registration_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+    fee_receipt_no VARCHAR(20),
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS loans (
+    id SERIAL PRIMARY KEY,
+    loan_code VARCHAR(40) NOT NULL UNIQUE,
+    borrower_id INTEGER NOT NULL REFERENCES borrowers(id) ON DELETE CASCADE,
+    loan_amount NUMERIC(12,2) NOT NULL,
+    interest_rate NUMERIC(6,3) NOT NULL DEFAULT 0,
+    interest_type VARCHAR(20) NOT NULL DEFAULT 'flat',
+    tenure INTEGER NOT NULL,
+    repayment_frequency VARCHAR(10) NOT NULL DEFAULT 'monthly',
+    total_payable NUMERIC(12,2) NOT NULL DEFAULT 0,
+    installment_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    processing_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+    purpose VARCHAR(255),
+    disbursement_date DATE,
+    maturity_date DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    approved_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS loan_installments (
+    id SERIAL PRIMARY KEY,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    installment_no INTEGER NOT NULL,
+    due_date DATE NOT NULL,
+    amount NUMERIC(12,2) NOT NULL,
+    paid_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    paid_date DATE,
+    particulars VARCHAR(150),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+);
+
+CREATE TABLE IF NOT EXISTS collections (
+    id SERIAL PRIMARY KEY,
+    receipt_no VARCHAR(40) NOT NULL UNIQUE,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    installment_id INTEGER REFERENCES loan_installments(id) ON DELETE SET NULL,
+    borrower_id INTEGER NOT NULL REFERENCES borrowers(id) ON DELETE CASCADE,
+    amount_paid NUMERIC(12,2) NOT NULL,
+    payment_method VARCHAR(20) NOT NULL DEFAULT 'cash',
+    payment_date DATE NOT NULL,
+    notes VARCHAR(255),
+    collected_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    loan_id INTEGER REFERENCES loans(id) ON DELETE CASCADE,
+    borrower_id INTEGER REFERENCES borrowers(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'due_soon',
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS site_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    site_name VARCHAR(150) NOT NULL DEFAULT 'MicroLoan',
+    tagline VARCHAR(255),
+    banner_heading VARCHAR(255),
+    banner_subtext TEXT,
+    banner_image_data TEXT,
+    banner_image_mime VARCHAR(100),
+    about_text TEXT,
+    contact_phone VARCHAR(50),
+    contact_email VARCHAR(150),
+    contact_address TEXT,
+    savings_interest_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    doc_header_text VARCHAR(200),
+    doc_logo_data TEXT,
+    doc_logo_mime VARCHAR(100),
+    doc_footer_address TEXT,
+    doc_footer_contact TEXT,
+    doc_footer_email TEXT,
+    doc_style TEXT,
+    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+    CONSTRAINT single_row CHECK (id = 1)
+);
+
+INSERT INTO site_settings (id, site_name, tagline, banner_heading, banner_subtext, about_text, contact_phone, contact_email, contact_address, savings_interest_rate)
+VALUES (
+    1, 'MicroLoan', 'Fast, Fair, and Flexible Micro Loans',
+    'Grow Your Business With MicroLoan',
+    'Quick approval, flexible repayment plans, and a team that understands what small businesses need.',
+    'We provide accessible micro loans to help local entrepreneurs and families cover business needs, emergencies, and everyday opportunities — with clear terms and no hidden fees.',
+    '+880 1XXX-XXXXXX', 'info@example.com', 'Chattogram, Bangladesh', 5.00
+)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS borrower_documents (
+    id SERIAL PRIMARY KEY,
+    borrower_id INTEGER NOT NULL REFERENCES borrowers(id) ON DELETE CASCADE,
+    doc_title VARCHAR(150) NOT NULL,
+    doc_type VARCHAR(30) NOT NULL DEFAULT 'other',
+    file_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    file_size INTEGER NOT NULL,
+    file_data TEXT NOT NULL,
+    uploaded_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    uploaded_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_borrower ON borrower_documents(borrower_id);
+
+-- Savings — a simple deposit/withdrawal ledger per member. Balance is always
+-- computed as SUM(deposits) - SUM(withdrawals), never cached, so it can never
+-- drift out of sync. Deliberately has no link to loans/installments — savings
+-- and loan debt are tracked completely separately.
+CREATE TABLE IF NOT EXISTS savings_transactions (
+    id SERIAL PRIMARY KEY,
+    borrower_id INTEGER NOT NULL REFERENCES borrowers(id) ON DELETE CASCADE,
+    receipt_no VARCHAR(20) UNIQUE,
+    type VARCHAR(10) NOT NULL, -- 'deposit' or 'withdrawal'
+    amount NUMERIC(12,2) NOT NULL,
+    notes VARCHAR(255),
+    transaction_date DATE NOT NULL,
+    recorded_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_savings_borrower ON savings_transactions(borrower_id);
+
+CREATE INDEX IF NOT EXISTS idx_loans_borrower ON loans(borrower_id);
+CREATE INDEX IF NOT EXISTS idx_installments_loan ON loan_installments(loan_id);
+CREATE INDEX IF NOT EXISTS idx_collections_loan ON collections(loan_id);
+CREATE INDEX IF NOT EXISTS idx_collections_borrower ON collections(borrower_id);
+
+-- Default admin login: admin@microloan.com / admin123
+INSERT INTO admins (full_name, email, phone, password, role)
+VALUES ('System Administrator', 'admin@microloan.com', '0100000000', '$2a$10$5WK7uDYfQwnu/7upbgtxVueJO14nOl25FY5RyjLnJbR54mF/mqgSi', 'super_admin')
+ON CONFLICT (email) DO NOTHING;
+
+-- Member profile pictures
+CREATE TABLE IF NOT EXISTS borrower_photos (
+    borrower_id INTEGER PRIMARY KEY REFERENCES borrowers(id) ON DELETE CASCADE,
+    mime_type VARCHAR(100) NOT NULL,
+    photo_data TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Temporary share links for PDF / Excel / Word files (Telegram, Messenger, WhatsApp, Email)
+CREATE TABLE IF NOT EXISTS shared_files (
+    token VARCHAR(64) PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    file_data TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL
+);

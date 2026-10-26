@@ -1,0 +1,223 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { downloadBlob } from '@/lib/clientExport';
+
+/**
+ * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp.
+ * It always shares the real FILE (the PDF / Excel / Word document) — never a link.
+ *
+ *  • Phone / tablet: the phone's share sheet opens with the file already attached — tap the app there.
+ *    (A website cannot attach a file to one specific app any other way.)
+ *  • Computer: the file is saved to Downloads and the chosen app opens in a new tab, ready for you to
+ *    attach it (browsers do not allow a page to attach a file to another website automatically).
+ */
+export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp';
+
+const APPS: { kind: ShareKind; label: string; icon: string; cls: string }[] = [
+  { kind: 'telegram', label: 'Telegram', icon: '✈️', cls: 'hover:bg-sky-50 text-sky-700' },
+  { kind: 'gmail', label: 'Gmail', icon: '✉️', cls: 'hover:bg-red-50 text-red-700' },
+  { kind: 'messenger', label: 'Messenger', icon: '💬', cls: 'hover:bg-blue-50 text-blue-700' },
+  { kind: 'whatsapp', label: 'WhatsApp', icon: '🟢', cls: 'hover:bg-green-50 text-green-700' },
+];
+
+function isMobileDevice() {
+  const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+}
+
+/** Where to go on a computer (and as the fallback on a phone that cannot attach files). */
+export function shareTarget(kind: ShareKind, subject: string, mobile: boolean): string {
+  const enc = encodeURIComponent;
+  const text = subject;
+  switch (kind) {
+    case 'telegram':
+      return mobile ? 'https://t.me/' : 'https://web.telegram.org/a/';
+    case 'whatsapp':
+      return `https://wa.me/?text=${enc(text)}`;
+    case 'messenger':
+      return 'https://www.messenger.com/';
+    case 'gmail':
+      return mobile
+        ? `mailto:?subject=${enc(subject)}&body=${enc(text)}`
+        : `https://mail.google.com/mail/?view=cm&fs=1&su=${enc(subject)}&body=${enc(text)}`;
+  }
+}
+
+export default function ShareMenu({
+  getFile,
+  title,
+  label = 'Share',
+  className = 'btn btn-outline',
+  openUp = false,
+}: {
+  getFile: () => Promise<{ blob: Blob; filename: string }>;
+  title: string;
+  label?: string;
+  className?: string;
+  openUp?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<ShareKind | null>(null);
+  const [ready, setReady] = useState<'wait' | 'ok' | 'fail'>('wait');
+  const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const filePromise = useRef<Promise<{ blob: Blob; filename: string }> | null>(null);
+  const noteTimer = useRef<any>(null);
+
+  function showNote(text: string, error = false) {
+    clearTimeout(noteTimer.current);
+    setNote({ text, error });
+    noteTimer.current = setTimeout(() => setNote(null), 9000);
+  }
+
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const width = 190;
+      const left = Math.max(8, Math.min(window.innerWidth - width - 8, r.right - width));
+      const up = openUp || window.innerHeight - r.bottom < 230;
+      setPos(up ? { left, bottom: window.innerHeight - r.top + 4 } : { left, top: r.bottom + 4 });
+    }
+    // Make the file now, while the menu is open, so the share sheet can open the instant an app is picked
+    // (phones only allow it right after a tap).
+    setReady('wait');
+    const p = getFile();
+    filePromise.current = p;
+    p.then(
+      () => filePromise.current === p && setReady('ok'),
+      (e) => { if (filePromise.current === p) { setReady('fail'); showNote(e?.message ? `Could not prepare the file: ${e.message}` : 'Could not prepare the file.', true); } }
+    );
+    setOpen(true);
+  }
+
+  function closeMenu() {
+    setOpen(false);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const onMove = () => setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onMove);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onMove);
+    };
+  }, [open]);
+
+  useEffect(() => () => clearTimeout(noteTimer.current), []);
+
+  async function pick(kind: ShareKind) {
+    const app = APPS.find((a) => a.kind === kind)!;
+    const mobile = isMobileDevice();
+    setOpen(false);
+    setBusy(kind);
+    setNote(null);
+
+    // On a computer the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
+    let tab: Window | null = null;
+    if (!mobile) {
+      try { tab = window.open('', '_blank'); } catch { tab = null; }
+    }
+
+    try {
+      const { blob, filename } = await (filePromise.current ?? getFile());
+      const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+      const nav = navigator as any;
+
+      if (mobile && nav.canShare && nav.canShare({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: filename, text: `${title}` });
+          return; // shared (or the share sheet was used)
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return; // closed the share sheet — nothing to do
+          // any other problem: fall through to download + open the app
+        }
+      }
+
+      // Computer (or a phone browser that cannot attach files): save the PDF, then open the app.
+      downloadBlob(blob, filename);
+      const target = shareTarget(kind, title, mobile);
+      if (tab) {
+        tab.location.href = target;
+      } else if (target.startsWith('mailto:')) {
+        window.location.href = target;
+      } else {
+        const w = window.open(target, '_blank');
+        if (!w) { showNote(`${filename} was saved to your Downloads. Open ${app.label} and attach it.`); return; }
+      }
+      showNote(`${filename} saved to your Downloads — attach it in ${app.label}.`);
+    } catch (e: any) {
+      try { tab?.close(); } catch {}
+      showNote(e?.message ? `Could not prepare the file: ${e.message}` : 'Could not prepare the file.', true);
+    } finally {
+      setBusy(null);
+      filePromise.current = null;
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? closeMenu() : openMenu())}
+        disabled={!!busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`${className} disabled:opacity-60`}
+      >
+        {busy ? 'Preparing…' : `📤 ${label} ▾`}
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: 190 }}
+          className="z-[300] rounded-xl border border-gray-200 bg-white shadow-xl py-1 text-sm"
+        >
+          <div className="px-4 pt-1.5 pb-1 text-[11px] text-gray-500 border-b border-gray-100 mb-1">
+            {ready === 'wait' ? '⏳ Preparing the file…' : ready === 'fail' ? '⚠ Could not prepare the file' : 'Send the file via:'}
+          </div>
+          {APPS.map((a) => (
+            <button
+              key={a.kind}
+              type="button"
+              role="menuitem"
+              disabled={ready !== 'ok'}
+              onClick={() => pick(a.kind)}
+              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left font-semibold disabled:opacity-40 disabled:cursor-wait ${a.cls}`}
+            >
+              <span className="text-base leading-none">{a.icon}</span>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {note && (
+        <div
+          role="status"
+          className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[400] max-w-[92vw] rounded-lg px-4 py-2 text-sm shadow-lg text-white ${note.error ? 'bg-red-600' : 'bg-navy'}`}
+          onClick={() => setNote(null)}
+        >
+          {note.text}
+        </div>
+      )}
+    </>
+  );
+}
