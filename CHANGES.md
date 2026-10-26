@@ -62,3 +62,8 @@
 - Reports page: "All / Single member" switch moved up beside the title, slimmer filter + summary cards, so the table starts higher up.
 - New sidebar item "Backup & Restore" (Admin section): download one backup file with all data (members, loans, payments, savings, photos, documents, settings, admins) and restore from it (admin password required; a safety copy of the current data is downloaded automatically before restoring).
 - Database: run migration_add_dob_guarantor_relationship.sql once in Neon (the app also adds the two columns by itself the first time a member is saved).
+
+# Update 25
+- Share (PDF): the real file is now shared on its own through the system share sheet whenever the browser supports it (no title/text next to it, which made apps show only "Receipt 19"). Older browsers: PDF is saved and the app opens in a new tab.
+- Receipt: "Amount Paid" is now "Amount (In BDT):" (screen, PDF, Excel, share text), figure without a currency sign.
+- Whole site: standard colour set (primary teal, success/warning/danger/info), and motion — pages fade up, cards and table rows slide in, buttons lift/press, pop-up windows and menus animate; switched off automatically for people who prefer reduced motion.

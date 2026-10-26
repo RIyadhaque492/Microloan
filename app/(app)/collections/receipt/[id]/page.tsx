@@ -40,7 +40,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     `Date: ${formatDMY(p.payment_date)}`,
     `Member: ${p.full_name} (${p.borrower_code})`,
     `Loan Code: ${p.loan_code}`,
-    `Amount Paid: ৳${money(p.amount_paid)}`,
+    `Amount (In BDT): ${money(p.amount_paid)}`,
     `In words: ${amountInWords(p.amount_paid)}`,
     `Method: ${titleCase(p.payment_method)}`,
   ].join('\n');
@@ -67,8 +67,8 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         </div>
 
         <div className="flex justify-between items-center rounded-lg px-3 py-2 my-3 border border-amber-300" style={{ backgroundColor: '#FFF6DC' }}>
-          <span className="font-semibold text-sm">Amount Paid</span>
-          <span className="font-bold text-teal text-xl">৳{money(p.amount_paid)}</span>
+          <span className="font-semibold text-sm">Amount (In BDT):</span>
+          <span className="font-bold text-teal text-xl">{money(p.amount_paid)}</span>
         </div>
         <p className="font-bold text-teal text-xl leading-snug -mt-1 mb-3 text-left">{amountInWords(p.amount_paid)}</p>
 

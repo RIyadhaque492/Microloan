@@ -725,10 +725,10 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(120, 80, 0);
-  doc.text('Amount Paid', 25, afterTable + 10);
+  doc.text('Amount (In BDT):', 25, afterTable + 10);
   doc.setFontSize(15);
   doc.setTextColor(20, 149, 143);
-  doc.text(`Tk ${money(receipt.amount_paid)}`, 185, afterTable + 10, { align: 'right' });
+  doc.text(`${money(receipt.amount_paid)}`, 185, afterTable + 10, { align: 'right' });
 
   // Amount in words, directly under the Amount Paid box
   doc.setFont('helvetica', 'bold');
@@ -1041,7 +1041,7 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
   }
 
   ws.addRow([]);
-  const amountRow = ws.addRow(['Amount Paid (BDT)', Number(receipt.amount_paid)]);
+  const amountRow = ws.addRow(['Amount (In BDT):', Number(receipt.amount_paid)]);
   amountRow.eachCell((cell: any) => {
     cell.font = { bold: true, size: 12, color: { argb: BRAND_NAVY } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };

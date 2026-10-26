@@ -91,3 +91,98 @@ table.app-table td { border: 1px solid #9ca3af; }
   to { opacity: 1; transform: none; }
 }
 .toast-in { animation: toast-in 0.2s ease-out; }
+
+/* =====================================================================
+   Standard look & motion for the whole site
+   (plain CSS on purpose — works with every page without touching them)
+   ===================================================================== */
+:root {
+  /* standard colours: primary = teal, plus one colour per meaning */
+  --c-navy: #0f2a3f;
+  --c-primary: #14958f;
+  --c-success: #16a34a;
+  --c-warning: #d99a2b;
+  --c-danger: #dc2626;
+  --c-info: #0284c7;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Bengali', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* extra standard buttons / badges */
+.btn-success { background: var(--c-success); color: #fff; }
+.btn-success:hover { background: #15803d; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3); }
+.btn-danger { background: var(--c-danger); color: #fff; }
+.btn-danger:hover { background: #b91c1c; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3); }
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.badge-info { background: #e0f2fe; color: #075985; }
+
+/* keyframes */
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes row-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes card-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* every page fades up when opened (see app/(app)/template.tsx) */
+.page-enter { animation: page-in 0.35s var(--ease-out) both; }
+.pop-in { animation: pop-in 0.16s var(--ease-out) both; transform-origin: top right; }
+
+/* pop-up windows (preview, confirm, success): dim background fades, the box rises in */
+div[class*='fixed inset-0'][class*='bg-black'] { animation: fade-in 0.18s ease-out both; }
+div[class*='fixed inset-0'][class*='bg-black'] > div { animation: modal-in 0.25s var(--ease-out) both; }
+
+/* buttons: lift on hover, press on click */
+.btn { transition: transform 0.15s var(--ease-out), box-shadow 0.15s, background-color 0.15s, border-color 0.15s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+.btn:disabled { cursor: not-allowed; }
+
+/* summary / stat cards in grids: rise in one after another, lift on hover */
+main .grid > .card, main .grid > div[class*='rounded-xl'], main .grid > div[class*='rounded-lg'][class*='border'] {
+  animation: card-in 0.4s var(--ease-out) both;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s;
+}
+main .grid > :nth-child(2) { animation-delay: 0.05s; }
+main .grid > :nth-child(3) { animation-delay: 0.1s; }
+main .grid > :nth-child(4) { animation-delay: 0.15s; }
+main .grid > :nth-child(5) { animation-delay: 0.2s; }
+main .grid > :nth-child(n + 6) { animation-delay: 0.25s; }
+main .grid > .card:hover, main .grid > div[class*='rounded-xl']:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 42, 63, 0.1); }
+
+/* table rows: first rows slide in, hover highlight with a teal edge */
+table.app-table tbody tr { animation: row-in 0.3s var(--ease-out) both; }
+table.app-table tbody tr:nth-child(2) { animation-delay: 0.03s; }
+table.app-table tbody tr:nth-child(3) { animation-delay: 0.06s; }
+table.app-table tbody tr:nth-child(4) { animation-delay: 0.09s; }
+table.app-table tbody tr:nth-child(5) { animation-delay: 0.12s; }
+table.app-table tbody tr:nth-child(6) { animation-delay: 0.15s; }
+table.app-table tbody tr:nth-child(n + 7) { animation-delay: 0.18s; }
+table.app-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--c-primary); }
+
+/* sidebar links nudge on hover */
+aside nav a { transition: background-color 0.15s, padding-left 0.15s var(--ease-out), color 0.15s; }
+aside nav a:hover { padding-left: 1.25rem; }
+
+/* links and focus */
+a { transition: color 0.15s; }
+:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+
+/* progress bars / loading text */
+.animate-soft { animation: pulse-soft 1.4s ease-in-out infinite; }
+
+/* people who prefer less motion get none */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* the PDF/print capture must never be mid-animation */
+[aria-hidden='true'][style*='-20000'] * { animation: none !important; transition: none !important; }

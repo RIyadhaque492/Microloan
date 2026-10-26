@@ -7,10 +7,11 @@ import { downloadBlob } from '@/lib/clientExport';
  * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp.
  * It always shares the real FILE (the PDF / Excel / Word document) — never a link.
  *
- *  • Phone / tablet: the phone's share sheet opens with the file already attached — tap the app there.
- *    (A website cannot attach a file to one specific app any other way.)
- *  • Computer: the file is saved to Downloads and the chosen app opens in a new tab, ready for you to
- *    attach it (browsers do not allow a page to attach a file to another website automatically).
+ *  • Whenever the browser can share files (phones, tablets, Windows/Mac Chrome-Edge-Safari): the system share
+ *    sheet opens with the PDF itself attached — pick the app there. (A website cannot attach a file to one
+ *    specific app any other way, and nothing but the file is sent along, so apps never show just a text title.)
+ *  • Otherwise (older browsers): the file is saved to Downloads and the chosen app opens in a new tab,
+ *    ready for you to attach it.
  */
 export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp';
 
@@ -29,18 +30,17 @@ function isMobileDevice() {
 /** Where to go on a computer (and as the fallback on a phone that cannot attach files). */
 export function shareTarget(kind: ShareKind, subject: string, mobile: boolean): string {
   const enc = encodeURIComponent;
-  const text = subject;
   switch (kind) {
     case 'telegram':
       return mobile ? 'https://t.me/' : 'https://web.telegram.org/a/';
     case 'whatsapp':
-      return `https://wa.me/?text=${enc(text)}`;
+      return mobile ? 'https://wa.me/' : 'https://web.whatsapp.com/';
     case 'messenger':
       return 'https://www.messenger.com/';
     case 'gmail':
       return mobile
-        ? `mailto:?subject=${enc(subject)}&body=${enc(text)}`
-        : `https://mail.google.com/mail/?view=cm&fs=1&su=${enc(subject)}&body=${enc(text)}`;
+        ? `mailto:?subject=${enc(subject)}`
+        : `https://mail.google.com/mail/?view=cm&fs=1&su=${enc(subject)}`;
   }
 }
 
@@ -127,26 +127,34 @@ export default function ShareMenu({
     setBusy(kind);
     setNote(null);
 
-    // On a computer the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
+    // Can this browser hand a real file to the system share sheet? (Checked right now, inside the click.)
+    const nav = navigator as any;
+    let nativeOK = false;
+    try {
+      nativeOK = !!nav.canShare && !!nav.share && nav.canShare({ files: [new File(['x'], 'probe.pdf', { type: 'application/pdf' })] });
+    } catch { nativeOK = false; }
+
+    // If not, the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
     let tab: Window | null = null;
-    if (!mobile) {
+    if (!nativeOK && !mobile) {
       try { tab = window.open('', '_blank'); } catch { tab = null; }
     }
 
     try {
       const { blob, filename } = await (filePromise.current ?? getFile());
       const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-      const nav = navigator as any;
 
-      if (mobile && nav.canShare && nav.canShare({ files: [file] })) {
+      if (nativeOK && nav.canShare({ files: [file] })) {
         try {
-          await nav.share({ files: [file], title: filename, text: `${title}` });
+          // ONLY the file — a title/text next to it makes some apps (WhatsApp, Telegram) send just that text.
+          await nav.share({ files: [file] });
           return; // shared (or the share sheet was used)
         } catch (e: any) {
           if (e?.name === 'AbortError') return; // closed the share sheet — nothing to do
           // any other problem: fall through to download + open the app
         }
       }
+      if (!tab && !mobile) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
 
       // Computer (or a phone browser that cannot attach files): save the PDF, then open the app.
       downloadBlob(blob, filename);
@@ -188,7 +196,7 @@ export default function ShareMenu({
           ref={menuRef}
           role="menu"
           style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: 190 }}
-          className="z-[300] rounded-xl border border-gray-200 bg-white shadow-xl py-1 text-sm"
+          className="pop-in z-[300] rounded-xl border border-gray-200 bg-white shadow-xl py-1 text-sm"
         >
           <div className="px-4 pt-1.5 pb-1 text-[11px] text-gray-500 border-b border-gray-100 mb-1">
             {ready === 'wait' ? '⏳ Preparing the file…' : ready === 'fail' ? '⚠ Could not prepare the file' : 'Send the file via:'}
