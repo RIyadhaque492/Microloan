@@ -70,3 +70,10 @@
 
 # Update 26
 - Share on a computer: Telegram / Gmail / Messenger / WhatsApp now open their own website (PDF saved to Downloads, ready to attach) instead of the Windows share window, which only lists apps installed on the PC. New "More apps…" item opens the system share window with the PDF attached. Phones still use the share sheet with the PDF attached.
+
+# Update 27 — direct share (no download)
+- Share > Telegram: the PDF is sent straight to your Telegram chat by a bot. Share > Gmail: asks for an email address and sends the PDF as an attachment. Nothing is downloaded or attached by hand. (Messenger / WhatsApp keep the previous behaviour; "More apps…" opens the system share window.)
+- Until the settings below exist, Telegram/Gmail fall back to the old way (PDF saved + app opened), so nothing breaks.
+- Setup, Telegram (2 minutes): in Telegram open @BotFather > /newbot > copy the token. Open your new bot and press Start, send it any message. Then open https://api.telegram.org/bot<TOKEN>/getUpdates in the browser and copy the number after "chat":{"id": — that is the chat id (for a group: add the bot to the group, send a message, same link, id starts with -).
+- Setup, Gmail: Google Account > Security > turn on 2-Step Verification > App passwords > create one (16 letters).
+- In Vercel > Project > Settings > Environment Variables add: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SMTP_USER (your gmail), SMTP_PASS (the app password). Then Redeploy.

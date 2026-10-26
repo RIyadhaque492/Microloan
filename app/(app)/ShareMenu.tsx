@@ -64,6 +64,8 @@ export default function ShareMenu({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<ShareKind | null>(null);
   const [ready, setReady] = useState<'wait' | 'ok' | 'fail'>('wait');
+  const [emailAsk, setEmailAsk] = useState<null | { resolve: (v: string | null) => void }>(null);
+  const [emailVal, setEmailVal] = useState('');
   const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -124,12 +126,60 @@ export default function ShareMenu({
 
   useEffect(() => () => clearTimeout(noteTimer.current), []);
 
+  /** Asks for the e-mail address to send to (remembered for next time). Resolves null if cancelled. */
+  function askEmail(): Promise<string | null> {
+    let last = '';
+    try { last = localStorage.getItem('microloan_share_email') || ''; } catch {}
+    setEmailVal(last);
+    return new Promise((resolve) => setEmailAsk({ resolve }));
+  }
+
+  /** Telegram / Gmail on a computer: the server sends the file itself — nothing is downloaded or attached by hand. */
+  async function sendDirect(kind: 'telegram' | 'gmail'): Promise<'sent' | 'failed' | 'fallback'> {
+    let to = '';
+    if (kind === 'gmail') {
+      const v = await askEmail();
+      if (!v) return 'failed';
+      to = v;
+      try { localStorage.setItem('microloan_share_email', v); } catch {}
+    }
+    setBusy(kind);
+    try {
+      const { blob, filename } = await (filePromise.current ?? getFile());
+      const fd = new FormData();
+      fd.set('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
+      fd.set('kind', kind);
+      fd.set('to', to);
+      fd.set('title', title);
+      const res = await fetch('/api/send-file', { method: 'POST', body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showNote(kind === 'telegram' ? '✅ PDF sent to Telegram.' : `✅ PDF emailed to ${to}.`);
+        return 'sent';
+      }
+      if (json.code === 'not_configured') return 'fallback';
+      showNote(json.error || 'Could not send the file.', true);
+      return 'failed';
+    } catch (e: any) {
+      showNote(e?.message ? `Could not send: ${e.message}` : 'Could not send the file.', true);
+      return 'failed';
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function pick(kind: ShareKind) {
     const app = APPS.find((a) => a.kind === kind)!;
     const mobile = isMobileDevice();
     setOpen(false);
-    setBusy(kind);
     setNote(null);
+
+    if (!mobile && (kind === 'telegram' || kind === 'gmail')) {
+      const r = await sendDirect(kind);
+      if (r !== 'fallback') { filePromise.current = null; return; }
+      // not set up on the server yet -> old way (download + open the app) below
+    }
+    setBusy(kind);
 
     // Can this browser hand a real file to the system share sheet? (Checked right now, inside the click.)
     const nav = navigator as any;
@@ -220,6 +270,30 @@ export default function ShareMenu({
               {a.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {emailAsk && (
+        <div className="fixed inset-0 z-[500] bg-black/50 flex items-center justify-center px-4" onClick={() => { emailAsk.resolve(null); setEmailAsk(null); }}>
+          <form
+            className="bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const v = emailVal.trim();
+              if (!/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(v)) return;
+              emailAsk.resolve(v);
+              setEmailAsk(null);
+            }}
+          >
+            <h3 className="font-bold text-navy mb-1">✉️ Send by email</h3>
+            <p className="text-xs text-gray-500 mb-3">The PDF is attached and sent straight from the server.</p>
+            <input type="email" required autoFocus value={emailVal} onChange={(e) => setEmailVal(e.target.value)} placeholder="name@example.com" className="input mb-3" />
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn btn-outline" onClick={() => { emailAsk.resolve(null); setEmailAsk(null); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Send</button>
+            </div>
+          </form>
         </div>
       )}
 
