@@ -7,19 +7,21 @@ import { downloadBlob } from '@/lib/clientExport';
  * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp.
  * It always shares the real FILE (the PDF / Excel / Word document) — never a link.
  *
- *  • Whenever the browser can share files (phones, tablets, Windows/Mac Chrome-Edge-Safari): the system share
- *    sheet opens with the PDF itself attached — pick the app there. (A website cannot attach a file to one
+ *  • Phones/tablets (and "More apps…" anywhere): the system share sheet opens with the PDF itself attached — pick
+ *    the app there. On a computer that sheet only lists apps installed on that computer, so the four named apps
+ *    below open their own website instead (PDF saved to Downloads, ready to attach). (A website cannot attach a file to one
  *    specific app any other way, and nothing but the file is sent along, so apps never show just a text title.)
  *  • Otherwise (older browsers): the file is saved to Downloads and the chosen app opens in a new tab,
  *    ready for you to attach it.
  */
-export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp';
+export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp' | 'system';
 
 const APPS: { kind: ShareKind; label: string; icon: string; cls: string }[] = [
   { kind: 'telegram', label: 'Telegram', icon: '✈️', cls: 'hover:bg-sky-50 text-sky-700' },
   { kind: 'gmail', label: 'Gmail', icon: '✉️', cls: 'hover:bg-red-50 text-red-700' },
   { kind: 'messenger', label: 'Messenger', icon: '💬', cls: 'hover:bg-blue-50 text-blue-700' },
   { kind: 'whatsapp', label: 'WhatsApp', icon: '🟢', cls: 'hover:bg-green-50 text-green-700' },
+  { kind: 'system', label: 'More apps…', icon: '📲', cls: 'hover:bg-gray-50 text-gray-700 border-t border-gray-100' },
 ];
 
 function isMobileDevice() {
@@ -33,6 +35,8 @@ export function shareTarget(kind: ShareKind, subject: string, mobile: boolean): 
   switch (kind) {
     case 'telegram':
       return mobile ? 'https://t.me/' : 'https://web.telegram.org/a/';
+    case 'system':
+      return '';
     case 'whatsapp':
       return mobile ? 'https://wa.me/' : 'https://web.whatsapp.com/';
     case 'messenger':
@@ -136,7 +140,8 @@ export default function ShareMenu({
 
     // If not, the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
     let tab: Window | null = null;
-    if (!nativeOK && !mobile) {
+    const useNative = nativeOK && (mobile || kind === 'system');
+    if (!useNative && !mobile && kind !== 'system') {
       try { tab = window.open('', '_blank'); } catch { tab = null; }
     }
 
@@ -144,7 +149,7 @@ export default function ShareMenu({
       const { blob, filename } = await (filePromise.current ?? getFile());
       const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
 
-      if (nativeOK && nav.canShare({ files: [file] })) {
+      if (useNative && nav.canShare({ files: [file] })) {
         try {
           // ONLY the file — a title/text next to it makes some apps (WhatsApp, Telegram) send just that text.
           await nav.share({ files: [file] });
@@ -154,6 +159,7 @@ export default function ShareMenu({
           // any other problem: fall through to download + open the app
         }
       }
+      if (kind === 'system') { downloadBlob(blob, filename); showNote(`${filename} saved to your Downloads.`); return; }
       if (!tab && !mobile) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
 
       // Computer (or a phone browser that cannot attach files): save the PDF, then open the app.

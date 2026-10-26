@@ -67,3 +67,6 @@
 - Share (PDF): the real file is now shared on its own through the system share sheet whenever the browser supports it (no title/text next to it, which made apps show only "Receipt 19"). Older browsers: PDF is saved and the app opens in a new tab.
 - Receipt: "Amount Paid" is now "Amount (In BDT):" (screen, PDF, Excel, share text), figure without a currency sign.
 - Whole site: standard colour set (primary teal, success/warning/danger/info), and motion — pages fade up, cards and table rows slide in, buttons lift/press, pop-up windows and menus animate; switched off automatically for people who prefer reduced motion.
+
+# Update 26
+- Share on a computer: Telegram / Gmail / Messenger / WhatsApp now open their own website (PDF saved to Downloads, ready to attach) instead of the Windows share window, which only lists apps installed on the PC. New "More apps…" item opens the system share window with the PDF attached. Phones still use the share sheet with the PDF attached.
