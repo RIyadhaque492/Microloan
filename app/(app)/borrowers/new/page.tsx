@@ -1,13 +1,13 @@
-import { getNextMemberId, getPresentAddressSuggestions, getMonthlyIncomeSuggestions, getMemberFieldSuggestions, getAgeSuggestions } from '@/lib/data';
+import { getNextMemberId, getPresentAddressSuggestions, getMonthlyIncomeSuggestions, getMemberFieldSuggestions } from '@/lib/data';
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
+import DobAgeFields from '../DobAgeFields';
 
 export const metadata = { title: 'Add Member - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
 export default async function NewBorrowerPage({ searchParams }: { searchParams: { error?: string } }) {
   const suggestedId = await getNextMemberId();
-  const ageSuggestions = await getAgeSuggestions();
   const [addressSuggestions, incomeSuggestions, fieldSuggestions] = await Promise.all([
     getPresentAddressSuggestions(),
     getMonthlyIncomeSuggestions(),
@@ -19,7 +19,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
       <PageHeader title="Add Member" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <datalist id="age-suggestions">{ageSuggestions.map((a) => <option key={a} value={a} />)}</datalist>
+      <datalist id="relationship-suggestions">{['Father','Mother','Husband','Wife','Son','Daughter','Brother','Sister','Uncle','Aunt','Cousin','Neighbour','Friend','Employer'].map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="father-suggestions">{fieldSuggestions.fathers.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="occupation-suggestions">{fieldSuggestions.occupations.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="guarantor-suggestions">{fieldSuggestions.guarantors.map((v) => <option key={v} value={v} />)}</datalist>
@@ -39,7 +39,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
               <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
             </select>
           </div>
-          <div><label className="label">Age</label><input name="age" type="number" min="0" max="120" inputMode="numeric" list="age-suggestions" className="input" /></div>
+          <DobAgeFields />
           <div><label className="label">Phone *</label><input name="phone" required className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" className="input" /></div>
@@ -61,6 +61,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
             </datalist>
           </div>
           <div><label className="label">Guarantor Name</label><input name="guarantor_name" list="guarantor-suggestions" className="input" /></div>
+          <div><label className="label">Relationship with Guarantor</label><input name="guarantor_relationship" list="relationship-suggestions" placeholder="e.g. Brother" className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" className="input" /></div>
           <div>
             <label className="label">Registration Fee (৳)</label>

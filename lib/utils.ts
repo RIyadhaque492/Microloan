@@ -271,3 +271,31 @@ export function formatDMYTime(value: any = new Date()): string {
   h = h % 12 || 12;
   return `${formatDMY(dt)}, ${String(h).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')} ${ampm}`;
 }
+
+/** Today's date as yyyy-mm-dd in Bangladesh time (Asia/Dhaka). Used for every "today" default so the
+ *  date boxes always match the real date — the server runs on UTC, which is a day behind from 00:00 to 06:00. */
+export function todayISO(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+/** Age in whole years from a yyyy-mm-dd birth date (as of today). Returns null for an empty/invalid/future date. */
+export function calcAge(dobIso: string | null | undefined, onDate: string = todayISO()): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dobIso || ''));
+  const t = /^(\d{4})-(\d{2})-(\d{2})$/.exec(onDate);
+  if (!m || !t) return null;
+  const [by, bm, bd] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const [ty, tm, td] = [Number(t[1]), Number(t[2]), Number(t[3])];
+  const probe = new Date(Date.UTC(by, bm - 1, bd));
+  if (probe.getUTCFullYear() !== by || probe.getUTCMonth() !== bm - 1 || probe.getUTCDate() !== bd) return null;
+  let age = ty - by;
+  if (tm < bm || (tm === bm && td < bd)) age--;
+  return age >= 0 && age <= 130 ? age : null;
+}
+
+/** A DATE column value (Date or string) as yyyy-mm-dd, or '' when empty. */
+export function toISODate(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value.slice(0, 10);
+  const d = value instanceof Date ? value : new Date(value);
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-CA');
+}

@@ -55,10 +55,9 @@ export default async function ReportsPage({
 
     return (
       <div>
-        <PageHeader title="Reports" />
-        <ModeSwitch mode={mode} />
+        <PageHeader title="Reports" action={<ModeSwitch mode={mode} />} />
 
-        <form className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
+        <form className="card p-3 mb-3 flex flex-wrap gap-3 items-end">
           <input type="hidden" name="mode" value="single" />
           <MemberPicker members={members} defaultId={borrowerId || undefined} />
           <div>
@@ -77,7 +76,7 @@ export default async function ReportsPage({
 
         {selected && (
           <div className="rounded-xl border-2 border-navy/10 overflow-hidden">
-            <div className="bg-navy text-white px-5 py-4 flex flex-wrap justify-between items-center gap-3">
+            <div className="bg-navy text-white px-4 py-2.5 flex flex-wrap justify-between items-center gap-3">
               <div>
                 <h2 className="font-bold text-lg">Member Credit / Debt Report</h2>
                 <p className="text-teal-100 text-xs opacity-90">Generated: {formatDMYTime()}</p>
@@ -85,7 +84,7 @@ export default async function ReportsPage({
               <ExportButtons mode="single" member={selected} loanRows={loanRows} payments={payments} shareText={shareText} onDark />
             </div>
 
-            <div className="bg-white p-5">
+            <div className="bg-white p-3">
               <SingleReportBody rows={loanRows} payments={orderedPayments} totals={totals} />
 
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
@@ -105,10 +104,9 @@ export default async function ReportsPage({
 
   return (
     <div>
-      <PageHeader title="Reports" />
-      <ModeSwitch mode={mode} />
+      <PageHeader title="Reports" action={<ModeSwitch mode={mode} />} />
 
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
         <FilterBar basePath="/reports?mode=all" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Member or loan...">
           <input type="hidden" name="mode" value="all" />
         </FilterBar>
@@ -122,9 +120,9 @@ export default async function ReportsPage({
 
 function ModeSwitch({ mode }: { mode: string }) {
   return (
-    <div className="flex gap-2 mb-4">
-      <Link href="/reports?mode=all" className={`btn ${mode === 'all' ? 'btn-primary' : 'btn-outline'}`}>All Members Report</Link>
-      <Link href="/reports?mode=single" className={`btn ${mode === 'single' ? 'btn-primary' : 'btn-outline'}`}>Single Member Report</Link>
+    <div className="flex gap-2">
+      <Link href="/reports?mode=all" className={`btn !py-1.5 !px-3 text-sm ${mode === 'all' ? 'btn-primary' : 'btn-outline'}`}>All Members Report</Link>
+      <Link href="/reports?mode=single" className={`btn !py-1.5 !px-3 text-sm ${mode === 'single' ? 'btn-primary' : 'btn-outline'}`}>Single Member Report</Link>
     </div>
   );
 }

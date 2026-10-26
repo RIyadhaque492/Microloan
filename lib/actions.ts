@@ -6,7 +6,8 @@ import { revalidatePath } from 'next/cache';
 import { sql } from './db';
 import { setFlash } from './flash';
 import { createSession, destroySession, getSession } from './auth';
-import { generateScheduleFromInstallment } from './utils';
+import { generateScheduleFromInstallment, todayISO, calcAge } from './utils';
+import { DELETE_PASSWORD } from './deletePin';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -69,6 +70,21 @@ export async function logoutAction() {
 
 // ---------- Borrowers (Members) ----------
 
+/** Date of birth -> automatic age; falls back to a typed/legacy age when there is no date of birth. */
+function dobAndAge(formData: FormData): { dob: string | null; age: number | null } {
+  const dob = String(formData.get('date_of_birth') || '').trim() || null;
+  const auto = calcAge(dob);
+  return { dob: auto === null ? null : dob, age: auto ?? (Number(formData.get('age')) || null) };
+}
+
+/** date_of_birth / guarantor_relationship were added later; if the database does not have them yet, add them
+ *  (safe to repeat) so saving a member never fails just because a migration was forgotten. */
+async function ensureMemberColumns() {
+  await sql`ALTER TABLE borrowers ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
+  await sql`ALTER TABLE borrowers ADD COLUMN IF NOT EXISTS guarantor_relationship VARCHAR(100)`;
+}
+const isMissingColumn = (err: any) => err?.code === '42703' || /column .* does not exist/i.test(String(err?.message || ''));
+
 export async function createBorrowerAction(formData: FormData) {
   const admin = await requireAdmin();
 
@@ -86,20 +102,29 @@ export async function createBorrowerAction(formData: FormData) {
   const regFee = regFeeRaw === null || regFeeRaw === '' ? 150 : Number(regFeeRaw);
   const feeReceiptNo = regFee > 0 ? await nextSequentialCode('M', 'borrowers', 'fee_receipt_no') : null;
 
-  let row: any;
-  try {
-    [row] = await sql`
+  const { dob, age } = dobAndAge(formData);
+  const insertMember = () => sql`
       INSERT INTO borrowers
-        (borrower_code, full_name, father_name, gender, age, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_phone, registration_fee, fee_receipt_no, status, created_by)
+        (borrower_code, full_name, father_name, gender, age, date_of_birth, phone, email, nid_number, present_address, occupation, monthly_income, guarantor_name, guarantor_relationship, guarantor_phone, registration_fee, fee_receipt_no, status, created_by)
       VALUES (
-        ${memberId}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')}, ${Number(formData.get('age')) || null},
+        ${memberId}, ${fullName}, ${String(formData.get('father_name') || '')}, ${String(formData.get('gender') || 'male')}, ${age}, ${dob},
         ${phone}, ${String(formData.get('email') || '')}, ${String(formData.get('nid_number') || '')},
         ${String(formData.get('present_address') || '')}, ${String(formData.get('occupation') || '')},
-        ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')},
+        ${Number(formData.get('monthly_income') || 0)}, ${String(formData.get('guarantor_name') || '')}, ${String(formData.get('guarantor_relationship') || '').trim()},
         ${String(formData.get('guarantor_phone') || '')}, ${regFee}, ${feeReceiptNo}, 'active', ${admin.adminId}
       )
       RETURNING id
     `;
+
+  let row: any;
+  try {
+    try {
+      [row] = await insertMember();
+    } catch (err: any) {
+      if (!isMissingColumn(err)) throw err;
+      await ensureMemberColumns();
+      [row] = await insertMember();
+    }
   } catch (err: any) {
     const msg = String(err?.message || '');
     if (err?.code === '23505' || msg.includes('duplicate key') || msg.includes('already exists')) {
@@ -122,14 +147,15 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
     redirect(`/borrowers/${id}/edit?error=` + encodeURIComponent('Member ID is required.'));
   }
 
-  try {
-    await sql`
+  const { dob, age } = dobAndAge(formData);
+  const updateMember = () => sql`
       UPDATE borrowers SET
         borrower_code = ${memberId},
         full_name = ${String(formData.get('full_name') || '')},
         father_name = ${String(formData.get('father_name') || '')},
         gender = ${String(formData.get('gender') || 'male')},
-        age = ${Number(formData.get('age')) || null},
+        age = ${age},
+        date_of_birth = ${dob},
         phone = ${String(formData.get('phone') || '')},
         email = ${String(formData.get('email') || '')},
         nid_number = ${String(formData.get('nid_number') || '')},
@@ -137,11 +163,21 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
         occupation = ${String(formData.get('occupation') || '')},
         monthly_income = ${Number(formData.get('monthly_income') || 0)},
         guarantor_name = ${String(formData.get('guarantor_name') || '')},
+        guarantor_relationship = ${String(formData.get('guarantor_relationship') || '').trim()},
         guarantor_phone = ${String(formData.get('guarantor_phone') || '')},
         registration_fee = ${Number(formData.get('registration_fee') || 0)},
         status = ${String(formData.get('status') || 'active')}
       WHERE id = ${id}
     `;
+
+  try {
+    try {
+      await updateMember();
+    } catch (err: any) {
+      if (!isMissingColumn(err)) throw err;
+      await ensureMemberColumns();
+      await updateMember();
+    }
   } catch (err: any) {
     const msg = String(err?.message || '');
     if (err?.code === '23505' || msg.includes('duplicate key') || msg.includes('already exists')) {
@@ -160,8 +196,6 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
 // Removing a member moves them (and all their loans) to the Bin instead of
 // deleting anything for real — nothing is destroyed, and everything can be
 // restored together later from /bin.
-/** Admin password required for every Remove/Delete. Change it with the DELETE_PASSWORD env var. */
-const DELETE_PASSWORD = process.env.DELETE_PASSWORD || '334499';
 function checkDeletePassword(formData: FormData | undefined, backTo: string) {
   if (String(formData?.get('delete_pin') ?? '') !== DELETE_PASSWORD) {
     redirect(`${backTo}?error=` + encodeURIComponent('Wrong password. Nothing was removed.'));
@@ -206,7 +240,7 @@ export async function createLoanAction(formData: FormData) {
   const tenure = Number(formData.get('tenure'));
   const frequency = String(formData.get('repayment_frequency') || 'monthly') as 'daily' | 'weekly' | 'monthly';
   const purpose = String(formData.get('purpose') || '');
-  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const disbursed = String(formData.get('disbursement_date') || todayISO());
   const maturityDate = String(formData.get('maturity_date') || '') || null;
   const processingFee = Number(formData.get('processing_fee')) >= 0 && formData.get('processing_fee') !== null && formData.get('processing_fee') !== ''
     ? Number(formData.get('processing_fee'))
@@ -257,7 +291,7 @@ export async function saveDraftLoanAction(formData: FormData) {
   const tenure = Number(formData.get('tenure')) || 0;
   const frequency = String(formData.get('repayment_frequency') || 'monthly');
   const purpose = String(formData.get('purpose') || '');
-  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const disbursed = String(formData.get('disbursement_date') || todayISO());
   const maturityDate = String(formData.get('maturity_date') || '') || null;
 
   if (!borrowerId) {
@@ -291,7 +325,7 @@ export async function finalizeDraftLoanAction(id: number) {
     redirect(`/loans/${id}/edit-draft?error=` + encodeURIComponent('Fill in the loan amount, installment amount, and tenure before finalizing.'));
   }
 
-  const disbursed = loan.disbursement_date ? new Date(loan.disbursement_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const disbursed = loan.disbursement_date ? new Date(loan.disbursement_date).toISOString().slice(0, 10) : todayISO();
   const schedule = generateScheduleFromInstallment(amount, installmentAmount, tenure, loan.repayment_frequency, disbursed);
 
   await sql`
@@ -322,7 +356,7 @@ export async function updateDraftLoanAction(id: number, formData: FormData) {
   const tenure = Number(formData.get('tenure')) || 0;
   const frequency = String(formData.get('repayment_frequency') || 'monthly');
   const purpose = String(formData.get('purpose') || '');
-  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const disbursed = String(formData.get('disbursement_date') || todayISO());
   const maturityDate = String(formData.get('maturity_date') || '') || null;
 
   await sql`
@@ -421,7 +455,7 @@ export async function updateLoanAction(id: number, formData: FormData) {
   const tenure = Number(formData.get('tenure'));
   const frequency = String(formData.get('repayment_frequency') || 'monthly') as 'daily' | 'weekly' | 'monthly';
   const purpose = String(formData.get('purpose') || '');
-  const disbursed = String(formData.get('disbursement_date') || new Date().toISOString().slice(0, 10));
+  const disbursed = String(formData.get('disbursement_date') || todayISO());
   const maturityDate = String(formData.get('maturity_date') || '') || null;
   const processingFee = Number(formData.get('processing_fee')) || 0;
 
@@ -561,7 +595,7 @@ export async function collectPaymentAction(formData: FormData) {
   const startInstallmentId = Number(formData.get('installment_id') || 0);
   const amount = Number(formData.get('amount_paid'));
   const method = String(formData.get('payment_method') || 'cash');
-  const paymentDate = String(formData.get('payment_date') || new Date().toISOString().slice(0, 10));
+  const paymentDate = String(formData.get('payment_date') || todayISO());
   const notes = String(formData.get('notes') || '');
 
   if (!loanId || amount <= 0) {
@@ -613,7 +647,7 @@ export async function updateCollectionAction(id: number, formData: FormData) {
 
   const amount = Number(formData.get('amount_paid'));
   const method = String(formData.get('payment_method') || 'cash');
-  const paymentDate = String(formData.get('payment_date') || new Date().toISOString().slice(0, 10));
+  const paymentDate = String(formData.get('payment_date') || todayISO());
   const notes = String(formData.get('notes') || '');
 
   const [collection] = await sql`SELECT * FROM collections WHERE id = ${id}`;
@@ -641,7 +675,7 @@ export async function recordSavingsTransactionAction(borrowerId: number, formDat
   const type = String(formData.get('type') || 'deposit');
   const amount = Number(formData.get('amount'));
   const notes = String(formData.get('notes') || '');
-  const transactionDate = String(formData.get('transaction_date') || new Date().toISOString().slice(0, 10));
+  const transactionDate = String(formData.get('transaction_date') || todayISO());
 
   if (amount <= 0) {
     redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('Amount must be greater than zero.'));
@@ -720,7 +754,7 @@ export async function quickSavingsAction(formData: FormData) {
   const type = String(formData.get('type') || 'deposit');
   const amount = Number(formData.get('amount'));
   const notes = String(formData.get('notes') || '');
-  const transactionDate = String(formData.get('transaction_date') || new Date().toISOString().slice(0, 10));
+  const transactionDate = String(formData.get('transaction_date') || todayISO());
   const fail = (msg: string) => redirect('/savings?error=' + encodeURIComponent(msg));
 
   if (!borrowerId) fail('Please pick a member from the list.');
@@ -757,7 +791,7 @@ export async function editSavingsTransactionAction(borrowerId: number, transacti
   const type = String(formData.get('type') || 'deposit');
   const amount = Number(formData.get('amount'));
   const notes = String(formData.get('notes') || '');
-  const transactionDate = String(formData.get('transaction_date') || new Date().toISOString().slice(0, 10));
+  const transactionDate = String(formData.get('transaction_date') || todayISO());
 
   if (amount <= 0) {
     redirect(`/savings/${borrowerId}?error=` + encodeURIComponent('Amount must be greater than zero.'));

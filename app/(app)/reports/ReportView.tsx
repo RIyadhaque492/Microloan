@@ -28,7 +28,20 @@ export function SingleStatCards({ totals }: { totals: Totals }) {
   );
 }
 
-export function AllStatCards({ totals }: { totals: Totals }) {
+export function AllStatCards({ totals, compact = false }: { totals: Totals; compact?: boolean }) {
+  if (compact) {
+    // slim one-row version for the on-screen page, so the table starts higher up
+    const cell = 'rounded-lg border px-3 py-1';
+    return (
+      <div data-break className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
+        <div className={`${cell} border-sky-200 bg-sky-50`}><div className="text-[10px] text-sky-700 leading-tight">Total Loan Amount</div><div className="text-sm font-bold text-navy">৳{money(totals.loanAmount)}</div></div>
+        <div className={`${cell} border-sky-200 bg-sky-50`}><div className="text-[10px] text-sky-700 leading-tight">Total Payable</div><div className="text-sm font-bold text-navy">৳{money(totals.totalPayable)}</div></div>
+        <div className={`${cell} border-green-200 bg-green-50`}><div className="text-[10px] text-green-700 leading-tight">Total Paid</div><div className="text-sm font-bold text-green-800">৳{money(totals.totalPaid)}</div></div>
+        <div className={`${cell} border-red-200 bg-red-50`}><div className="text-[10px] text-red-700 leading-tight">Total Remaining Balance</div><div className="text-sm font-bold text-red-800">৳{money(totals.remaining)}</div></div>
+        <div className={`${cell} border-teal-300 col-span-2 md:col-span-1`} style={{ backgroundColor: '#E6F6F5' }}><div className="text-[10px] text-teal-700 leading-tight">Total Savings</div><div className="text-sm font-bold" style={{ color: '#0A5A56' }}>৳{money(totals.savings)}</div></div>
+      </div>
+    );
+  }
   return (
     <div data-break className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
       <div className="rounded-xl border border-sky-200 bg-sky-50 p-4"><div className="text-xs text-sky-700">Total Loan Amount</div><div className="text-lg font-bold text-navy">৳{money(totals.loanAmount)}</div></div>
@@ -94,7 +107,7 @@ export function SingleReportBody({ rows, payments, totals, plain = false }: { ro
     <>
       <SingleStatCards totals={totals} />
       <div data-break className="text-white font-bold text-sm px-4 py-2 rounded-t text-center" style={{ backgroundColor: '#0F2A3F' }}>Loan Register</div>
-      <RegisterTable rows={rows} headColor="#0F2A3F" maxHeight="max-h-[60vh]" plain={plain} />
+      <RegisterTable rows={rows} headColor="#0F2A3F" maxHeight="max-h-[calc(100dvh-16rem)]" plain={plain} />
       <PaymentHistoryTable payments={payments} totalPayable={totals.totalPayable} />
     </>
   );
@@ -104,11 +117,11 @@ export function SingleReportBody({ rows, payments, totals, plain = false }: { ro
 export function AllReportBody({ rows, totals, plain = false, showActions = false }: { rows: any[]; totals: Totals; plain?: boolean; showActions?: boolean }) {
   return (
     <>
-      <AllStatCards totals={totals} />
+      <AllStatCards totals={totals} compact={!plain} />
       <div className="rounded-xl border-2 border-navy/10 overflow-hidden">
-        <div data-break className="bg-gold text-white px-5 py-3 font-semibold text-sm text-center" style={{ backgroundColor: '#d99a2b' }}>All Loans Register — {rows.length} loan(s)</div>
-        <div className="p-3 bg-white">
-          <RegisterTable rows={rows} headColor="#D99A2B" showActions={showActions} maxHeight="max-h-[calc(100dvh-17rem)]" plain={plain} repeatHead={plain} />
+        <div data-break className={`bg-gold text-white px-5 ${plain ? 'py-3' : 'py-1.5'} font-semibold text-sm text-center`} style={{ backgroundColor: '#d99a2b' }}>All Loans Register — {rows.length} loan(s)</div>
+        <div className={plain ? 'p-3 bg-white' : 'p-2 bg-white'}>
+          <RegisterTable rows={rows} headColor="#D99A2B" showActions={showActions} maxHeight="max-h-[calc(100dvh-13.5rem)]" plain={plain} repeatHead={plain} />
         </div>
       </div>
     </>

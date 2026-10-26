@@ -104,6 +104,19 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
           <input name="tenure" type="number" required className="input" placeholder="e.g. 116" value={tenure || ''} onChange={(e) => setTenure(Number(e.target.value))} />
         </div>
         <div>
+          <label className="label">Total Payable (৳)</label>
+          <input
+            type="text"
+            readOnly
+            tabIndex={-1}
+            aria-label="Total payable amount"
+            className="input bg-green-50 border-green-300 font-bold text-green-800"
+            value={installmentAmount > 0 && tenure > 0 ? '৳' + money(Math.round(installmentAmount * 100) / 100 * Math.trunc(tenure)) : ''}
+            placeholder="Installment × installments"
+          />
+          <p className="text-xs text-gray-400 mt-1">Automatic: installment amount × number of installments.</p>
+        </div>
+        <div>
           <label className="label">Repayment Frequency</label>
           <select name="repayment_frequency" className="input" value={frequency} onChange={(e) => setFrequency(e.target.value as any)}>
             <option value="daily">Daily</option>

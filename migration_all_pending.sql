@@ -26,3 +26,6 @@ CREATE TABLE IF NOT EXISTS shared_files (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at TIMESTAMPTZ NOT NULL
 );
+
+ALTER TABLE borrowers ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE borrowers ADD COLUMN IF NOT EXISTS guarantor_relationship VARCHAR(100);

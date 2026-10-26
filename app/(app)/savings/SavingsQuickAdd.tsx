@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { quickSavingsAction } from '@/lib/actions';
 import DateInput from '@/app/(app)/DateInput';
+import { todayISO } from '@/lib/utils';
 
 type Member = { id: number; borrower_code: string; full_name: string; phone: string };
 
@@ -23,7 +24,7 @@ export default function SavingsQuickAdd({ members, notesSuggestions = [] }: { me
 
   const label = (m: Member) => `${m.borrower_code} — ${m.full_name}`;
   const selected = members.find((m) => label(m) === text) || null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   return (
     <>

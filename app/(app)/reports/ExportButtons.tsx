@@ -2,7 +2,7 @@
 
 import PdfPageViewer from '../PdfPageViewer';
 import RegisterTable from './RegisterTable';
-import ShareLinks from '../ShareLinks';
+import ShareMenu from '../ShareMenu';
 
 import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -181,10 +181,9 @@ export default function ExportButtons(props: Props) {
         <button onClick={openTextPreview} type="button" className={btnClass}>
           💬 Share Text
         </button>
-        <ShareLinks
-          bare
-          only={['telegram', 'gmail']}
-          title={props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : 'all-loans-report.pdf'}
+        <ShareMenu
+          className={btnClass}
+          title={props.mode === 'single' ? `Credit report — ${props.member.full_name} (${props.member.borrower_code})` : 'All loans report'}
           getFile={async () => {
             const blob = await makeReportPdf();
             return { blob, filename: props.mode === 'single' ? `member-${props.member.borrower_code}.pdf` : 'all-loans-report.pdf' };
@@ -213,21 +212,6 @@ export default function ExportButtons(props: Props) {
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
 
-            {(preview.kind === 'pdf' || preview.kind === 'excel' || preview.kind === 'word') && (
-              <ShareLinks
-                title={preview.kind === 'pdf' || preview.kind === 'excel' || preview.kind === 'word' ? preview.filename : 'Report'}
-                getFile={async () => {
-                  if (preview.kind === 'pdf') return { blob: preview.blob, filename: preview.filename };
-                  if (preview.kind === 'excel') {
-                    const blob = props.mode === 'single' ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments) : await buildAllUsersExcelBlob(props.loanRows);
-                    return { blob, filename: preview.filename };
-                  }
-                  const blob = props.mode === 'single' ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments) : await buildAllUsersWordBlob(props.loanRows);
-                  return { blob, filename: (preview as any).filename };
-                }}
-              />
-            )}
-
             <div className={`flex-1 overflow-auto min-h-0 ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {(preview.kind === 'excel' || preview.kind === 'word' || preview.kind === 'view') && <TablePreview props={props} />}
               {preview.kind === 'pdf' && (
@@ -248,9 +232,23 @@ export default function ExportButtons(props: Props) {
                   ⬇ Download
                 </button>
               )}
-              {preview.kind !== 'view' && <button onClick={() => confirmShare('share')} disabled={loading === 'excel' || loading === 'word' || loading === 'pdf'} type="button" className="btn btn-primary">
-                {loading === 'excel' || loading === 'word' || loading === 'pdf' ? 'Preparing…' : '📤 Share'}
-              </button>}
+              {(preview.kind === 'pdf' || preview.kind === 'excel' || preview.kind === 'word') && (
+                <ShareMenu
+                  openUp
+                  className="btn btn-primary"
+                  title={props.mode === 'single' ? `Credit report — ${props.member.full_name} (${props.member.borrower_code})` : 'All loans report'}
+                  getFile={async () => {
+                    if (preview.kind === 'pdf') return { blob: preview.blob, filename: preview.filename };
+                    if (preview.kind === 'excel') {
+                      const blob = props.mode === 'single' ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments) : await buildAllUsersExcelBlob(props.loanRows);
+                      return { blob, filename: preview.filename };
+                    }
+                    const blob = props.mode === 'single' ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments) : await buildAllUsersWordBlob(props.loanRows);
+                    return { blob, filename: preview.filename };
+                  }}
+                />
+              )}
+              {preview.kind === 'text' && <button onClick={() => confirmShare('share')} type="button" className="btn btn-primary">📤 Share</button>}
             </div>
           </div>
         </div>

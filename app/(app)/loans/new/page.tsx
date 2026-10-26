@@ -1,5 +1,6 @@
 import { sql } from '@/lib/db';
 import { getLoanPurposeSuggestions } from '@/lib/data';
+import { todayISO } from '@/lib/utils';
 import PageHeader from '../../PageHeader';
 import LoanForm from './LoanForm';
 
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function NewLoanPage({ searchParams }: { searchParams: { borrower_id?: string; error?: string } }) {
   const borrowers = await sql`SELECT id, full_name, borrower_code, phone FROM borrowers WHERE status = 'active' AND deleted_at IS NULL ORDER BY full_name`;
   const purposes = await getLoanPurposeSuggestions();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   return (
     <div>

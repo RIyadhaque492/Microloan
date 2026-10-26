@@ -2,7 +2,7 @@
 
 import { titleCase, formatDMY } from '@/lib/utils';
 import PdfPageViewer from '../../../PdfPageViewer';
-import ShareLinks from '../../../ShareLinks';
+import ShareMenu from '../../../ShareMenu';
 
 import { useState } from 'react';
 import { money } from '@/lib/utils';
@@ -74,7 +74,7 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <button onClick={openPdfPreview} disabled={loading === 'pdf'} type="button" className="btn btn-outline">
           {loading === 'pdf' ? '…' : '📄 PDF'}
         </button>
@@ -82,11 +82,9 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
           📊 Excel
         </button>
         <button onClick={() => setPreview({ kind: 'text' })} type="button" className="btn btn-outline">
-          💬 Share
+          💬 Share Text
         </button>
-        <ShareLinks
-          bare
-          only={['telegram', 'gmail']}
+        <ShareMenu
           title={`Receipt ${receipt.receipt_no}`}
           getFile={async () => ({ blob: await buildReceiptPdfBlob(receipt), filename: `receipt-${receipt.receipt_no}.pdf` })}
         />
@@ -103,17 +101,6 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
               </h3>
               <button onClick={closePreview} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
             </div>
-
-            {(preview.kind === 'pdf' || preview.kind === 'excel') && (
-              <ShareLinks
-                title={`Receipt ${receipt.receipt_no}`}
-                getFile={async () => {
-                  if (preview.kind === 'pdf') return { blob: preview.blob, filename: `receipt-${receipt.receipt_no}.pdf` };
-                  const blob = await buildReceiptExcelBlob(receipt);
-                  return { blob, filename: `receipt-${receipt.receipt_no}.xlsx` };
-                }}
-              />
-            )}
 
             <div className={`flex-1 min-h-0 overflow-auto ${preview.kind === 'pdf' ? '' : 'p-4'}`}>
               {preview.kind === 'pdf' && (
@@ -145,9 +132,19 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
               {preview.kind !== 'text' && (
                 <button onClick={() => confirmShare('download')} disabled={loading === 'excel'} type="button" className="btn btn-outline">⬇ Download</button>
               )}
-              <button onClick={() => confirmShare('share')} disabled={loading === 'excel'} type="button" className="btn btn-primary">
-                {loading === 'excel' ? 'Preparing…' : '📤 Share'}
-              </button>
+              {preview.kind === 'text' ? (
+                <button onClick={() => confirmShare('share')} type="button" className="btn btn-primary">📤 Share</button>
+              ) : (
+                <ShareMenu
+                  openUp
+                  className="btn btn-primary"
+                  title={`Receipt ${receipt.receipt_no}`}
+                  getFile={async () => {
+                    if (preview.kind === 'pdf') return { blob: preview.blob, filename: `receipt-${receipt.receipt_no}.pdf` };
+                    return { blob: await buildReceiptExcelBlob(receipt), filename: `receipt-${receipt.receipt_no}.xlsx` };
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

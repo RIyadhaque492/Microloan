@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth';
 import { setFlash } from '@/lib/flash';
 import DateInput from '@/app/(app)/DateInput';
 import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance, getBorrowerPhotoVersion } from '@/lib/data';
-import { money, statusBadgeClass, frequencyShortLabel, formatDMY } from '@/lib/utils';
+import { money, statusBadgeClass, frequencyShortLabel, formatDMY, calcAge, toISODate } from '@/lib/utils';
 import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 import UploadForm from './UploadForm';
@@ -92,12 +92,12 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-gray-100 pt-4">
           {[
             { icon: '📅', label: 'Joined', value: formatDMY(borrower.created_at), cls: 'bg-sky-50 border-sky-200 text-sky-900', sub: 'text-sky-600' },
-            { icon: '🎂', label: 'Age', value: borrower.age ?? '—', cls: 'bg-amber-50 border-amber-200 text-amber-900', sub: 'text-amber-600' },
+            { icon: '🎂', label: 'Age', value: `${(calcAge(toISODate(borrower.date_of_birth)) ?? borrower.age) ?? '—'}${borrower.date_of_birth ? ` (born ${formatDMY(borrower.date_of_birth)})` : ''}`, cls: 'bg-amber-50 border-amber-200 text-amber-900', sub: 'text-amber-600' },
             { icon: '📞', label: 'Phone', value: borrower.phone, cls: 'bg-green-50 border-green-200 text-green-900', sub: 'text-green-600' },
             { icon: '✉️', label: 'Email', value: borrower.email || '—', cls: 'bg-purple-50 border-purple-200 text-purple-900', sub: 'text-purple-600' },
             { icon: '🪪', label: 'NID', value: borrower.nid_number || '—', cls: 'bg-indigo-50 border-indigo-200 text-indigo-900', sub: 'text-indigo-600' },
             { icon: '💼', label: 'Occupation', value: borrower.occupation || '—', cls: 'bg-orange-50 border-orange-200 text-orange-900', sub: 'text-orange-600' },
-            { icon: '🤝', label: 'Guarantor', value: `${borrower.guarantor_name || '—'}${borrower.guarantor_phone ? ` (${borrower.guarantor_phone})` : ''}`, cls: 'bg-rose-50 border-rose-200 text-rose-900', sub: 'text-rose-600' },
+            { icon: '🤝', label: 'Guarantor', value: `${borrower.guarantor_name || '—'}${borrower.guarantor_relationship ? ` — ${borrower.guarantor_relationship}` : ''}${borrower.guarantor_phone ? ` (${borrower.guarantor_phone})` : ''}`, cls: 'bg-rose-50 border-rose-200 text-rose-900', sub: 'text-rose-600' },
             { icon: '🧾', label: 'Registration Fee', value: `৳${money(borrower.registration_fee)}${borrower.fee_receipt_no ? ` (${borrower.fee_receipt_no})` : ''}`, cls: 'bg-teal-50 border-teal-200 text-teal-900', sub: 'text-teal-600' },
           ].map((f) => (
             <div key={f.label} className={`rounded-xl border-2 p-3 ${f.cls}`}>

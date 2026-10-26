@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
-import { getBorrower, getMemberFieldSuggestions, getAgeSuggestions } from '@/lib/data';
+import { getBorrower, getMemberFieldSuggestions } from '@/lib/data';
 import { updateBorrowerAction, deleteBorrowerAction } from '@/lib/actions';
+import { toISODate } from '@/lib/utils';
 import PageHeader from '../../../PageHeader';
+import DobAgeFields from '../../DobAgeFields';
 
 export const metadata = { title: 'Edit Member - MicroLoan Admin' };
 
@@ -13,14 +15,13 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
 
   const updateAction = updateBorrowerAction.bind(null, id);
   const fieldSuggestions = await getMemberFieldSuggestions();
-  const ageSuggestions = await getAgeSuggestions();
 
   return (
     <div>
       <PageHeader title="Edit Member" />
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 
-      <datalist id="age-suggestions">{ageSuggestions.map((a) => <option key={a} value={a} />)}</datalist>
+      <datalist id="relationship-suggestions">{['Father','Mother','Husband','Wife','Son','Daughter','Brother','Sister','Uncle','Aunt','Cousin','Neighbour','Friend','Employer'].map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="father-suggestions">{fieldSuggestions.fathers.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="occupation-suggestions">{fieldSuggestions.occupations.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="guarantor-suggestions">{fieldSuggestions.guarantors.map((v) => <option key={v} value={v} />)}</datalist>
@@ -39,7 +40,7 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
               <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
             </select>
           </div>
-          <div><label className="label">Age</label><input name="age" type="number" min="0" max="120" inputMode="numeric" list="age-suggestions" defaultValue={borrower.age ?? ''} className="input" /></div>
+          <DobAgeFields defaultDob={toISODate(borrower.date_of_birth)} legacyAge={borrower.age} />
           <div><label className="label">Phone *</label><input name="phone" required defaultValue={borrower.phone} className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" defaultValue={borrower.email} className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" defaultValue={borrower.nid_number} className="input" /></div>
@@ -47,6 +48,7 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
           <div><label className="label">Occupation</label><input name="occupation" list="occupation-suggestions" defaultValue={borrower.occupation} className="input" /></div>
           <div><label className="label">Monthly Income</label><input name="monthly_income" type="number" step="0.01" defaultValue={borrower.monthly_income} className="input" /></div>
           <div><label className="label">Guarantor Name</label><input name="guarantor_name" list="guarantor-suggestions" defaultValue={borrower.guarantor_name} className="input" /></div>
+          <div><label className="label">Relationship with Guarantor</label><input name="guarantor_relationship" list="relationship-suggestions" defaultValue={borrower.guarantor_relationship ?? ''} className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" defaultValue={borrower.guarantor_phone} className="input" /></div>
           <div>
             <label className="label">Registration Fee (৳)</label>

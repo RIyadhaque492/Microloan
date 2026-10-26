@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getBorrower, getSavingsBalance, getSavingsSummary, getSavingsTransactions, getSiteSettings, getSavingsNotesSuggestions } from '@/lib/data';
-import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
+import { todayISO, money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import { recordSavingsTransactionAction, deleteSavingsTransactionAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 import DateInput from '@/app/(app)/DateInput';
@@ -68,7 +68,7 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
             </div>
             <div className="w-40">
               <label className="label">Date</label>
-              <DateInput name="transaction_date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
+              <DateInput name="transaction_date" defaultValue={todayISO()} className="input" />
             </div>
             <div className="flex-1 min-w-[180px]">
               <label className="label">Notes</label>

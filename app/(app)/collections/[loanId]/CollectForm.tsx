@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { collectPaymentAction } from '@/lib/actions';
 import DateInput from '@/app/(app)/DateInput';
-import { formatDMY } from '@/lib/utils';
+import { formatDMY, todayISO } from '@/lib/utils';
 
 type Installment = { id: number; installment_no: number; due_date: string; amount: string; paid_amount: string; status: string };
 
@@ -78,7 +78,7 @@ export default function CollectForm({
         </div>
         <div>
           <label className="label !mb-0.5">Payment Date</label>
-          <DateInput name="payment_date" defaultValue={new Date().toISOString().slice(0, 10)} className="input" />
+          <DateInput name="payment_date" defaultValue={todayISO()} className="input" />
         </div>
         <div>
           <label className="label !mb-0.5">Notes</label>

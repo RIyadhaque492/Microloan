@@ -53,3 +53,12 @@
 # Batch 23
 - Pop-up notifications (toasts) for every action: saved, updated, deleted, restored, registered, payment collected, photo, settings, documents... plus red pop-ups for error messages.
 - Version stamp: Update 23.
+
+# Update 24
+- Add/Edit Member: Date of Birth box; Age is calculated automatically from it (read-only). New box "Relationship with Guarantor" (suggestions: Brother, Father, …); shown on the member profile.
+- Loan Registration (and draft edit): new "Total Payable" box = installment × number of installments, always visible.
+- Dates: every "today" default now uses Bangladesh time (Asia/Dhaka) instead of the server's UTC time, so date boxes show the real current date (previously wrong between 12:00 am and 6:00 am).
+- Reports/Receipts: one "Share" button with a dropdown — Telegram, Gmail, Messenger, WhatsApp. It shares the real PDF file (no link). Phone: the share sheet opens with the PDF attached. Computer: the PDF is saved and the app opens in a new tab to attach it.
+- Reports page: "All / Single member" switch moved up beside the title, slimmer filter + summary cards, so the table starts higher up.
+- New sidebar item "Backup & Restore" (Admin section): download one backup file with all data (members, loans, payments, savings, photos, documents, settings, admins) and restore from it (admin password required; a safety copy of the current data is downloaded automatically before restoring).
+- Database: run migration_add_dob_guarantor_relationship.sql once in Neon (the app also adds the two columns by itself the first time a member is saved).

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { generateScheduleFromInstallment } from '@/lib/utils';
+import { generateScheduleFromInstallment, money } from '@/lib/utils';
 import DateInput from '@/app/(app)/DateInput';
 
 export default function EditDraftForm({ loan, borrowers, updateAction, submitLabel = 'Save Draft Changes' }: { loan: any; borrowers: any[]; updateAction: (formData: FormData) => void | Promise<void>; submitLabel?: string }) {
@@ -54,6 +54,19 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
         <div>
           <label className="label">Number of Installments *</label>
           <input name="tenure" type="number" required value={tenure || ''} onChange={(e) => setTenure(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="label">Total Payable (৳)</label>
+          <input
+            type="text"
+            readOnly
+            tabIndex={-1}
+            aria-label="Total payable amount"
+            className="input bg-green-50 border-green-300 font-bold text-green-800"
+            value={installmentAmount > 0 && tenure > 0 ? '৳' + money(Math.round(installmentAmount * 100) / 100 * Math.trunc(tenure)) : ''}
+            placeholder="Installment × installments"
+          />
+          <p className="text-xs text-gray-400 mt-1">Automatic: installment amount × number of installments.</p>
         </div>
         <div>
           <label className="label">Repayment Frequency</label>

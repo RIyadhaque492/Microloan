@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { generateScheduleFromInstallment, money, frequencyShortLabel, formatDMY } from '@/lib/utils';
+import { todayISO, generateScheduleFromInstallment, money, frequencyShortLabel, formatDMY } from '@/lib/utils';
 import DateInput from '@/app/(app)/DateInput';
 
 export default function CalculatorClient() {
@@ -9,7 +9,7 @@ export default function CalculatorClient() {
   const [installmentAmount, setInstallmentAmount] = useState(1000);
   const [tenure, setTenure] = useState(12);
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(todayISO());
 
   const schedule = useMemo(() => {
     if (!principal || principal <= 0 || !installmentAmount || installmentAmount <= 0 || !tenure || tenure <= 0 || !startDate) return null;
