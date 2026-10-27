@@ -444,9 +444,14 @@ export async function buildReportPdfFromElement(el: HTMLElement): Promise<Blob> 
     useCORS: true,
     logging: false,
     windowWidth: widthPx,
-    onclone: (_d: Document, node: HTMLElement) => {
+    onclone: (d: Document, node: HTMLElement) => {
       node.style.left = '0px';
       node.style.top = '0px';
+      // The site's fade/slide-in animations start from invisible; the clone would be photographed at that first
+      // instant (blank table). Switch every animation/transition off in the clone.
+      const st = d.createElement('style');
+      st.textContent = '*,*::before,*::after{animation:none !important;transition:none !important;opacity:1;}';
+      d.head.appendChild(st);
     },
   });
   const ratio = canvas.width / widthPx;

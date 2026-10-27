@@ -24,6 +24,14 @@ const APPS: { kind: ShareKind; label: string; icon: string; cls: string }[] = [
   { kind: 'system', label: 'More apps…', icon: '📲', cls: 'hover:bg-gray-50 text-gray-700 border-t border-gray-100' },
 ];
 
+/** Never wait forever for the file to be made. */
+function withTimeout<T>(p: Promise<T>, ms = 60000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Preparing the file took too long — please try again.')), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 function isMobileDevice() {
   const ua = navigator.userAgent || '';
   return /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
@@ -126,6 +134,12 @@ export default function ShareMenu({
 
   useEffect(() => () => clearTimeout(noteTimer.current), []);
 
+  /** The prepared file; makes it again if the earlier attempt failed. */
+  function currentFile() {
+    if (ready === 'fail' || !filePromise.current) filePromise.current = getFile();
+    return withTimeout(filePromise.current);
+  }
+
   /** Asks for the e-mail address to send to (remembered for next time). Resolves null if cancelled. */
   function askEmail(): Promise<string | null> {
     let last = '';
@@ -145,7 +159,7 @@ export default function ShareMenu({
     }
     setBusy(kind);
     try {
-      const { blob, filename } = await (filePromise.current ?? getFile());
+      const { blob, filename } = await currentFile();
       const fd = new FormData();
       fd.set('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
       fd.set('kind', kind);
@@ -196,7 +210,7 @@ export default function ShareMenu({
     }
 
     try {
-      const { blob, filename } = await (filePromise.current ?? getFile());
+      const { blob, filename } = await currentFile();
       const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
 
       if (useNative && nav.canShare({ files: [file] })) {
@@ -255,16 +269,15 @@ export default function ShareMenu({
           className="pop-in z-[300] rounded-xl border border-gray-200 bg-white shadow-xl py-1 text-sm"
         >
           <div className="px-4 pt-1.5 pb-1 text-[11px] text-gray-500 border-b border-gray-100 mb-1">
-            {ready === 'wait' ? '⏳ Preparing the file…' : ready === 'fail' ? '⚠ Could not prepare the file' : 'Send the file via:'}
+            {ready === 'wait' ? 'Send the file via: (preparing…)' : ready === 'fail' ? '⚠ File problem — tap to retry' : 'Send the file via:'}
           </div>
           {APPS.map((a) => (
             <button
               key={a.kind}
               type="button"
               role="menuitem"
-              disabled={ready !== 'ok'}
               onClick={() => pick(a.kind)}
-              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left font-semibold disabled:opacity-40 disabled:cursor-wait ${a.cls}`}
+              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left font-semibold ${a.cls}`}
             >
               <span className="text-base leading-none">{a.icon}</span>
               {a.label}

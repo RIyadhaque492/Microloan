@@ -185,4 +185,4 @@ a { transition: color 0.15s; }
 }
 
 /* the PDF/print capture must never be mid-animation */
-[aria-hidden='true'][style*='-20000'] * { animation: none !important; transition: none !important; }
+[aria-hidden='true'][style*='-20000'] *, [data-pdf-capture], [data-pdf-capture] * { animation: none !important; transition: none !important; }

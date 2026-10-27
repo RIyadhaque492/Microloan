@@ -77,3 +77,8 @@
 - Setup, Telegram (2 minutes): in Telegram open @BotFather > /newbot > copy the token. Open your new bot and press Start, send it any message. Then open https://api.telegram.org/bot<TOKEN>/getUpdates in the browser and copy the number after "chat":{"id": — that is the chat id (for a group: add the bot to the group, send a message, same link, id starts with -).
 - Setup, Gmail: Google Account > Security > turn on 2-Step Verification > App passwords > create one (16 letters).
 - In Vercel > Project > Settings > Environment Variables add: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SMTP_USER (your gmail), SMTP_PASS (the app password). Then Redeploy.
+
+# Update 28 — fixes
+- Blank table in report PDF/Share: the new fade-in animations made the PDF capture photograph the report while its rows were still invisible. Animations are now switched off inside the capture.
+- Two PDF captures can no longer run at once (Share menu + PDF button) — they share one job, so the off-screen report is never removed mid-capture.
+- Share menu: buttons stay clickable while the file prepares; a failed/slow file shows a message ("tap to retry") instead of freezing; gives up after 60 s with a clear message.

@@ -44,7 +44,17 @@ export default function ExportButtons(props: Props) {
 
   // The PDF is a picture of the website's own report view (so they always match). If capturing ever fails,
   // fall back to the plain drawn PDF so exporting still works.
-  async function makeReportPdf(): Promise<Blob> {
+  const pdfJob = useRef<Promise<Blob> | null>(null);
+  // Only one capture at a time: the Share menu and the PDF button may both ask — they share the same job
+  // (two overlapping captures would remove the off-screen report from under each other -> blank PDF).
+  function makeReportPdf(): Promise<Blob> {
+    if (pdfJob.current) return pdfJob.current;
+    const p = renderReportPdf().finally(() => { if (pdfJob.current === p) pdfJob.current = null; });
+    pdfJob.current = p;
+    return p;
+  }
+
+  async function renderReportPdf(): Promise<Blob> {
     try {
       flushSync(() => setPrintMount(true));
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -256,7 +266,7 @@ export default function ExportButtons(props: Props) {
 
       {/* Off-screen copy of the website report: this is what gets photographed into the PDF. */}
       {printMount && (
-        <div ref={printRef} aria-hidden="true" style={{ position: 'fixed', left: -20000, top: 0, width: 1300, background: '#fff', color: '#1f2937' }}>
+        <div ref={printRef} data-pdf-capture aria-hidden="true" style={{ position: 'fixed', left: -20000, top: 0, width: 1300, background: '#fff', color: '#1f2937' }}>
           <ReportPrintView
             mode={props.mode}
             member={props.mode === 'single' ? props.member : undefined}
