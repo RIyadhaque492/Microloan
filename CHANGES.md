@@ -82,3 +82,6 @@
 - Blank table in report PDF/Share: the new fade-in animations made the PDF capture photograph the report while its rows were still invisible. Animations are now switched off inside the capture.
 - Two PDF captures can no longer run at once (Share menu + PDF button) — they share one job, so the off-screen report is never removed mid-capture.
 - Share menu: buttons stay clickable while the file prepares; a failed/slow file shows a message ("tap to retry") instead of freezing; gives up after 60 s with a clear message.
+
+# Update 29
+- Report table rows were invisible on screen (stuck at the start of the new row animation). Table rows no longer animate at all, and no animation starts fully transparent any more, so content can never end up hidden.
