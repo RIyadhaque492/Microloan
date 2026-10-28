@@ -25,6 +25,7 @@ function currentPageTitle(pathname: string): string {
   if (pathname === '/settings') return 'Website Settings';
   if (pathname === '/bin') return 'Bin';
   if (pathname === '/backup') return 'Backup & Restore';
+  if (pathname === '/share-settings') return 'Share Settings';
   if (pathname.startsWith('/savings/')) return 'Member Savings';
   if (pathname === '/savings') return 'Savings';
   return 'MicroLoan';
@@ -60,6 +61,7 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
   const isSettings = pathname.startsWith('/settings');
   const isBin = pathname.startsWith('/bin');
   const isBackup = pathname.startsWith('/backup');
+  const isShareSettings = pathname.startsWith('/share-settings');
 
   return (
     <>
@@ -132,6 +134,7 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
           <Link href="/settings" className={linkClass(isSettings)}>⚙️ Website Settings</Link>
           <Link href="/bin" prefetch={false} className={linkClass(isBin)}>🗑 Bin</Link>
           <Link href="/backup" prefetch={false} className={linkClass(isBackup)}>💾 Backup &amp; Restore</Link>
+          <Link href="/share-settings" prefetch={false} className={linkClass(isShareSettings)}>📤 Share Settings</Link>
         </nav>
 
         <div className="p-4 border-t border-white/10">

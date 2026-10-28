@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { sendMail } from '@/lib/smtp';
+import { getShareConfig, telegramBase } from '@/lib/shareConfig';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -11,10 +12,8 @@ const MAX_BYTES = 4 * 1024 * 1024; // host request limit is ~4.5 MB
 export async function GET() {
   const session = await getSession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  return Response.json({
-    telegram: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
-    gmail: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
-  });
+  const c = await getShareConfig();
+  return Response.json({ telegram: !!(c.telegramToken && c.telegramChatId), gmail: !!(c.smtpUser && c.smtpPass) });
 }
 
 /**
@@ -42,16 +41,17 @@ export async function POST(request: Request) {
 
   try {
     if (kind === 'telegram') {
-      const token = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
+      const cfg = await getShareConfig();
+      const token = cfg.telegramToken;
+      const chatId = cfg.telegramChatId;
       if (!token || !chatId) {
-        return Response.json({ code: 'not_configured', error: 'Telegram is not set up yet (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID).' }, { status: 503 });
+        return Response.json({ code: 'not_configured', error: 'Telegram is not set up yet (Admin > Share Settings).' }, { status: 503 });
       }
       const fd = new FormData();
       fd.set('chat_id', chatId);
       fd.set('caption', title);
       fd.set('document', new File([await file.arrayBuffer()], filename, { type: file.type || 'application/octet-stream' }));
-      const base = process.env.TELEGRAM_API_BASE || 'https://api.telegram.org';
+      const base = telegramBase();
       const res = await fetch(`${base}/bot${token}/sendDocument`, { method: 'POST', body: fd });
       const json: any = await res.json().catch(() => ({}));
       if (!res.ok || json.ok === false) {
@@ -61,10 +61,11 @@ export async function POST(request: Request) {
     }
 
     if (kind === 'gmail') {
-      const user = process.env.SMTP_USER;
-      const pass = process.env.SMTP_PASS;
+      const cfg = await getShareConfig();
+      const user = cfg.smtpUser;
+      const pass = cfg.smtpPass;
       if (!user || !pass) {
-        return Response.json({ code: 'not_configured', error: 'Email is not set up yet (SMTP_USER / SMTP_PASS).' }, { status: 503 });
+        return Response.json({ code: 'not_configured', error: 'Email is not set up yet (Admin > Share Settings).' }, { status: 503 });
       }
       const to = String(form.get('to') || '').trim();
       if (!/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(to)) {

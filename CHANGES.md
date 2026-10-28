@@ -90,3 +90,8 @@
 - Share (toolbar and preview window): every app (Telegram, Gmail, Messenger, WhatsApp) now hands the PDF straight to the system share window — nothing is downloaded. Download only happens from the Download button.
 - Telegram / Gmail: if the server settings exist (see Update 27) the PDF is sent straight to Telegram / emailed with no window at all; the email box only appears when email is set up.
 - Browsers that cannot share files still fall back to saving the file and opening the app.
+
+# Update 31 — Telegram direct share, set up inside the app
+- New sidebar page "📤 Share Settings" (Admin): paste your Telegram bot token, press "Find my Chat ID" (it reads the id for you), Save, "Send test message". No Vercel settings or redeploy needed. Gmail address + app password are saved there too.
+- After that, Share → Telegram sends the PDF straight into your Telegram chat (no window, no download). Until it is set up, Share → Telegram shows a hint and opens the system share window.
+- Settings are stored in a new table share_settings (created automatically; secrets are never sent back to the browser). Environment variables from Update 27 still work as a fallback.

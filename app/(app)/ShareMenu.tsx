@@ -200,7 +200,9 @@ export default function ShareMenu({
     if (cfg && (kind === 'telegram' || kind === 'gmail') && cfg[kind]) {
       const r = await sendDirect(kind);
       if (r !== 'fallback') { filePromise.current = null; return; }
-      // not set up on the server yet -> old way (download + open the app) below
+      // not set up on the server yet -> the share window below
+    } else if (cfg && kind === 'telegram') {
+      showNote('Telegram direct send is not set up yet — open “Share Settings” in the sidebar (2 minutes).');
     }
     setBusy(kind);
 
