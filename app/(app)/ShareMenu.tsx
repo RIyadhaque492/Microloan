@@ -4,15 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { downloadBlob } from '@/lib/clientExport';
 
 /**
- * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp.
- * It always shares the real FILE (the PDF / Excel / Word document) — never a link.
- *
- *  • Phones/tablets (and "More apps…" anywhere): the system share sheet opens with the PDF itself attached — pick
- *    the app there. On a computer that sheet only lists apps installed on that computer, so the four named apps
- *    below open their own website instead (PDF saved to Downloads, ready to attach). (A website cannot attach a file to one
- *    specific app any other way, and nothing but the file is sent along, so apps never show just a text title.)
- *  • Otherwise (older browsers): the file is saved to Downloads and the chosen app opens in a new tab,
- *    ready for you to attach it.
+ * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp. It always shares the real FILE, never a link,
+ * and nothing is downloaded first:
+ *  • Telegram / Gmail on a computer: the server sends the file itself (needs the settings in .env.example);
+ *    until those exist it behaves like the next point.
+ *  • Everything else: the system share window opens with the file already attached — pick the app there.
+ *  • Only browsers that cannot share files fall back to: save the file + open the app's website.
  */
 export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp' | 'system';
 
@@ -21,7 +18,6 @@ const APPS: { kind: ShareKind; label: string; icon: string; cls: string }[] = [
   { kind: 'gmail', label: 'Gmail', icon: '✉️', cls: 'hover:bg-red-50 text-red-700' },
   { kind: 'messenger', label: 'Messenger', icon: '💬', cls: 'hover:bg-blue-50 text-blue-700' },
   { kind: 'whatsapp', label: 'WhatsApp', icon: '🟢', cls: 'hover:bg-green-50 text-green-700' },
-  { kind: 'system', label: 'More apps…', icon: '📲', cls: 'hover:bg-gray-50 text-gray-700 border-t border-gray-100' },
 ];
 
 /** Never wait forever for the file to be made. */
@@ -30,6 +26,17 @@ function withTimeout<T>(p: Promise<T>, ms = 60000): Promise<T> {
     const t = setTimeout(() => reject(new Error('Preparing the file took too long — please try again.')), ms);
     p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
   });
+}
+
+let configCache: Promise<{ telegram: boolean; gmail: boolean }> | null = null;
+/** Which direct-send services the server has settings for (asked once per page). */
+function directConfig(): Promise<{ telegram: boolean; gmail: boolean }> {
+  if (!configCache) {
+    configCache = fetch('/api/send-file', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { telegram: false, gmail: false }))
+      .catch(() => ({ telegram: false, gmail: false }));
+  }
+  return configCache;
 }
 
 function isMobileDevice() {
@@ -98,6 +105,7 @@ export default function ShareMenu({
     // Make the file now, while the menu is open, so the share sheet can open the instant an app is picked
     // (phones only allow it right after a tap).
     setReady('wait');
+    directConfig(); // warm up
     const p = getFile();
     filePromise.current = p;
     p.then(
@@ -188,7 +196,8 @@ export default function ShareMenu({
     setOpen(false);
     setNote(null);
 
-    if (!mobile && (kind === 'telegram' || kind === 'gmail')) {
+    const cfg = !mobile && (kind === 'telegram' || kind === 'gmail') ? await directConfig() : null;
+    if (cfg && (kind === 'telegram' || kind === 'gmail') && cfg[kind]) {
       const r = await sendDirect(kind);
       if (r !== 'fallback') { filePromise.current = null; return; }
       // not set up on the server yet -> old way (download + open the app) below
@@ -204,8 +213,9 @@ export default function ShareMenu({
 
     // If not, the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
     let tab: Window | null = null;
-    const useNative = nativeOK && (mobile || kind === 'system');
-    if (!useNative && !mobile && kind !== 'system') {
+    // The file goes straight to the share window (no download) whenever the browser supports it.
+    const useNative = nativeOK;
+    if (!useNative && !mobile) {
       try { tab = window.open('', '_blank'); } catch { tab = null; }
     }
 

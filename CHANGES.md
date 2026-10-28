@@ -85,3 +85,8 @@
 
 # Update 29
 - Report table rows were invisible on screen (stuck at the start of the new row animation). Table rows no longer animate at all, and no animation starts fully transparent any more, so content can never end up hidden.
+
+# Update 30 — share without downloading
+- Share (toolbar and preview window): every app (Telegram, Gmail, Messenger, WhatsApp) now hands the PDF straight to the system share window — nothing is downloaded. Download only happens from the Download button.
+- Telegram / Gmail: if the server settings exist (see Update 27) the PDF is sent straight to Telegram / emailed with no window at all; the email box only appears when email is set up.
+- Browsers that cannot share files still fall back to saving the file and opening the app.

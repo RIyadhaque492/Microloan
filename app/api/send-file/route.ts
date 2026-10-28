@@ -7,6 +7,16 @@ export const maxDuration = 30;
 
 const MAX_BYTES = 4 * 1024 * 1024; // host request limit is ~4.5 MB
 
+/** Which direct-send services are set up (true/false only — never the secrets). */
+export async function GET() {
+  const session = await getSession();
+  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  return Response.json({
+    telegram: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+    gmail: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
+  });
+}
+
 /**
  * Sends a generated PDF/Excel/Word file straight from the server — no download needed.
  *   kind = telegram -> Telegram bot message with the file   (env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
