@@ -98,3 +98,6 @@
 
 # Update 32
 - Share on a computer: clicking Telegram / Gmail / Messenger / WhatsApp opens that app in a new tab again (the PDF is saved so you can drop it in). If direct send is set up in Share Settings, Telegram/Gmail send the PDF straight in instead. "More apps…" (system share window with the PDF attached) is back. Phones keep using the share sheet.
+
+# Update 33
+- Share on a computer: Telegram, WhatsApp, Messenger now open the installed desktop APP (tg:// whatsapp:// fb-messenger://) instead of a website; Gmail opens your default mail app (mailto:). The PDF is saved so you can drop it in. If the app is not installed, a link in the pop-up note opens the website version instead. (Windows asks once "Open Telegram?" — tick "always allow".)

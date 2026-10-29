@@ -7,7 +7,7 @@ import { downloadBlob } from '@/lib/clientExport';
  * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp, More apps…
  *  • Telegram / Gmail with direct send set up (Share Settings page): the server sends the PDF itself — no window, no download.
  *  • Phones/tablets: the share sheet opens with the PDF attached.
- *  • Computer otherwise: the chosen app opens in a new tab and the PDF is saved, ready to drop in (a website cannot
+ *  • Computer otherwise: the chosen app opens (installed app via tg:// whatsapp:// etc.) and the PDF is saved, ready to drop in (a website cannot
  *    attach a file to another site by itself). "More apps…" opens the system share window with the PDF attached.
  */
 export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp' | 'system';
@@ -42,6 +42,17 @@ function directConfig(): Promise<{ telegram: boolean; gmail: boolean }> {
 function isMobileDevice() {
   const ua = navigator.userAgent || '';
   return /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+}
+
+/** Opens the installed desktop app (Telegram Desktop, WhatsApp, Messenger, the default mail app). */
+export function appLink(kind: ShareKind, subject: string): string {
+  switch (kind) {
+    case 'telegram': return 'tg://';
+    case 'whatsapp': return 'whatsapp://send';
+    case 'messenger': return 'fb-messenger://';
+    case 'gmail': return `mailto:?subject=${encodeURIComponent(subject)}`;
+    default: return '';
+  }
 }
 
 /** Where to go on a computer (and as the fallback on a phone that cannot attach files). */
@@ -81,17 +92,17 @@ export default function ShareMenu({
   const [ready, setReady] = useState<'wait' | 'ok' | 'fail'>('wait');
   const [emailAsk, setEmailAsk] = useState<null | { resolve: (v: string | null) => void }>(null);
   const [emailVal, setEmailVal] = useState('');
-  const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+  const [note, setNote] = useState<{ text: string; error?: boolean; action?: { label: string; href: string } } | null>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const filePromise = useRef<Promise<{ blob: Blob; filename: string }> | null>(null);
   const noteTimer = useRef<any>(null);
 
-  function showNote(text: string, error = false) {
+  function showNote(text: string, error = false, action?: { label: string; href: string }) {
     clearTimeout(noteTimer.current);
-    setNote({ text, error });
-    noteTimer.current = setTimeout(() => setNote(null), 9000);
+    setNote({ text, error, action });
+    noteTimer.current = setTimeout(() => setNote(null), action ? 20000 : 9000);
   }
 
   function openMenu() {
@@ -213,14 +224,9 @@ export default function ShareMenu({
       nativeOK = !!nav.canShare && !!nav.share && nav.canShare({ files: [new File(['x'], 'probe.pdf', { type: 'application/pdf' })] });
     } catch { nativeOK = false; }
 
-    // If not, the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
-    let tab: Window | null = null;
     // Phones: the share sheet with the file attached. Computer: the chosen app opens (Telegram, Gmail, …) with the
     // file saved ready to drop in — unless direct send is set up (handled above), or "More apps…" is chosen.
     const useNative = nativeOK && (mobile || kind === 'system');
-    if (!useNative && !mobile) {
-      try { tab = window.open('', '_blank'); } catch { tab = null; }
-    }
 
     try {
       const { blob, filename } = await currentFile();
@@ -237,22 +243,30 @@ export default function ShareMenu({
         }
       }
       if (kind === 'system') { downloadBlob(blob, filename); showNote(`${filename} saved to your Downloads.`); return; }
-      if (!tab && !mobile) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
 
-      // Computer (or a phone browser that cannot attach files): save the PDF, then open the app.
+      // Computer (or a phone browser that cannot attach files): save the PDF, then open the installed APP
+      // (tg:// whatsapp:// fb-messenger:// mailto:). If it is not installed the link below opens the website instead.
       downloadBlob(blob, filename);
-      const target = shareTarget(kind, title, mobile);
-      if (tab) {
-        tab.location.href = target;
-      } else if (target.startsWith('mailto:')) {
-        window.location.href = target;
+      const web = shareTarget(kind, title, mobile);
+      if (mobile) {
+        if (web.startsWith('mailto:')) window.location.href = web; else window.open(web, '_blank');
+        showNote(`${filename} saved to your Downloads — attach it in ${app.label}.`);
       } else {
-        const w = window.open(target, '_blank');
-        if (!w) { showNote(`${filename} was saved to your Downloads. Open ${app.label} and attach it.`); return; }
+        const link = appLink(kind, title);
+        // launch the app without leaving this page
+        const a = document.createElement('a');
+        a.href = link;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 500);
+        showNote(
+          `${filename} saved to your Downloads — drop it into ${kind === 'gmail' ? 'your mail app' : app.label} when it opens.`,
+          false,
+          kind === 'gmail' ? { label: 'Use Gmail website instead', href: web } : { label: `${app.label} didn't open? Use the website`, href: web }
+        );
       }
-      showNote(`${filename} saved to your Downloads — attach it in ${app.label}.`);
     } catch (e: any) {
-      try { tab?.close(); } catch {}
       showNote(e?.message ? `Could not prepare the file: ${e.message}` : 'Could not prepare the file.', true);
     } finally {
       setBusy(null);
@@ -330,6 +344,9 @@ export default function ShareMenu({
           onClick={() => setNote(null)}
         >
           {note.text}
+          {note.action && (
+            <> <a href={note.action.href} target="_blank" rel="noopener noreferrer" className="underline font-semibold ml-1" onClick={(e) => e.stopPropagation()}>{note.action.label}</a></>
+          )}
         </div>
       )}
     </>
