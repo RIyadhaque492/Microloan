@@ -28,13 +28,18 @@ function withTimeout<T>(p: Promise<T>, ms = 60000): Promise<T> {
   });
 }
 
-let configCache: Promise<{ telegram: boolean; gmail: boolean }> | null = null;
-/** Which direct-send services the server has settings for (asked once per page). */
-function directConfig(): Promise<{ telegram: boolean; gmail: boolean }> {
-  if (!configCache) {
+type Contact = { id: number; name: string; telegram_chat_id: string; email: string };
+type DirectCfg = { telegram: boolean; gmail: boolean; defaultChat: boolean; contacts: Contact[] };
+const NO_CFG: DirectCfg = { telegram: false, gmail: false, defaultChat: false, contacts: [] };
+
+let configCache: Promise<DirectCfg> | null = null;
+/** Which direct-send services the server has settings for, and the saved contacts (asked on every menu open). */
+function directConfig(fresh = false): Promise<DirectCfg> {
+  if (!configCache || fresh) {
     configCache = fetch('/api/send-file', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { telegram: false, gmail: false }))
-      .catch(() => ({ telegram: false, gmail: false }));
+      .then((r) => (r.ok ? r.json() : NO_CFG))
+      .then((j) => ({ ...NO_CFG, ...j }))
+      .catch(() => NO_CFG);
   }
   return configCache;
 }
@@ -114,8 +119,9 @@ export default function ShareMenu({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<ShareKind | null>(null);
   const [ready, setReady] = useState<'wait' | 'ok' | 'fail'>('wait');
-  const [emailAsk, setEmailAsk] = useState<null | { resolve: (v: string | null) => void }>(null);
-  const [emailVal, setEmailVal] = useState('');
+  const [picker, setPicker] = useState<null | { kind: 'telegram' | 'gmail'; contacts: Contact[]; defaultChat: boolean; resolve: (v: { chatIds: string[]; emails: string; names: string; withDefault: boolean } | null) => void }>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [extra, setExtra] = useState('');
   const [note, setNote] = useState<{ text: string; error?: boolean; action?: { label: string; href: string } } | null>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -140,7 +146,7 @@ export default function ShareMenu({
     // Make the file now, while the menu is open, so the share sheet can open the instant an app is picked
     // (phones only allow it right after a tap).
     setReady('wait');
-    directConfig(); // warm up
+    directConfig(true); // warm up (also reloads the contact list)
     const p = getFile();
     filePromise.current = p;
     p.then(
@@ -183,22 +189,49 @@ export default function ShareMenu({
     return withTimeout(filePromise.current);
   }
 
-  /** Asks for the e-mail address to send to (remembered for next time). Resolves null if cancelled. */
-  function askEmail(): Promise<string | null> {
-    let last = '';
-    try { last = localStorage.getItem('microloan_share_email') || ''; } catch {}
-    setEmailVal(last);
-    return new Promise((resolve) => setEmailAsk({ resolve }));
+  /** Lets the admin tick one or many saved contacts (and type extra e-mails). Resolves null if cancelled. */
+  function askRecipients(kind: 'telegram' | 'gmail', cfg: DirectCfg) {
+    const contacts = cfg.contacts.filter((c) => (kind === 'telegram' ? c.telegram_chat_id : c.email));
+    let saved: string[] = [];
+    try { saved = JSON.parse(localStorage.getItem(`microloan_share_sel_${kind}`) || '[]'); } catch {}
+    const valid = new Set<string>([...contacts.map((c) => String(c.id)), ...(kind === 'telegram' && cfg.defaultChat ? ['default'] : [])]);
+    let start = saved.filter((x) => valid.has(x));
+    if (start.length === 0 && valid.size === 1) start = Array.from(valid);
+    setSel(new Set(start));
+    setExtra('');
+    return new Promise<{ chatIds: string[]; emails: string; names: string; withDefault: boolean } | null>((resolve) =>
+      setPicker({ kind, contacts, defaultChat: kind === 'telegram' && cfg.defaultChat, resolve })
+    );
   }
 
-  /** Telegram / Gmail on a computer: the server sends the file itself — nothing is downloaded or attached by hand. */
-  async function sendDirect(kind: 'telegram' | 'gmail'): Promise<'sent' | 'failed' | 'fallback'> {
-    let to = '';
-    if (kind === 'gmail') {
-      const v = await askEmail();
-      if (!v) return 'failed';
-      to = v;
-      try { localStorage.setItem('microloan_share_email', v); } catch {}
+  function finishPicker(ok: boolean) {
+    if (!picker) return;
+    if (!ok) { picker.resolve(null); setPicker(null); return; }
+    const chosen = picker.contacts.filter((c) => sel.has(String(c.id)));
+    const extraList = extra.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+    if (picker.kind === 'gmail' && extraList.some((x) => !/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(x))) { showNote('One of the typed email addresses is not valid.', true); return; }
+    const chatIds = picker.kind === 'telegram' ? chosen.map((c) => c.telegram_chat_id) : [];
+    const emails = picker.kind === 'gmail' ? [...chosen.map((c) => c.email), ...extraList].join(',') : '';
+    const count = picker.kind === 'telegram' ? chatIds.length + (sel.has('default') ? 1 : 0) : emails ? emails.split(',').length : 0;
+    if (count === 0) { showNote('Tick at least one contact.', true); return; }
+    try { localStorage.setItem(`microloan_share_sel_${picker.kind}`, JSON.stringify(Array.from(sel))); } catch {}
+    picker.resolve({ chatIds, emails, names: String(count), withDefault: picker.kind === 'telegram' && sel.has('default') });
+    setPicker(null);
+  }
+
+  /** Telegram / Gmail on a computer: the server sends the file itself to every ticked contact — nothing is downloaded. */
+  async function sendDirect(kind: 'telegram' | 'gmail', cfg: DirectCfg): Promise<'sent' | 'failed' | 'fallback'> {
+    const hasList = cfg.contacts.some((c) => (kind === 'telegram' ? c.telegram_chat_id : c.email));
+    let chatIds: string[] = [];
+    let emails = '';
+    let count = 1;
+    let withDefault = kind === 'telegram' && !hasList;
+    if (kind === 'telegram' && !hasList) {
+      if (!cfg.defaultChat) return 'fallback';
+    } else {
+      const r = await askRecipients(kind, cfg);
+      if (!r) return 'failed';
+      chatIds = r.chatIds; emails = r.emails; count = Number(r.names) || 1; withDefault = r.withDefault;
     }
     setBusy(kind);
     try {
@@ -206,12 +239,20 @@ export default function ShareMenu({
       const fd = new FormData();
       fd.set('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
       fd.set('kind', kind);
-      fd.set('to', to);
+      fd.set('to', emails);
+      fd.set('chat_ids', JSON.stringify(chatIds));
+      fd.set('with_default', withDefault ? '1' : '');
       fd.set('title', title);
       const res = await fetch('/api/send-file', { method: 'POST', body: fd });
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
-        showNote(kind === 'telegram' ? '✅ PDF sent to Telegram.' : `✅ PDF emailed to ${to}.`);
+        const bad = Array.isArray(json.failed) ? json.failed.length : 0;
+        showNote(
+          bad
+            ? `⚠ PDF sent to ${json.sent}, but ${bad} failed: ${json.failed[0]}`
+            : `✅ PDF sent to ${json.sent ?? count} ${kind === 'telegram' ? 'Telegram chat' : 'email address'}${(json.sent ?? count) > 1 ? (kind === 'telegram' ? 's' : 'es') : ''}.`,
+          !!bad
+        );
         return 'sent';
       }
       if (json.code === 'not_configured') return 'fallback';
@@ -233,7 +274,7 @@ export default function ShareMenu({
 
     const cfg = !mobile && (kind === 'telegram' || kind === 'gmail') ? await directConfig() : null;
     if (cfg && (kind === 'telegram' || kind === 'gmail') && cfg[kind]) {
-      const r = await sendDirect(kind);
+      const r = await sendDirect(kind, cfg);
       if (r !== 'fallback') { filePromise.current = null; return; }
       // not set up on the server yet -> the share window below
     } else if (cfg && kind === 'telegram') {
@@ -337,27 +378,47 @@ export default function ShareMenu({
         </div>
       )}
 
-      {emailAsk && (
-        <div className="fixed inset-0 z-[500] bg-black/50 flex items-center justify-center px-4" onClick={() => { emailAsk.resolve(null); setEmailAsk(null); }}>
-          <form
-            className="bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm"
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={(e) => {
-              e.preventDefault();
-              const v = emailVal.trim();
-              if (!/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(v)) return;
-              emailAsk.resolve(v);
-              setEmailAsk(null);
-            }}
-          >
-            <h3 className="font-bold text-navy mb-1">✉️ Send by email</h3>
-            <p className="text-xs text-gray-500 mb-3">The PDF is attached and sent straight from the server.</p>
-            <input type="email" required autoFocus value={emailVal} onChange={(e) => setEmailVal(e.target.value)} placeholder="name@example.com" className="input mb-3" />
-            <div className="flex justify-end gap-2">
-              <button type="button" className="btn btn-outline" onClick={() => { emailAsk.resolve(null); setEmailAsk(null); }}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Send</button>
+      {picker && (
+        <div className="fixed inset-0 z-[500] bg-black/50 flex items-center justify-center px-4" onClick={() => finishPicker(false)}>
+          <div className="modal-in bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-navy mb-0.5">{picker.kind === 'telegram' ? '✈️ Send on Telegram' : '✉️ Send by email'}</h3>
+            <p className="text-xs text-gray-500 mb-3">Tick one or many people. The PDF itself is sent to each — no link, no download.</p>
+            <div className="overflow-y-auto -mx-1 px-1 flex-1 min-h-[3rem]">
+              {(picker.contacts.length > 1 || (picker.contacts.length > 0 && picker.defaultChat)) && (
+                <label className="flex items-center gap-2 py-1.5 text-sm font-semibold text-navy cursor-pointer">
+                  <input type="checkbox"
+                    checked={sel.size === picker.contacts.length + (picker.defaultChat ? 1 : 0)}
+                    onChange={(e) => setSel(e.target.checked ? new Set([...picker.contacts.map((c) => String(c.id)), ...(picker.defaultChat ? ['default'] : [])]) : new Set())} />
+                  Select all
+                </label>
+              )}
+              {picker.defaultChat && (
+                <label className="flex items-center gap-2 py-1.5 text-sm cursor-pointer">
+                  <input type="checkbox" checked={sel.has('default')} onChange={(e) => setSel((p) => { const n = new Set(p); e.target.checked ? n.add('default') : n.delete('default'); return n; })} />
+                  <span>My own chat <span className="text-gray-400 text-xs">(Share Settings)</span></span>
+                </label>
+              )}
+              {picker.contacts.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 py-1.5 text-sm cursor-pointer">
+                  <input type="checkbox" checked={sel.has(String(c.id))} onChange={(e) => setSel((p) => { const n = new Set(p); e.target.checked ? n.add(String(c.id)) : n.delete(String(c.id)); return n; })} />
+                  <span>{c.name} <span className="text-gray-400 text-xs">{picker.kind === 'gmail' ? c.email : c.telegram_chat_id}</span></span>
+                </label>
+              ))}
+              {picker.contacts.length === 0 && !picker.defaultChat && <p className="text-sm text-gray-500 py-2">No saved contacts yet — add them in Share Settings.</p>}
             </div>
-          </form>
+            {picker.kind === 'gmail' && (
+              <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Other emails (comma separated)" className="input mt-3" />
+            )}
+            <div className="flex justify-between items-center gap-2 mt-4">
+              <a href="/share-settings" className="text-xs text-teal-700 underline">Manage contacts</a>
+              <div className="flex gap-2">
+                <button type="button" className="btn btn-outline" onClick={() => finishPicker(false)}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={() => finishPicker(true)}>
+                  Send{sel.size + extra.split(/[,;\s]+/).filter(Boolean).length > 0 ? ` (${sel.size + extra.split(/[,;\s]+/).filter(Boolean).length})` : ''}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

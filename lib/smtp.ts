@@ -25,7 +25,7 @@ export function buildMessage(o: MailOptions): string {
   const fname = noBreaks(o.filename).replace(/"/g, '');
   return [
     `From: ${noBreaks(o.from)}`,
-    `To: ${noBreaks(o.to)}`,
+    `To: ${noBreaks(o.to).replace(/\s*,\s*/g, ', ')}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
     `Date: ${new Date().toUTCString()}`,
@@ -83,7 +83,9 @@ export function sendMail(o: MailOptions): Promise<void> {
       await send(b64(o.user), [334]);
       await send(b64(o.pass), [235]);
       await send(`MAIL FROM:<${noBreaks(o.user)}>`, [250]);
-      await send(`RCPT TO:<${noBreaks(o.to)}>`, [250, 251]);
+      for (const rcpt of o.to.split(',').map((x) => noBreaks(x)).filter(Boolean)) {
+        await send(`RCPT TO:<${rcpt}>`, [250, 251]);
+      }
       await send('DATA', [354]);
       const body = buildMessage(o).replace(/\r\n\./g, '\r\n..');
       await send(body + '\r\n.', [250]);

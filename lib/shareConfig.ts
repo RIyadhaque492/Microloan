@@ -34,3 +34,26 @@ export async function getShareConfig(): Promise<ShareConfig> {
 }
 
 export const telegramBase = () => process.env.TELEGRAM_API_BASE || 'https://api.telegram.org';
+
+export type ShareContact = { id: number; name: string; telegram_chat_id: string; email: string };
+
+/** People the admin can tick when sharing (Telegram chat id and/or e-mail). */
+export async function ensureContactsTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS share_contacts (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      telegram_chat_id TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`;
+}
+
+export async function listContacts(): Promise<ShareContact[]> {
+  try {
+    await ensureContactsTable();
+    return (await sql`SELECT id, name, telegram_chat_id, email FROM share_contacts ORDER BY lower(name), id`) as any;
+  } catch {
+    return [];
+  }
+}

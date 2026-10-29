@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { sendMail } from '@/lib/smtp';
-import { getShareConfig, telegramBase } from '@/lib/shareConfig';
+import { getShareConfig, listContacts, telegramBase } from '@/lib/shareConfig';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,7 +13,13 @@ export async function GET() {
   const session = await getSession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const c = await getShareConfig();
-  return Response.json({ telegram: !!(c.telegramToken && c.telegramChatId), gmail: !!(c.smtpUser && c.smtpPass) });
+  const contacts = await listContacts();
+  return Response.json({
+    telegram: !!c.telegramToken,
+    defaultChat: !!c.telegramChatId,
+    gmail: !!(c.smtpUser && c.smtpPass),
+    contacts,
+  });
 }
 
 /**
@@ -43,21 +49,29 @@ export async function POST(request: Request) {
     if (kind === 'telegram') {
       const cfg = await getShareConfig();
       const token = cfg.telegramToken;
-      const chatId = cfg.telegramChatId;
-      if (!token || !chatId) {
+      let ids: string[] = [];
+      try { ids = JSON.parse(String(form.get('chat_ids') || '[]')); } catch {}
+      ids = Array.from(new Set(ids.map((x) => String(x).trim()).filter((x) => /^-?\d+$|^@[A-Za-z0-9_]{4,}$/.test(x)))).slice(0, 25);
+      if (cfg.telegramChatId && (form.get('with_default') || ids.length === 0) && !ids.includes(cfg.telegramChatId)) ids.unshift(cfg.telegramChatId);
+      if (!token || ids.length === 0) {
         return Response.json({ code: 'not_configured', error: 'Telegram is not set up yet (Admin > Share Settings).' }, { status: 503 });
       }
-      const fd = new FormData();
-      fd.set('chat_id', chatId);
-      fd.set('caption', title);
-      fd.set('document', new File([await file.arrayBuffer()], filename, { type: file.type || 'application/octet-stream' }));
+      const bytes = await file.arrayBuffer();
       const base = telegramBase();
-      const res = await fetch(`${base}/bot${token}/sendDocument`, { method: 'POST', body: fd });
-      const json: any = await res.json().catch(() => ({}));
-      if (!res.ok || json.ok === false) {
-        return Response.json({ error: `Telegram refused it: ${json.description || res.status}` }, { status: 502 });
+      const failed: string[] = [];
+      let sent = 0;
+      for (const chatId of ids) {
+        const fd = new FormData();
+        fd.set('chat_id', chatId);
+        fd.set('caption', title);
+        fd.set('document', new File([bytes], filename, { type: file.type || 'application/octet-stream' }));
+        const res = await fetch(`${base}/bot${token}/sendDocument`, { method: 'POST', body: fd });
+        const json: any = await res.json().catch(() => ({}));
+        if (!res.ok || json.ok === false) failed.push(`${chatId}: ${json.description || res.status}`);
+        else sent++;
       }
-      return Response.json({ ok: true });
+      if (sent === 0) return Response.json({ error: `Telegram refused it: ${failed[0]}. (The person must open your bot and press Start first.)` }, { status: 502 });
+      return Response.json({ ok: true, sent, failed });
     }
 
     if (kind === 'gmail') {
@@ -67,10 +81,11 @@ export async function POST(request: Request) {
       if (!user || !pass) {
         return Response.json({ code: 'not_configured', error: 'Email is not set up yet (Admin > Share Settings).' }, { status: 503 });
       }
-      const to = String(form.get('to') || '').trim();
-      if (!/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(to)) {
-        return Response.json({ error: 'Please enter a valid email address.' }, { status: 400 });
+      const list = Array.from(new Set(String(form.get('to') || '').split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean))).slice(0, 15);
+      if (list.length === 0 || list.some((x) => !/^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(x))) {
+        return Response.json({ error: 'Please choose or enter valid email addresses.' }, { status: 400 });
       }
+      const to = list.join(',');
       await sendMail({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: Number(process.env.SMTP_PORT || 465),
@@ -84,7 +99,7 @@ export async function POST(request: Request) {
         mime: file.type || 'application/octet-stream',
         data: Buffer.from(await file.arrayBuffer()),
       });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, sent: list.length, failed: [] });
     }
 
     return Response.json({ error: 'Unknown destination.' }, { status: 400 });

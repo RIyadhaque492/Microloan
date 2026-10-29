@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 
 type Msg = { ok: boolean; text: string } | null;
+type Contact = { id: number; name: string; telegram_chat_id: string; email: string };
+
+async function contactsCall(method: 'GET' | 'POST', body?: any): Promise<Contact[]> {
+  const res = await fetch('/api/share-contacts', { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+  return json.contacts || [];
+}
 
 async function call(method: 'GET' | 'POST', body?: any) {
   const res = await fetch('/api/share-settings', { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
@@ -23,6 +31,11 @@ export default function ShareSettingsClient() {
   const [busy, setBusy] = useState('');
   const [tgMsg, setTgMsg] = useState<Msg>(null);
   const [mailMsg, setMailMsg] = useState<Msg>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [cName, setCName] = useState('');
+  const [cChat, setCChat] = useState('');
+  const [cMail, setCMail] = useState('');
+  const [cMsg, setCMsg] = useState<Msg>(null);
 
   async function load() {
     try {
@@ -34,7 +47,7 @@ export default function ShareSettingsClient() {
     }
     setLoaded(true);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); contactsCall('GET').then(setContacts).catch(() => {}); }, []);
 
   async function run(name: string, fn: () => Promise<void>, set: (m: Msg) => void) {
     setBusy(name); set(null);
@@ -68,9 +81,18 @@ export default function ShareSettingsClient() {
             {busy === 'detect' ? 'Looking…' : '🔎 Find my Chat ID'}
           </button>
         </div>
-        {chats.length > 1 && (
-          <div className="flex gap-2 flex-wrap mb-2">
-            {chats.map((c) => <button key={c.id} type="button" className="btn btn-outline !py-1 text-xs" onClick={() => setChatId(c.id)}>{c.name} · {c.id}</button>)}
+        {chats.length > 0 && (
+          <div className="mb-2 rounded-lg border border-gray-200 divide-y divide-gray-100 text-sm">
+            {chats.map((c) => (
+              <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 flex-wrap">
+                <span className="flex-1 min-w-[10rem]">{c.name} <span className="text-gray-400 text-xs">{c.id}</span></span>
+                <button type="button" className="btn btn-outline !py-1 text-xs" onClick={() => setChatId(c.id)}>Use as my chat</button>
+                <button type="button" className="btn btn-outline !py-1 text-xs" disabled={contacts.some((x) => x.telegram_chat_id === c.id)}
+                  onClick={() => run('addc', async () => { setContacts(await contactsCall('POST', { action: 'add', name: c.name, telegram_chat_id: c.id })); setCMsg({ ok: true, text: `${c.name} added to contacts.` }); }, setCMsg)}>
+                  {contacts.some((x) => x.telegram_chat_id === c.id) ? '✓ In contacts' : '+ Add to contacts'}
+                </button>
+              </div>
+            ))}
           </div>
         )}
         <div className="flex gap-2 flex-wrap mt-3">
@@ -84,6 +106,35 @@ export default function ShareSettingsClient() {
           </button>
         </div>
         {tgMsg && <div className={`mt-3 rounded-lg px-3 py-2 text-sm ${tgMsg.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{tgMsg.text}</div>}
+      </section>
+
+      <section className="card p-5 border-l-4 border-l-teal-500">
+        <h2 className="font-bold text-navy mb-1">👥 Contacts — tick many people when sharing</h2>
+        <p className="text-sm text-gray-600 mb-3">
+          Share → Telegram / Gmail shows these names with tick boxes; the PDF is sent to everyone you tick. For Telegram, each person must open your bot once and press
+          <strong> Start</strong>, then click <strong>Find my Chat ID</strong> above and <strong>+ Add to contacts</strong>. For email, just type their address.
+        </p>
+        <div className="grid md:grid-cols-4 gap-2 items-end">
+          <div><label className="label">Name</label><input value={cName} onChange={(e) => setCName(e.target.value)} className="input" placeholder="Rahim" /></div>
+          <div><label className="label">Telegram chat ID</label><input value={cChat} onChange={(e) => setCChat(e.target.value)} className="input" placeholder="optional" /></div>
+          <div><label className="label">Email</label><input type="email" value={cMail} onChange={(e) => setCMail(e.target.value)} className="input" placeholder="optional" /></div>
+          <button type="button" className="btn btn-primary" disabled={!!busy}
+            onClick={() => run('addc', async () => { setContacts(await contactsCall('POST', { action: 'add', name: cName, telegram_chat_id: cChat, email: cMail })); setCName(''); setCChat(''); setCMail(''); setCMsg({ ok: true, text: 'Contact added.' }); }, setCMsg)}>
+            + Add contact
+          </button>
+        </div>
+        {contacts.length > 0 && (
+          <div className="mt-3 rounded-lg border border-gray-200 divide-y divide-gray-100 text-sm">
+            {contacts.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 px-3 py-1.5 flex-wrap">
+                <span className="font-semibold flex-1 min-w-[8rem]">{c.name}</span>
+                <span className="text-gray-500 text-xs">{c.telegram_chat_id && `✈️ ${c.telegram_chat_id}`} {c.email && `✉️ ${c.email}`}</span>
+                <button type="button" className="text-red-600 text-xs underline" onClick={() => run('delc', async () => setContacts(await contactsCall('POST', { action: 'delete', id: c.id })), setCMsg)}>Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {cMsg && <div className={`mt-3 rounded-lg px-3 py-2 text-sm ${cMsg.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{cMsg.text}</div>}
       </section>
 
       <section className="card p-5 border-l-4 border-l-red-400">

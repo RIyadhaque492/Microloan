@@ -105,3 +105,8 @@
 # Update 34 — share by link (nothing downloaded)
 - Share on a computer: the PDF is stored for 48 hours behind a private link and the installed app opens (Telegram / WhatsApp / Messenger / default mail app) with that link already in the message — nothing is downloaded or attached. The link is also copied. If the app is not installed, a link in the pop-up opens the website version with the same message.
 - Telegram/Gmail direct send (Share Settings) and the phone share sheet (real PDF attached) are unchanged. The links table is created automatically.
+
+# Update 35
+- Share → Telegram / Gmail now shows your saved contacts with tick boxes (Select all, or type extra emails). The PDF file itself is sent to every ticked person — no link, no download.
+- Share Settings: new "Contacts" section; "Find my Chat ID" lists everyone who pressed Start on your bot with a one-click "+ Add to contacts".
+- Email goes to all ticked addresses in one message with the PDF attached.
