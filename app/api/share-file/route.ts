@@ -23,6 +23,9 @@ export async function POST(request: Request) {
   const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
 
   try {
+    await sql`CREATE TABLE IF NOT EXISTS shared_files (
+      token VARCHAR(64) PRIMARY KEY, filename VARCHAR(255) NOT NULL, mime_type VARCHAR(100) NOT NULL,
+      file_data TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), expires_at TIMESTAMPTZ NOT NULL)`;
     await sql`DELETE FROM shared_files WHERE expires_at < now()`;
     await sql`
       INSERT INTO shared_files (token, filename, mime_type, file_data, expires_at)

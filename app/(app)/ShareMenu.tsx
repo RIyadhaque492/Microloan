@@ -45,14 +45,38 @@ function isMobileDevice() {
 }
 
 /** Opens the installed desktop app (Telegram Desktop, WhatsApp, Messenger, the default mail app). */
-export function appLink(kind: ShareKind, subject: string): string {
+export function appLink(kind: ShareKind, subject: string, link = ''): string {
+  const enc = encodeURIComponent;
+  const msg = link ? `${subject}\n${link}` : subject;
   switch (kind) {
-    case 'telegram': return 'tg://';
-    case 'whatsapp': return 'whatsapp://send';
-    case 'messenger': return 'fb-messenger://';
-    case 'gmail': return `mailto:?subject=${encodeURIComponent(subject)}`;
+    case 'telegram': return link ? `tg://msg_url?url=${enc(link)}&text=${enc(subject)}` : 'tg://';
+    case 'whatsapp': return link ? `whatsapp://send?text=${enc(msg)}` : 'whatsapp://send';
+    case 'messenger': return link ? `fb-messenger://share/?link=${enc(link)}` : 'fb-messenger://';
+    case 'gmail': return `mailto:?subject=${enc(subject)}${link ? `&body=${enc(msg)}` : ''}`;
     default: return '';
   }
+}
+
+/** Website version of each app with the PDF link filled in (used when the desktop app is not installed). */
+export function webLink(kind: ShareKind, subject: string, link: string): string {
+  const enc = encodeURIComponent;
+  switch (kind) {
+    case 'telegram': return `https://t.me/share/url?url=${enc(link)}&text=${enc(subject)}`;
+    case 'whatsapp': return `https://wa.me/?text=${enc(`${subject}\n${link}`)}`;
+    case 'messenger': return 'https://www.messenger.com/';
+    case 'gmail': return `https://mail.google.com/mail/?view=cm&fs=1&su=${enc(subject)}&body=${enc(`${subject}\n${link}`)}`;
+    default: return '';
+  }
+}
+
+/** Stores the file for 48 hours and returns a private link to it. */
+async function uploadLink(blob: Blob, filename: string): Promise<string> {
+  const fd = new FormData();
+  fd.set('file', new File([blob], filename, { type: blob.type || 'application/octet-stream' }));
+  const res = await fetch('/api/share-file', { method: 'POST', body: fd });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.url) throw new Error(json.error || 'Could not create the link.');
+  return json.url as string;
 }
 
 /** Where to go on a computer (and as the fallback on a phone that cannot attach files). */
@@ -244,26 +268,26 @@ export default function ShareMenu({
       }
       if (kind === 'system') { downloadBlob(blob, filename); showNote(`${filename} saved to your Downloads.`); return; }
 
-      // Computer (or a phone browser that cannot attach files): save the PDF, then open the installed APP
-      // (tg:// whatsapp:// fb-messenger:// mailto:). If it is not installed the link below opens the website instead.
-      downloadBlob(blob, filename);
-      const web = shareTarget(kind, title, mobile);
+      // Computer (or a phone browser that cannot attach files): nothing is downloaded. The PDF is stored for 48 hours
+      // behind a private link and the installed APP opens (tg:// whatsapp:// fb-messenger:// mailto:) with that link
+      // already in the message. If the app is not installed, the note offers the website version.
+      const link = await uploadLink(blob, filename);
+      try { await navigator.clipboard.writeText(link); } catch {}
       if (mobile) {
-        if (web.startsWith('mailto:')) window.location.href = web; else window.open(web, '_blank');
-        showNote(`${filename} saved to your Downloads — attach it in ${app.label}.`);
+        const w = webLink(kind, title, link);
+        if (kind === 'gmail') window.location.href = appLink(kind, title, link); else window.open(w, '_blank');
+        showNote(`PDF link ready (valid 48 hours).`);
       } else {
-        const link = appLink(kind, title);
-        // launch the app without leaving this page
         const a = document.createElement('a');
-        a.href = link;
+        a.href = appLink(kind, title, link);
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         setTimeout(() => a.remove(), 500);
         showNote(
-          `${filename} saved to your Downloads — drop it into ${kind === 'gmail' ? 'your mail app' : app.label} when it opens.`,
+          `PDF link added to the message (valid 48 hours) and copied — paste it if needed.`,
           false,
-          kind === 'gmail' ? { label: 'Use Gmail website instead', href: web } : { label: `${app.label} didn't open? Use the website`, href: web }
+          { label: kind === 'gmail' ? 'Use Gmail website instead' : `${app.label} didn't open? Use the website`, href: webLink(kind, title, link) }
         );
       }
     } catch (e: any) {

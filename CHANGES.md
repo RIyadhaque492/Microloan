@@ -101,3 +101,7 @@
 
 # Update 33
 - Share on a computer: Telegram, WhatsApp, Messenger now open the installed desktop APP (tg:// whatsapp:// fb-messenger://) instead of a website; Gmail opens your default mail app (mailto:). The PDF is saved so you can drop it in. If the app is not installed, a link in the pop-up note opens the website version instead. (Windows asks once "Open Telegram?" — tick "always allow".)
+
+# Update 34 — share by link (nothing downloaded)
+- Share on a computer: the PDF is stored for 48 hours behind a private link and the installed app opens (Telegram / WhatsApp / Messenger / default mail app) with that link already in the message — nothing is downloaded or attached. The link is also copied. If the app is not installed, a link in the pop-up opens the website version with the same message.
+- Telegram/Gmail direct send (Share Settings) and the phone share sheet (real PDF attached) are unchanged. The links table is created automatically.
