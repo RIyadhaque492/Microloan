@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { logoutAction } from '@/lib/actions';
+import LogoutButton from './LogoutButton';
+import AutoRefreshToggle from './AutoRefresh';
 import { formatDMYTime } from '@/lib/utils';
 
 function currentPageTitle(pathname: string): string {
@@ -137,14 +138,21 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
           <Link href="/share-settings" prefetch={false} className={linkClass(isShareSettings)}>📤 Share Settings</Link>
         </nav>
 
-        <div className="p-4 border-t border-white/10">
-          <div className="text-xs text-gray-300 mb-1">{name} · {role}</div>
-          <div className="text-[10px] text-gray-400 mb-2" title="If this does not change after you update, the new version has not been deployed yet.">
+        <div className="p-4 border-t border-white/10 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 shrink-0 rounded-full bg-teal-500/30 border border-teal-300/40 flex items-center justify-center font-bold text-teal-100">
+              {(name || 'A').trim().charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{name || 'Admin'}</div>
+              <div className="text-[11px] text-gray-300 capitalize truncate">{role || 'admin'}</div>
+            </div>
+          </div>
+          <AutoRefreshToggle />
+          <LogoutButton />
+          <div className="text-[10px] text-gray-400 text-center" title="If this does not change after you update, the new version has not been deployed yet.">
             {process.env.NEXT_PUBLIC_APP_VERSION} · built {formatDMYTime(process.env.NEXT_PUBLIC_BUILD_TIME)}
           </div>
-          <form action={logoutAction}>
-            <button className="text-sm text-red-300 hover:text-red-200">↩ Logout</button>
-          </form>
         </div>
       </aside>
     </>

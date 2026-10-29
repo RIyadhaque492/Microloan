@@ -487,7 +487,9 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
     const m = /(\d+)\s*$/.exec(String(r.borrower_code ?? ''));
     return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
   };
-  rows.sort((a, b) => serial(a) - serial(b) || String(a.full_name).localeCompare(String(b.full_name)));
+  // Earliest disbursement date first (then member serial, then loan id) — every report follows this order.
+  const day = (r: any) => { const t = new Date(r.disbursement_date).getTime(); return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER; };
+  rows.sort((a, b) => day(a) - day(b) || serial(a) - serial(b) || Number(a.loan_id) - Number(b.loan_id));
   const seen = new Set<number>();
   return rows.map((r) => {
     const totalPaid = Number(r.total_paid);

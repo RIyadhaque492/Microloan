@@ -183,6 +183,13 @@ export default function ShareMenu({
 
   useEffect(() => () => clearTimeout(noteTimer.current), []);
 
+  // Tell the auto-refresh not to reload the page while a menu is open or a file is being sent.
+  useEffect(() => {
+    const on = open || !!busy || !!picker;
+    if (on) document.body.setAttribute('data-no-refresh', '1'); else document.body.removeAttribute('data-no-refresh');
+    return () => document.body.removeAttribute('data-no-refresh');
+  }, [open, busy, picker]);
+
   /** The prepared file; makes it again if the earlier attempt failed. */
   function currentFile() {
     if (ready === 'fail' || !filePromise.current) filePromise.current = getFile();
@@ -291,7 +298,8 @@ export default function ShareMenu({
 
     // Phones: the share sheet with the file attached. Computer: the chosen app opens (Telegram, Gmail, …) with the
     // file saved ready to drop in — unless direct send is set up (handled above), or "More apps…" is chosen.
-    const useNative = nativeOK && (mobile || kind === 'system');
+    // WhatsApp and Messenger also try the system share window on a computer, so the real PDF goes in (falls back to the link below).
+    const useNative = nativeOK && (mobile || kind === 'system' || kind === 'whatsapp' || kind === 'messenger');
 
     try {
       const { blob, filename } = await currentFile();

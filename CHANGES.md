@@ -110,3 +110,9 @@
 - Share → Telegram / Gmail now shows your saved contacts with tick boxes (Select all, or type extra emails). The PDF file itself is sent to every ticked person — no link, no download.
 - Share Settings: new "Contacts" section; "Find my Chat ID" lists everyone who pressed Start on your bot with a one-click "+ Add to contacts".
 - Email goes to all ticked addresses in one message with the PDF attached.
+
+# Update 36
+- Logout fixed: it now clears the session and does a full reload of the login page (works every time, Back button no longer shows old pages). New sidebar footer with your name/role, a clear Logout button and a version line.
+- Auto refresh: list, dashboard, collections, savings, reports, notifications and bin pages reload their data every 30 s and when you return to the tab. Never while you type, while a menu/dialog is open or a file is being made. ON/OFF switch in the sidebar.
+- Share → WhatsApp / Messenger on a computer open the system share window with the real PDF attached (link only if that is not possible).
+- All reports: rows now follow date order, earliest disbursement date first (payments inside a member report were already oldest first).
