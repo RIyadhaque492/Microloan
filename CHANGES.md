@@ -95,3 +95,6 @@
 - New sidebar page "📤 Share Settings" (Admin): paste your Telegram bot token, press "Find my Chat ID" (it reads the id for you), Save, "Send test message". No Vercel settings or redeploy needed. Gmail address + app password are saved there too.
 - After that, Share → Telegram sends the PDF straight into your Telegram chat (no window, no download). Until it is set up, Share → Telegram shows a hint and opens the system share window.
 - Settings are stored in a new table share_settings (created automatically; secrets are never sent back to the browser). Environment variables from Update 27 still work as a fallback.
+
+# Update 32
+- Share on a computer: clicking Telegram / Gmail / Messenger / WhatsApp opens that app in a new tab again (the PDF is saved so you can drop it in). If direct send is set up in Share Settings, Telegram/Gmail send the PDF straight in instead. "More apps…" (system share window with the PDF attached) is back. Phones keep using the share sheet.

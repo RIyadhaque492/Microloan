@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { downloadBlob } from '@/lib/clientExport';
 
 /**
- * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp. It always shares the real FILE, never a link,
- * and nothing is downloaded first:
- *  • Telegram / Gmail on a computer: the server sends the file itself (needs the settings in .env.example);
- *    until those exist it behaves like the next point.
- *  • Everything else: the system share window opens with the file already attached — pick the app there.
- *  • Only browsers that cannot share files fall back to: save the file + open the app's website.
+ * "Share" button with a dropdown: Telegram, Gmail, Messenger, WhatsApp, More apps…
+ *  • Telegram / Gmail with direct send set up (Share Settings page): the server sends the PDF itself — no window, no download.
+ *  • Phones/tablets: the share sheet opens with the PDF attached.
+ *  • Computer otherwise: the chosen app opens in a new tab and the PDF is saved, ready to drop in (a website cannot
+ *    attach a file to another site by itself). "More apps…" opens the system share window with the PDF attached.
  */
 export type ShareKind = 'telegram' | 'gmail' | 'messenger' | 'whatsapp' | 'system';
 
@@ -18,6 +17,7 @@ const APPS: { kind: ShareKind; label: string; icon: string; cls: string }[] = [
   { kind: 'gmail', label: 'Gmail', icon: '✉️', cls: 'hover:bg-red-50 text-red-700' },
   { kind: 'messenger', label: 'Messenger', icon: '💬', cls: 'hover:bg-blue-50 text-blue-700' },
   { kind: 'whatsapp', label: 'WhatsApp', icon: '🟢', cls: 'hover:bg-green-50 text-green-700' },
+  { kind: 'system', label: 'More apps…', icon: '📲', cls: 'hover:bg-gray-50 text-gray-700 border-t border-gray-100' },
 ];
 
 /** Never wait forever for the file to be made. */
@@ -202,7 +202,7 @@ export default function ShareMenu({
       if (r !== 'fallback') { filePromise.current = null; return; }
       // not set up on the server yet -> the share window below
     } else if (cfg && kind === 'telegram') {
-      showNote('Telegram direct send is not set up yet — open “Share Settings” in the sidebar (2 minutes).');
+      showNote('Opening Telegram. To send the PDF straight into Telegram with no attaching, set it up once in “Share Settings” (sidebar).');
     }
     setBusy(kind);
 
@@ -215,8 +215,9 @@ export default function ShareMenu({
 
     // If not, the app opens in a new tab: open it right now (inside the click) so the popup blocker allows it.
     let tab: Window | null = null;
-    // The file goes straight to the share window (no download) whenever the browser supports it.
-    const useNative = nativeOK;
+    // Phones: the share sheet with the file attached. Computer: the chosen app opens (Telegram, Gmail, …) with the
+    // file saved ready to drop in — unless direct send is set up (handled above), or "More apps…" is chosen.
+    const useNative = nativeOK && (mobile || kind === 'system');
     if (!useNative && !mobile) {
       try { tab = window.open('', '_blank'); } catch { tab = null; }
     }
