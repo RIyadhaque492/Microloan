@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
-const EVERY_MS = 30000;
-/** Read-only pages that are safe to refresh in the background. Forms, settings, backup/restore are never touched. */
-const SAFE = /^\/(dashboard|borrowers|loans|collections|savings|reports|notifications|bin)\/?$/;
+const EVERY_MS = 10000;
+/** Every data page refreshes (lists AND detail/history pages). Forms and tools never do: add/edit/new pages, the collect-payment form,
+ *  settings, backup/restore, share settings, calculator and receipts. */
+const NEVER = /\/(new|edit|edit-draft|settings|backup|share-settings|calculator)(\/|$)|^\/collections\/(receipt|edit)\/|^\/collections\/\d+\/?$|^\/login/;
+const DATA_PAGE = /^\/(dashboard|borrowers|loans|collections|savings|reports|notifications|bin)(\/|$)/;
+const SAFE = { test: (p: string) => DATA_PAGE.test(p) && !NEVER.test(p) };
 
 /** True when refreshing now could disturb the person (typing, a dialog/menu is open, a file is being made, text is selected). */
 function userIsBusy() {
@@ -43,7 +46,7 @@ export default function AutoRefreshToggle() {
       setTimeout(() => setSpin(false), 900);
     };
     const id = setInterval(() => tick(), EVERY_MS);
-    const onVisible = () => { if (!document.hidden && Date.now() - last.current > 10000) tick(true); };
+    const onVisible = () => { if (!document.hidden && Date.now() - last.current > 4000) tick(true); };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
     return () => {
@@ -64,7 +67,7 @@ export default function AutoRefreshToggle() {
     <button
       type="button"
       onClick={toggle}
-      title={applies ? 'Reloads this page’s data every 30 seconds (never while you are typing)' : 'Auto refresh is paused on forms and settings pages'}
+      title={applies ? 'Reloads this page’s data every 10 seconds (never while you are typing)' : 'Auto refresh is paused on forms and settings pages'}
       className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs text-gray-200 transition"
     >
       <span className="flex items-center gap-2">
