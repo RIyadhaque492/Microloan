@@ -92,19 +92,24 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
               <tbody>
                 {transactions.length === 0 && <tr><td colSpan={8} className="text-center text-gray-400 py-8">No receipts yet.</td></tr>}
                 {(() => {
+                  // Net balance is worked out in date order; rows are shown LIFO (latest date first).
                   let running = 0;
-                  return transactions.map((t, i) => {
-                    running += t.type === 'deposit' ? Number(t.amount) : -Number(t.amount);
-                    return (
+                  return transactions
+                    .map((t, i) => {
+                      running += t.type === 'deposit' ? Number(t.amount) : -Number(t.amount);
+                      return { ...t, sl: i + 1, net: running };
+                    })
+                    .reverse()
+                    .map((t) => (
                       <tr key={t.id}>
-                        <td>{i + 1}</td>
+                        <td>{t.sl}</td>
                         <td>{t.receipt_no || '—'}</td>
                         <td>{formatDMY(t.transaction_date)}</td>
                         <td><span className={`badge ${statusBadgeClass(t.type)}`}>{t.type}</span></td>
                         <td className={t.type === 'deposit' ? 'text-green-700' : 'text-amber-700'}>
                           {t.type === 'deposit' ? '+' : '-'}৳{money(t.amount)}
                         </td>
-                        <td className="font-semibold">৳{money(running)}</td>
+                        <td className="font-semibold">৳{money(t.net)}</td>
                         <td className="text-gray-500">{t.notes || '—'}</td>
                         <td className="whitespace-nowrap">
                           <Link href={`/savings/${id}/edit/${t.id}`} className="text-xs text-gray-400 hover:text-teal mr-2">Edit</Link>
@@ -113,8 +118,7 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
                           </form>
                         </td>
                       </tr>
-                    );
-                  });
+                    ));
                 })()}
               </tbody>
             </table>

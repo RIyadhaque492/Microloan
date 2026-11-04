@@ -69,8 +69,15 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
           <p className="text-xs text-gray-400 mt-1">Automatic: installment amount × number of installments.</p>
         </div>
         <div>
-          <label className="label">Repayment Frequency</label>
-          <select name="repayment_frequency" value={frequency} onChange={(e) => setFrequency(e.target.value as any)} className="input">
+          <label className="label">Loan Type</label>
+          <select name="repayment_frequency" value={frequency} onChange={(e) => {
+            const next = e.target.value as 'daily' | 'weekly' | 'monthly';
+            setFrequency(next);
+            if (next === 'monthly') {
+              setTenure(6);
+              if (amount > 0) setInstallmentAmount(Math.ceil((amount * 1.16) / 6)); // loan + 16% over 6 months — still editable
+            }
+          }} className="input">
             <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
           </select>
         </div>

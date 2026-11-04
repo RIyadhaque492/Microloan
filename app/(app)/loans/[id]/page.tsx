@@ -63,6 +63,7 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
           <div>
             <h1 className="text-lg font-bold text-navy flex items-center gap-2">
               {loan.loan_code} <span className={`badge ${statusBadgeClass(loan.status)}`}>{loan.status}</span>
+              <span className="badge bg-amber-100 text-amber-800 capitalize">{loan.repayment_frequency || 'daily'} loan</span>
             </h1>
             <p className="text-gray-500 text-sm">
               Member: <Link href={`/borrowers/${loan.borrower_id}`} className="text-teal">{loan.full_name}</Link> ({loan.borrower_code}) — {loan.phone}

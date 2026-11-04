@@ -116,3 +116,8 @@
 - Auto refresh: list, dashboard, collections, savings, reports, notifications and bin pages reload their data every 30 s and when you return to the tab. Never while you type, while a menu/dialog is open or a file is being made. ON/OFF switch in the sidebar.
 - Share → WhatsApp / Messenger on a computer open the system share window with the real PDF attached (link only if that is not possible).
 - All reports: rows now follow date order, earliest disbursement date first (payments inside a member report were already oldest first).
+
+# Update 37
+- Transaction history (loan payments and savings receipts) is now LIFO: the latest DATE is on top, not the receipt number. Changing a payment's date moves it to the right place and the Total Paid / Remaining / Net Balance columns are recalculated in date order. "Recent payments" also follows the payment date.
+- New Loan Type on loan registration (and Edit Draft): Daily, Weekly or Monthly. Choosing Monthly sets 6 installments, adds a "Monthly Loan Charge (%)" box (default 16%) and fills the Installment Amount automatically = (loan + charge) ÷ 6 (rounded up to a whole taka); Total Payable and the maturity date follow. Everything stays editable. Switching back to Daily/Weekly restores 116 installments and the 1% installment.
+- Loans list: new "Loan Type" column and a Loan Type filter; the loan page shows a type badge. No database change needed (uses the existing repayment frequency).

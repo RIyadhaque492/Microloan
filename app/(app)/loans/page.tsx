@@ -7,11 +7,15 @@ import PageHeader from '../PageHeader';
 export const metadata = { title: 'All Loans - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
+const TYPES = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']];
+const TYPE_BADGE: Record<string, string> = { daily: 'bg-sky-100 text-sky-800', weekly: 'bg-violet-100 text-violet-800', monthly: 'bg-amber-100 text-amber-800' };
+const typeLabel = (f: string) => (TYPES.find((t) => t[0] === f)?.[1]) || 'Daily';
+
 const STATUSES = ['pending', 'approved', 'active', 'completed', 'rejected', 'defaulted'];
 
-export default async function LoansPage({ searchParams }: { searchParams: { q?: string; status?: string; ids?: string; from?: string; to?: string; error?: string } }) {
+export default async function LoansPage({ searchParams }: { searchParams: { q?: string; status?: string; type?: string; ids?: string; from?: string; to?: string; error?: string } }) {
   const loans = ((await getLoans(searchParams.q, searchParams.status)) as any[]).filter(
-    (l) => matchesIdGroup(l.borrower_code, searchParams.ids) && inDateRange(l.disbursement_date, searchParams.from, searchParams.to)
+    (l) => (!searchParams.type || (l.repayment_frequency || 'daily') === searchParams.type) && matchesIdGroup(l.borrower_code, searchParams.ids) && inDateRange(l.disbursement_date, searchParams.from, searchParams.to)
   );
 
   return (
@@ -26,6 +30,13 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
             {STATUSES.map((st) => <option key={st} value={st}>{st}</option>)}
           </select>
         </div>
+        <div>
+          <label className="text-[11px] text-gray-500 block mb-0.5">Loan Type</label>
+          <select name="type" defaultValue={searchParams.type || ''} className="input w-28 !py-1 !text-sm">
+            <option value="">All Types</option>
+            {TYPES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select>
+        </div>
       </FilterBar>
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
@@ -34,16 +45,17 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
         <table className="app-table">
           <thead>
             <tr>
-              <th>Loan Code</th><th>Member</th><th>Loan Amount</th><th>Disbursement Date</th><th>Total Payable</th><th>Total Paid</th>
+              <th>Loan Code</th><th>Member</th><th>Loan Type</th><th>Loan Amount</th><th>Disbursement Date</th><th>Total Payable</th><th>Total Paid</th>
               <th>Remaining Balance</th><th>Tenure</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {loans.length === 0 && <tr><td colSpan={10} className="text-center text-gray-400 py-10">No loans found.</td></tr>}
+            {loans.length === 0 && <tr><td colSpan={11} className="text-center text-gray-400 py-10">No loans found.</td></tr>}
             {loans.map((l) => (
               <tr key={l.id}>
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
                 <td>{l.full_name} <span className="text-xs text-gray-400">({l.borrower_code})</span><div className="text-xs text-gray-400">{l.phone}</div></td>
+                <td><span className={`badge ${TYPE_BADGE[l.repayment_frequency] || TYPE_BADGE.daily}`}>{typeLabel(l.repayment_frequency)}</span></td>
                 <td className="font-semibold text-navy">৳{money(l.loan_amount)}</td>
                 <td>{l.disbursement_date ? formatDMY(l.disbursement_date) : '—'}</td>
                 <td>৳{money(l.total_payable)}</td>

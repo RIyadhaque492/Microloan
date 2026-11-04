@@ -300,7 +300,7 @@ export async function getLoan(id: number) {
     LEFT JOIN collections c ON c.installment_id = li.id
     WHERE li.loan_id = ${id} ORDER BY li.installment_no ASC
   `;
-  const payments = await sql`SELECT * FROM collections WHERE loan_id = ${id} ORDER BY id ASC`;
+  const payments = await sql`SELECT * FROM collections WHERE loan_id = ${id} ORDER BY payment_date ASC, id ASC`;
   return { loan, installments, payments };
 }
 
@@ -350,7 +350,7 @@ export async function getRecentPayments() {
   return sql`
     SELECT c.*, b.full_name, l.loan_code FROM collections c
     JOIN borrowers b ON b.id = c.borrower_id JOIN loans l ON l.id = c.loan_id
-    ORDER BY c.created_at DESC LIMIT 10
+    ORDER BY c.payment_date DESC, c.id DESC LIMIT 10
   `;
 }
 
@@ -399,7 +399,7 @@ export async function getBorrowerDocuments(borrowerId: number) {
 export async function getPaymentsForBorrower(borrowerId: number) {
   return sql`
     SELECT c.*, l.loan_code FROM collections c JOIN loans l ON l.id = c.loan_id
-    WHERE c.borrower_id = ${borrowerId} ORDER BY c.payment_date DESC
+    WHERE c.borrower_id = ${borrowerId} ORDER BY c.payment_date DESC, c.id DESC
   `;
 }
 
@@ -512,7 +512,7 @@ export async function getAllUsersFullHistory(search?: string) {
     const loans = await sql`SELECT * FROM loans WHERE borrower_id = ${r.id} ORDER BY created_at DESC`;
     const payments = await sql`
       SELECT c.*, l.loan_code FROM collections c JOIN loans l ON l.id = c.loan_id
-      WHERE c.borrower_id = ${r.id} ORDER BY c.payment_date DESC
+      WHERE c.borrower_id = ${r.id} ORDER BY c.payment_date DESC, c.id DESC
     `;
     results.push({ ...r, loans, payments });
   }

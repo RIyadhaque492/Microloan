@@ -18,8 +18,18 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
   const paidTotal = (installments as any[]).reduce((s, i) => s + Number(i.paid_amount), 0);
   const remaining = Math.max(0, Number(loan.total_payable) - paidTotal);
 
-  // Receipts in order (R0001, R0002, ...) — oldest receipt first.
-  const ordered = [...(payments as any[])].sort((a, b) => Number(a.id) - Number(b.id));
+  // Totals are worked out in date order (oldest -> newest, receipt no. only breaks ties on the same day), so editing a
+  // payment's date moves it to the right place. The table then shows them LIFO: the latest date first.
+  const chrono = [...(payments as any[])].sort(
+    (a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime() || Number(a.id) - Number(b.id)
+  );
+  let running = 0;
+  const ordered = chrono
+    .map((p, i) => {
+      running += Number(p.amount_paid);
+      return { ...p, sl: i + 1, cumulativePaid: running, rowRemaining: Math.max(0, Number(loan.total_payable) - running) };
+    })
+    .reverse();
 
   return (
     // One-screen layout: the page never scrolls; only the table body scrolls if it has many rows.
@@ -65,31 +75,24 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
             </thead>
             <tbody>
               {ordered.length === 0 && <tr><td colSpan={9} className="text-center text-gray-400 py-8">No payments recorded.</td></tr>}
-              {(() => {
-                let cumulativePaid = 0;
-                return ordered.map((p, i) => {
-                  cumulativePaid += Number(p.amount_paid);
-                  const rowRemaining = Math.max(0, Number(loan.total_payable) - cumulativePaid);
-                  return (
-                    <tr key={p.id}>
-                      <td>{i + 1}</td>
-                      <td><Link href={`/collections/receipt/${p.id}`} className="text-teal font-semibold">{p.receipt_no}</Link></td>
-                      <td>{formatDMY(p.payment_date)}</td>
-                      <td>{p.notes || 'Installment'}</td>
-                      <td>{titleCase(p.payment_method)}</td>
-                      <td className="text-green-700 font-semibold">৳{money(p.amount_paid)}</td>
-                      <td>৳{money(cumulativePaid)}</td>
-                      <td className="font-semibold text-red-600">৳{money(rowRemaining)}</td>
-                      <td className="whitespace-nowrap">
-                        <Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-500 hover:text-teal mr-2">Edit</Link>
-                        <form action={deleteCollectionAction.bind(null, p.id)} className="inline">
-                          <button className="text-xs text-red-500 hover:text-red-700 confirm-delete">🗑 Delete</button>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                });
-              })()}
+              {ordered.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.sl}</td>
+                  <td><Link href={`/collections/receipt/${p.id}`} className="text-teal font-semibold">{p.receipt_no}</Link></td>
+                  <td>{formatDMY(p.payment_date)}</td>
+                  <td>{p.notes || 'Installment'}</td>
+                  <td>{titleCase(p.payment_method)}</td>
+                  <td className="text-green-700 font-semibold">৳{money(p.amount_paid)}</td>
+                  <td>৳{money(p.cumulativePaid)}</td>
+                  <td className="font-semibold text-red-600">৳{money(p.rowRemaining)}</td>
+                  <td className="whitespace-nowrap">
+                    <Link href={`/collections/edit/${p.id}`} className="text-xs text-gray-500 hover:text-teal mr-2">Edit</Link>
+                    <form action={deleteCollectionAction.bind(null, p.id)} className="inline">
+                      <button className="text-xs text-red-500 hover:text-red-700 confirm-delete">🗑 Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
