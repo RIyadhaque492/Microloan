@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getBorrower, getMemberFieldSuggestions } from '@/lib/data';
-import { updateBorrowerAction, deleteBorrowerAction } from '@/lib/actions';
+import { updateBorrowerAction, deleteBorrowerAction, purgeBorrowerAction } from '@/lib/actions';
 import { toISODate } from '@/lib/utils';
 import PageHeader from '../../../PageHeader';
 import DobAgeFields from '../../DobAgeFields';
@@ -69,6 +69,10 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
       <form action={deleteBorrowerAction.bind(null, id)} className="max-w-3xl mt-3">
         <button type="submit" className="text-xs text-red-400 hover:text-red-600 confirm-delete">🗑 Remove this member</button>
         <p className="text-xs text-gray-400 mt-1">Moves the member (and their loans) to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
+      </form>
+      <form action={purgeBorrowerAction.bind(null, id, `/borrowers/${id}/edit`)} className="max-w-3xl mt-3">
+        <button type="submit" className="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg px-3 py-1.5 confirm-delete confirm-purge">☠ Delete this member permanently</button>
+        <p className="text-xs text-gray-400 mt-1">Erases the member and all their loans, payments, savings and documents for good.</p>
       </form>
     </div>
   );

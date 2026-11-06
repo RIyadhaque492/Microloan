@@ -124,3 +124,8 @@
 
 # Update 38
 - Auto refresh now works on EVERY data page (lists, member profile, loan page, transaction history, savings, reports) every 10 seconds and the moment you return to the tab — no more manual refresh. Still never on forms/edit pages, the collect-payment form, settings, backup, or while you are typing or a menu is open. Switch in the sidebar.
+
+# Update 39
+- PERMANENT DELETE: new "☠ Delete permanently" buttons wherever you remove something — member page Remove menu (member or a single loan), member edit page, loan page — and in the Bin next to Restore, plus an "Empty Bin" button. Each shows a plain warning ("cannot be restored") and then asks the admin password. It erases the member/loan and everything linked (installments, payments, savings, documents, photo). The normal Remove still moves things to the Bin (restorable). Payments, savings entries and documents were already deleted for good.
+- Premium look: deeper navy/teal sidebar with glowing active item, gradient buttons with a light sweep, softer layered shadows, richer table headers with calm zebra rows, glowing input focus, blurred pop-up backdrops with a springy rise, slim scrollbars, and a thin coloured loading bar at the top while pages open. Reports/PDF capture stay completely static.
+- Auto refresh (Update 38) is unchanged: every data page refreshes itself every 10 seconds.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { deleteBorrowerAction, removeLoanFromMemberAction } from '@/lib/actions';
+import { deleteBorrowerAction, removeLoanFromMemberAction, purgeBorrowerAction, purgeLoanAction } from '@/lib/actions';
 
 type LoanLite = { id: number; loan_code: string; loan_amount: string | number; status: string };
 
@@ -45,27 +45,36 @@ export default function RemoveMenu({ borrowerId, memberName, loans }: { borrower
                     <div className="text-xs text-red-600">Removes {memberName} and all their loans.</div>
                   </button>
                 </form>
+                <form action={purgeBorrowerAction.bind(null, borrowerId, `/borrowers/${borrowerId}`)}>
+                  <button className="w-full text-left rounded-xl border-2 border-red-600 bg-red-600 px-4 py-3 text-white confirm-delete confirm-purge hover:bg-red-700 transition">
+                    <div className="font-semibold">☠ Delete Member Permanently</div>
+                    <div className="text-xs text-red-100">Erases {memberName} and everything linked — cannot be restored.</div>
+                  </button>
+                </form>
               </div>
             )}
 
             {step === 'loan' && (
               <div className="space-y-2 max-h-72 overflow-auto">
                 {loans.map((l) => (
-                  <form key={l.id} action={removeLoanFromMemberAction.bind(null, borrowerId, l.id)}>
-                    <button className="w-full flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-left hover:bg-red-50 confirm-delete">
-                      <span>
-                        <span className="font-semibold text-navy block">{l.loan_code}</span>
-                        <span className="text-xs text-gray-500">৳{Number(l.loan_amount).toLocaleString()} · {l.status}</span>
-                      </span>
-                      <span className="text-red-600 text-xs font-semibold">🗑 Remove</span>
-                    </button>
-                  </form>
+                  <div key={l.id} className="rounded-xl border border-gray-200 px-4 py-3">
+                    <span className="font-semibold text-navy block">{l.loan_code}</span>
+                    <span className="text-xs text-gray-500">৳{Number(l.loan_amount).toLocaleString()} · {l.status}</span>
+                    <div className="flex gap-2 mt-2">
+                      <form action={removeLoanFromMemberAction.bind(null, borrowerId, l.id)} className="flex-1">
+                        <button className="w-full rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold py-1.5 confirm-delete">🗑 Remove (to Bin)</button>
+                      </form>
+                      <form action={purgeLoanAction.bind(null, l.id, `/borrowers/${borrowerId}`)} className="flex-1">
+                        <button className="w-full rounded-lg bg-red-600 text-white text-xs font-semibold py-1.5 hover:bg-red-700 confirm-delete confirm-purge">☠ Delete permanently</button>
+                      </form>
+                    </div>
+                  </div>
                 ))}
                 <button type="button" onClick={() => setStep('choose')} className="text-xs text-gray-500 underline pt-1">← Back</button>
               </div>
             )}
 
-            <p className="text-[11px] text-gray-400 mt-3">Moves to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
+            <p className="text-[11px] text-gray-400 mt-3">“Remove” moves to the Bin (restorable). “Delete permanently” erases it for good.</p>
           </div>
         </div>
       )}

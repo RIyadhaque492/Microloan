@@ -179,3 +179,136 @@ a { transition: color 0.15s; }
 
 /* the PDF/print capture must never be mid-animation */
 [aria-hidden='true'][style*='-20000'] *, [data-pdf-capture], [data-pdf-capture] * { animation: none !important; transition: none !important; }
+
+/* =====================================================================
+   PREMIUM POLISH (Update 39) — richer colours, depth and smoother motion.
+   Plain CSS appended last so it refines everything above without touching pages.
+   Rules: nothing starts invisible; PDF capture stays animation-free (see the end of the previous block).
+   ===================================================================== */
+:root {
+  --p-navy-1: #0a1f30;
+  --p-navy-2: #0f2f44;
+  --p-teal-1: #0e8f87;
+  --p-teal-2: #14b8a6;
+  --p-gold: #e3ad3c;
+  --p-ink: #14232e;
+  --p-line: #e3e9ee;
+  --p-shadow-sm: 0 1px 2px rgba(10, 31, 48, 0.06), 0 2px 8px rgba(10, 31, 48, 0.05);
+  --p-shadow-md: 0 6px 20px rgba(10, 31, 48, 0.10);
+  --p-shadow-lg: 0 18px 48px rgba(10, 31, 48, 0.18);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* page background: soft cool gradient with a faint teal glow in the corner */
+body {
+  color: var(--p-ink);
+  background:
+    radial-gradient(1200px 500px at 100% -10%, rgba(20, 184, 166, 0.07), transparent 60%),
+    radial-gradient(900px 400px at -10% 110%, rgba(227, 173, 60, 0.05), transparent 60%),
+    #f3f6f9;
+}
+
+/* slim, quiet scrollbars */
+* { scrollbar-width: thin; scrollbar-color: #b9c6cf transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: #b9c6cf; border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #8fa3b0; background-clip: content-box; border: 2px solid transparent; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* cards: softer border, layered shadow, gentle lift */
+.card {
+  border-color: var(--p-line);
+  border-radius: 14px;
+  box-shadow: var(--p-shadow-sm);
+  transition: box-shadow 0.25s var(--ease-out), transform 0.25s var(--ease-out), border-color 0.25s;
+}
+main .grid > .card:hover, main .grid > div[class*='rounded-xl']:hover {
+  box-shadow: var(--p-shadow-md);
+  transform: translateY(-3px);
+}
+
+/* buttons: gradient fills, coloured glow, a light sweep on hover */
+.btn { border-radius: 10px; font-weight: 600; letter-spacing: 0.005em; position: relative; overflow: hidden; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--p-teal-1) 0%, var(--p-teal-2) 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(14, 143, 135, 0.35);
+}
+.btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #0b7d76 0%, #11a595 100%); box-shadow: 0 6px 18px rgba(14, 143, 135, 0.45); }
+.btn-success { background: linear-gradient(135deg, #15803d, #22c55e); box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3); }
+.btn-danger { background: linear-gradient(135deg, #b91c1c, #ef4444); color: #fff; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3); }
+.btn-danger:hover:not(:disabled) { background: linear-gradient(135deg, #991b1b, #dc2626); box-shadow: 0 6px 18px rgba(220, 38, 38, 0.4); }
+.btn-outline { background: #fff; border-color: #cfd9e0; color: #24465b; }
+.btn-outline:hover:not(:disabled) { background: #f3f8fa; border-color: var(--p-teal-1); color: var(--p-teal-1); }
+.btn-danger-outline { background: #fff; }
+.btn-primary::after, .btn-danger::after, .btn-success::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
+  transform: translateX(-120%); transition: transform 0.6s var(--ease-out);
+}
+.btn-primary:hover::after, .btn-danger:hover::after, .btn-success:hover::after { transform: translateX(120%); }
+
+/* inputs: roomy radius, glowing focus ring */
+.input { border-radius: 10px; border-color: #cfd9e0; background: #fff; transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s; }
+.input:hover { border-color: #9fb3c0; }
+.input:focus { border-color: var(--p-teal-1); box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.16); }
+.label { color: #1d3a4d; letter-spacing: 0.01em; }
+
+/* badges: pill with a soft inner ring */
+.badge { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); letter-spacing: 0.01em; }
+
+/* tables: richer header, calm zebra, clear hover */
+table.app-table thead th { background: linear-gradient(135deg, var(--p-navy-1) 0%, #0b6f68 100%); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15); }
+table.app-table tbody tr:nth-child(even) td { background-color: rgba(15, 47, 68, 0.025); }
+table.app-table tbody tr:hover td { background-color: #e8f6f4; }
+tr.row-overdue td { background-color: #fff1f1 !important; }
+.table-wrap { border-width: 2px; border-color: #2d3f4d; border-radius: 12px; box-shadow: var(--p-shadow-md); }
+
+/* sidebar: deeper gradient, glowing active item, smoother hover */
+aside {
+  background:
+    radial-gradient(420px 260px at 0% 0%, rgba(20, 184, 166, 0.18), transparent 70%),
+    linear-gradient(180deg, var(--p-navy-2) 0%, var(--p-navy-1) 100%) !important;
+  box-shadow: 8px 0 30px rgba(10, 31, 48, 0.22);
+}
+aside nav a { border-radius: 0 12px 12px 0; margin-right: 0.6rem; }
+aside nav a[class*='bg-teal-600'] {
+  background: linear-gradient(90deg, rgba(20, 184, 166, 0.34), rgba(20, 184, 166, 0.06)) !important;
+  border-left-color: var(--p-gold) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+aside nav a:hover { padding-left: 1.3rem; }
+aside a[href='/dashboard'] { letter-spacing: 0.01em; }
+
+/* page header title: gradient ink */
+h1.text-navy, h1.text-lg {
+  background: linear-gradient(90deg, var(--p-navy-1), #0b6f68);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* modals: deeper blur backdrop and a springier rise */
+div[class*='fixed inset-0'][class*='bg-black'] { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+div[class*='fixed inset-0'][class*='bg-black'] > div { box-shadow: var(--p-shadow-lg); animation: modal-in 0.32s var(--ease-spring); border-radius: 18px; }
+
+/* thin top progress bar while a page is loading (see NavProgress.tsx) */
+.nav-progress { position: fixed; top: 0; left: 0; height: 3px; width: 100%; z-index: 9999; pointer-events: none;
+  background: linear-gradient(90deg, var(--p-teal-1), var(--p-teal-2), var(--p-gold)); transform-origin: left; transform: scaleX(0); opacity: 0; }
+.nav-progress.run { opacity: 1; animation: nav-run 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards; }
+.nav-progress.done { opacity: 0; transform: scaleX(1); transition: transform 0.2s ease-out, opacity 0.4s 0.2s; }
+@keyframes nav-run { from { transform: scaleX(0.05); } to { transform: scaleX(0.92); } }
+
+/* toast pop-ups: floating card */
+.toast-in { animation: toast-in 0.3s var(--ease-spring); box-shadow: var(--p-shadow-lg); }
+
+/* soft shimmer for "loading…" text */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.animate-soft { animation: pulse-soft 1.4s ease-in-out infinite; }
+
+/* make every interactive thing feel responsive */
+button, a, select, summary, [role='button'] { -webkit-tap-highlight-color: transparent; }
+a, button { transition: color 0.15s, background-color 0.15s, border-color 0.15s, box-shadow 0.2s, transform 0.15s var(--ease-out), opacity 0.15s; }
+
+/* PDF/print capture + table export stay completely static */
+[data-pdf-capture], [data-pdf-capture] * { animation: none !important; transition: none !important; backdrop-filter: none !important; }
+[data-pdf-capture] h1 { color: inherit !important; background: none !important; -webkit-background-clip: border-box !important; }
+@media print { aside, .nav-progress { display: none !important; } * { animation: none !important; } }

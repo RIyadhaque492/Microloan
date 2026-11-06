@@ -214,6 +214,55 @@ export async function deleteBorrowerAction(id: number, formData?: FormData) {
   redirect('/borrowers');
 }
 
+/**
+ * PERMANENT delete — the member and everything of theirs (loans, installments, payments, savings, documents, photo,
+ * notifications) is erased for good and can NOT be restored. Needs the admin password.
+ * `backTo` is where to go afterwards (and where a wrong password returns to).
+ */
+export async function purgeBorrowerAction(id: number, backTo: string, formData?: FormData) {
+  await requireAdmin();
+  checkDeletePassword(formData, backTo);
+  await sql`DELETE FROM borrowers WHERE id = ${id}`;
+  revalidatePath('/borrowers');
+  revalidatePath('/loans');
+  revalidatePath('/collections');
+  revalidatePath('/savings');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+  revalidatePath('/bin');
+  setFlash('Member permanently deleted');
+  redirect(backTo.startsWith('/borrowers/') ? '/borrowers' : backTo);
+}
+
+/** PERMANENT delete of one loan with its installments and payments. Cannot be restored. */
+export async function purgeLoanAction(id: number, backTo: string, formData?: FormData) {
+  await requireAdmin();
+  checkDeletePassword(formData, backTo);
+  await sql`DELETE FROM loans WHERE id = ${id}`;
+  revalidatePath('/loans');
+  revalidatePath('/collections');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+  revalidatePath('/bin');
+  revalidatePath('/borrowers');
+  setFlash('Loan permanently deleted');
+  redirect(backTo.startsWith('/loans/') ? '/loans' : backTo);
+}
+
+/** Empties the Bin for good: every removed loan and member is erased permanently. */
+export async function emptyBinAction(formData?: FormData) {
+  await requireAdmin();
+  checkDeletePassword(formData, '/bin');
+  await sql`DELETE FROM loans WHERE deleted_at IS NOT NULL`;
+  await sql`DELETE FROM borrowers WHERE deleted_at IS NOT NULL`;
+  revalidatePath('/bin');
+  revalidatePath('/loans');
+  revalidatePath('/borrowers');
+  revalidatePath('/dashboard');
+  setFlash('Bin emptied — permanently deleted');
+  redirect('/bin');
+}
+
 export async function restoreBorrowerAction(id: number) {
   await requireAdmin();
   await sql`UPDATE borrowers SET deleted_at = NULL WHERE id = ${id}`;

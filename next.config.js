@@ -26,7 +26,7 @@ const nextConfig = {
 
 // Shown at the bottom of the sidebar so you can tell at a glance which version is live.
 nextConfig.env = {
-  NEXT_PUBLIC_APP_VERSION: 'Update 38',
+  NEXT_PUBLIC_APP_VERSION: 'Update 39',
   NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
 };
 

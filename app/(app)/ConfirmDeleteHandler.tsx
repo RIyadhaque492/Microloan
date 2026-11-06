@@ -10,8 +10,16 @@ export default function ConfirmDeleteHandler() {
       const target = (e.target as HTMLElement)?.closest('.confirm-delete');
       if (!target) return;
       const form = target.closest('form');
-      const label = target.textContent?.replace(/[🗑✔]/g, '').trim() || 'this item';
-      const pin = window.prompt(`Enter admin password to ${label.toLowerCase().startsWith('remove') ? label.toLowerCase() : 'delete ' + label}:`);
+      const label = target.textContent?.replace(/[🗑✔☠⚠]/g, '').replace(/\s+/g, ' ').trim() || 'this item';
+      const lower = label.toLowerCase();
+      const purge = target.classList.contains('confirm-purge');
+      // permanent deletes get a second, plain-language warning before the password is even asked
+      if (purge && !window.confirm('⚠ PERMANENT DELETE\n\nThis erases it (and everything linked to it) for good. It can NOT be restored from the Bin.\n\nContinue?')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      const pin = window.prompt(`Enter admin password to ${/^(remove|delete|empty)/.test(lower) ? lower : 'delete ' + label}:`);
       if (!pin || !form) {
         e.preventDefault();
         e.stopPropagation();

@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth';
 import { setFlash } from '@/lib/flash';
 import { getLoan, refreshOverdueInstallments } from '@/lib/data';
 import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
-import { updateLoanStatusAction, deleteLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
+import { updateLoanStatusAction, deleteLoanAction, purgeLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 import RegisteredToast from './RegisteredToast';
 import DateInput from '@/app/(app)/DateInput';
@@ -181,10 +181,16 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
         </div>
       )}
 
-      <form action={deleteLoanAction.bind(null, id)} className="mt-4">
-        <button className="btn btn-danger-outline confirm-delete">🗑 Remove this loan</button>
-        <p className="text-xs text-gray-400 mt-1">Moves it to the Bin — restore anytime from 🗑 Bin in the sidebar.</p>
-      </form>
+      <div className="mt-4 flex flex-wrap items-start gap-3">
+        <form action={deleteLoanAction.bind(null, id)}>
+          <button className="btn btn-danger-outline confirm-delete">🗑 Remove this loan</button>
+          <p className="text-xs text-gray-400 mt-1">Moves it to the Bin — restore anytime.</p>
+        </form>
+        <form action={purgeLoanAction.bind(null, id, `/loans/${id}`)}>
+          <button className="btn btn-danger confirm-delete confirm-purge">☠ Delete permanently</button>
+          <p className="text-xs text-gray-400 mt-1">Erases the loan and its payments for good.</p>
+        </form>
+      </div>
     </div>
   );
 }

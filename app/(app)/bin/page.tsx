@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getBinContents } from '@/lib/data';
-import { restoreBorrowerAction, restoreLoanAction } from '@/lib/actions';
+import { restoreBorrowerAction, restoreLoanAction, purgeBorrowerAction, purgeLoanAction, emptyBinAction } from '@/lib/actions';
 import { money, statusBadgeClass, formatDMYTime } from '@/lib/utils';
 import PageHeader from '../PageHeader';
 
@@ -12,9 +12,19 @@ export default async function BinPage() {
 
   return (
     <div>
-      <PageHeader title="🗑 Bin" showBack={false} />
+      <PageHeader
+        title="🗑 Bin"
+        showBack={false}
+        action={
+          (borrowers as any[]).length + (loans as any[]).length > 0 ? (
+            <form action={emptyBinAction}>
+              <button className="btn btn-danger confirm-delete confirm-purge">☠ Empty Bin</button>
+            </form>
+          ) : undefined
+        }
+      />
       <p className="text-sm text-gray-500 mb-4">
-        Removed members and loans stay here until you restore them — nothing is ever permanently deleted.
+        Removed members and loans stay here until you restore them — or erase them for good with <strong>Delete permanently</strong>.
       </p>
 
       <div className="table-wrap mb-6">
@@ -29,10 +39,15 @@ export default async function BinPage() {
                 <td>{b.full_name}</td>
                 <td>{b.phone}</td>
                 <td>{formatDMYTime(b.deleted_at)}</td>
-                <td className="text-right">
-                  <form action={restoreBorrowerAction.bind(null, b.id)}>
-                    <button className="btn btn-outline !py-1 !px-2 text-xs">↩ Restore</button>
-                  </form>
+                <td className="text-right whitespace-nowrap">
+                  <div className="inline-flex gap-2">
+                    <form action={restoreBorrowerAction.bind(null, b.id)}>
+                      <button className="btn btn-outline !py-1 !px-2 text-xs">↩ Restore</button>
+                    </form>
+                    <form action={purgeBorrowerAction.bind(null, b.id, '/bin')}>
+                      <button className="btn btn-danger !py-1 !px-2 text-xs confirm-delete confirm-purge">☠ Delete permanently</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -53,10 +68,15 @@ export default async function BinPage() {
                 <td>৳{money(l.loan_amount)}</td>
                 <td><span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span></td>
                 <td>{formatDMYTime(l.deleted_at)}</td>
-                <td className="text-right">
-                  <form action={restoreLoanAction.bind(null, l.id)}>
-                    <button className="btn btn-outline !py-1 !px-2 text-xs">↩ Restore</button>
-                  </form>
+                <td className="text-right whitespace-nowrap">
+                  <div className="inline-flex gap-2">
+                    <form action={restoreLoanAction.bind(null, l.id)}>
+                      <button className="btn btn-outline !py-1 !px-2 text-xs">↩ Restore</button>
+                    </form>
+                    <form action={purgeLoanAction.bind(null, l.id, '/bin')}>
+                      <button className="btn btn-danger !py-1 !px-2 text-xs confirm-delete confirm-purge">☠ Delete permanently</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}
