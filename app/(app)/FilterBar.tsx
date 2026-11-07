@@ -11,6 +11,7 @@ export default function FilterBar({
   dateLabel = 'Date',
   qPlaceholder = 'Search...',
   showDates = true,
+  extraActive = false,
   children,
 }: {
   basePath: string;
@@ -21,9 +22,10 @@ export default function FilterBar({
   dateLabel?: string;
   qPlaceholder?: string;
   showDates?: boolean;
+  extraActive?: boolean;
   children?: React.ReactNode;
 }) {
-  const active = !!(q || ids || from || to);
+  const active = !!(q || ids || from || to || extraActive);
   return (
     <form className="flex gap-2 flex-wrap items-end mb-2 flex-shrink-0">
       <div>

@@ -25,10 +25,26 @@ function fmtDate(d: any) {
   return formatDMY(d);
 }
 
+const LOAN_TYPES = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']];
+const typeOf = (r: any) => String(r.repayment_frequency || 'daily');
+
+/** Loan Type dropdown shown with the other search boxes at the top of every report. */
+function TypeSelect({ value }: { value?: string }) {
+  return (
+    <div>
+      <label className="text-[10px] text-gray-500 block leading-tight">Loan Type</label>
+      <select name="type" defaultValue={value || ''} className="input w-28 !py-1 !text-sm">
+        <option value="">All Types</option>
+        {LOAN_TYPES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+      </select>
+    </div>
+  );
+}
+
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: { mode?: string; borrower?: string; q?: string; ids?: string; from?: string; to?: string };
+  searchParams: { mode?: string; borrower?: string; q?: string; ids?: string; from?: string; to?: string; type?: string };
 }) {
   const mode = searchParams.mode === 'single' ? 'single' : 'all';
 
@@ -36,8 +52,14 @@ export default async function ReportsPage({
     const borrowerId = Number(searchParams.borrower || 0);
     const members = (await getBorrowersBasic()) as any[];
     const selected = borrowerId ? members.find((m) => m.id === borrowerId) : null;
-    const loanRows = selected ? await getLoanReportRows({ borrowerId: selected.id }) : [];
-    const allPayments = selected ? ((await getPaymentsForBorrower(selected.id)) as any[]) : [];
+    let loanRows: any[] = selected ? ((await getLoanReportRows({ borrowerId: selected.id })) as any[]) : [];
+    let allPayments: any[] = selected ? ((await getPaymentsForBorrower(selected.id)) as any[]) : [];
+    if (searchParams.type) {
+      // only this loan type: its loans AND the payments made on those loans (so balances stay right)
+      loanRows = loanRows.filter((r) => typeOf(r) === searchParams.type);
+      const ids = new Set(loanRows.map((r) => Number(r.loan_id)));
+      allPayments = allPayments.filter((p) => ids.has(Number(p.loan_id)));
+    }
     const totals = loanTotals(loanRows);
     // Oldest first (receipt order within a day); the running balance is worked out on the FULL history so a
     // date-filtered report still shows the true remaining balance after each payment.
@@ -61,6 +83,13 @@ export default async function ReportsPage({
           <input type="hidden" name="mode" value="single" />
           <MemberPicker members={members} defaultId={borrowerId || undefined} />
           <div>
+            <label className="label">Loan Type</label>
+            <select name="type" defaultValue={searchParams.type || ''} className="input w-32">
+              <option value="">All Types</option>
+              {LOAN_TYPES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="label">Payment date from</label>
             <DateInput name="from" defaultValue={searchParams.from} className="input w-40" />
           </div>
@@ -69,8 +98,8 @@ export default async function ReportsPage({
             <DateInput name="to" defaultValue={searchParams.to} className="input w-40" />
           </div>
           <button className="btn btn-primary">🔍 View Report</button>
-          {(searchParams.from || searchParams.to) && borrowerId > 0 && (
-            <Link href={`/reports?mode=single&borrower=${borrowerId}`} className="btn btn-outline">Clear dates</Link>
+          {(searchParams.from || searchParams.to || searchParams.type) && borrowerId > 0 && (
+            <Link href={`/reports?mode=single&borrower=${borrowerId}`} className="btn btn-outline">Clear filters</Link>
           )}
         </form>
 
@@ -97,7 +126,7 @@ export default async function ReportsPage({
   }
 
   const loanRows = ((await getLoanReportRows({ search: searchParams.q })) as any[]).filter(
-    (r) => matchesIdGroup(r.borrower_code, searchParams.ids) && inDateRange(r.disbursement_date, searchParams.from, searchParams.to)
+    (r) => (!searchParams.type || typeOf(r) === searchParams.type) && matchesIdGroup(r.borrower_code, searchParams.ids) && inDateRange(r.disbursement_date, searchParams.from, searchParams.to)
   );
   const shareText = buildAllUsersShareText(loanRows);
   const totals = loanTotals(loanRows);
@@ -107,8 +136,9 @@ export default async function ReportsPage({
       <PageHeader title="Reports" action={<ModeSwitch mode={mode} />} />
 
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
-        <FilterBar basePath="/reports?mode=all" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Member or loan...">
+        <FilterBar basePath="/reports?mode=all" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Member or loan..." extraActive={!!searchParams.type}>
           <input type="hidden" name="mode" value="all" />
+          <TypeSelect value={searchParams.type} />
         </FilterBar>
         <ExportButtons mode="all" loanRows={loanRows} shareText={shareText} />
       </div>

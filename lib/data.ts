@@ -465,7 +465,7 @@ export async function getLoanReportRows(opts: { search?: string; borrowerId?: nu
     SELECT
       l.id AS loan_id, l.loan_code, l.status AS loan_status,
       l.disbursement_date, l.maturity_date, l.loan_amount, l.total_payable,
-      l.installment_amount, l.tenure,
+      l.installment_amount, l.tenure, l.repayment_frequency,
       b.id AS borrower_id, b.borrower_code, b.full_name, b.phone, b.created_at AS membership_date,
       COALESCE((SELECT SUM(CASE WHEN st.type = 'deposit' THEN st.amount ELSE -st.amount END) FROM savings_transactions st WHERE st.borrower_id = b.id), 0) AS savings_raw,
       COALESCE((SELECT SUM(li.paid_amount) FROM loan_installments li WHERE li.loan_id = l.id), 0) AS total_paid,

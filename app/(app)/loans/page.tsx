@@ -22,7 +22,7 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="All Loans" showBack={false} action={<Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>} />
 
-      <FilterBar basePath="/loans" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Loan code, member...">
+      <FilterBar extraActive={!!searchParams.type} basePath="/loans" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Loan code, member...">
         <div>
           <label className="text-[11px] text-gray-500 block mb-0.5">Status</label>
           <select name="status" defaultValue={searchParams.status || ''} className="input w-32 !py-1 !text-sm">

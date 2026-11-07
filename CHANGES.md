@@ -129,3 +129,7 @@
 - PERMANENT DELETE: new "☠ Delete permanently" buttons wherever you remove something — member page Remove menu (member or a single loan), member edit page, loan page — and in the Bin next to Restore, plus an "Empty Bin" button. Each shows a plain warning ("cannot be restored") and then asks the admin password. It erases the member/loan and everything linked (installments, payments, savings, documents, photo). The normal Remove still moves things to the Bin (restorable). Payments, savings entries and documents were already deleted for good.
 - Premium look: deeper navy/teal sidebar with glowing active item, gradient buttons with a light sweep, softer layered shadows, richer table headers with calm zebra rows, glowing input focus, blurred pop-up backdrops with a springy rise, slim scrollbars, and a thin coloured loading bar at the top while pages open. Reports/PDF capture stay completely static.
 - Auto refresh (Update 38) is unchanged: every data page refreshes itself every 10 seconds.
+
+# Update 40
+- Reports: new "Loan Type" column (Daily / Weekly / Monthly) right after the member name — on the report screen, the PDF, Excel and Word exports, in both the All Members and Single Member reports.
+- Reports: new "Loan Type" search box at the top (All Types / Daily / Weekly / Monthly) next to the other search boxes. In a Single Member report it also limits the payment history to that type's loans so balances stay right. The Clear button now also resets it.

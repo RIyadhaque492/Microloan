@@ -307,25 +307,32 @@ function progressText(r: any): string {
 // One layout for every report (all members, single member; PDF / Word / Excel / screen):
 // SL = member serial, ID sits beside the name, membership date added, savings is the last column.
 const SINGLE_REPORT_HEAD = [
-  'SL', 'Name (ID)', 'Membership Date', 'Loan Amount', 'Disbursement Date', 'Total Payable',
+  'SL', 'Name (ID)', 'Loan Type', 'Membership Date', 'Loan Amount', 'Disbursement Date', 'Total Payable',
   'Installment Amt', 'Tenure', 'Total Paid', 'Remaining Balance', 'Maturity Date', 'Last Payment Date', 'Contact', 'Savings',
 ];
 const SINGLE_REPORT_COL_STYLES: Record<number, any> = {
-  0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 33 }, 2: { cellWidth: 19 }, 3: { cellWidth: 20 },
-  4: { cellWidth: 21 }, 5: { cellWidth: 20 }, 6: { cellWidth: 18 }, 7: { cellWidth: 15, halign: 'center' },
-  8: { cellWidth: 20 }, 9: { cellWidth: 20 }, 10: { cellWidth: 19 }, 11: { cellWidth: 19 }, 12: { cellWidth: 22 }, 13: { cellWidth: 19 },
+  0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 30 }, 2: { cellWidth: 13, halign: 'center' }, 3: { cellWidth: 17 }, 4: { cellWidth: 20 },
+  5: { cellWidth: 18 }, 6: { cellWidth: 20 }, 7: { cellWidth: 18 }, 8: { cellWidth: 14, halign: 'center' },
+  9: { cellWidth: 20 }, 10: { cellWidth: 20 }, 11: { cellWidth: 17 }, 12: { cellWidth: 17 }, 13: { cellWidth: 19 }, 14: { cellWidth: 19 },
 };
 // PDF headers with manual line breaks so no word is cut in the middle
 const PDF_REPORT_HEAD = [
-  'SL', 'Name (ID)', 'Membership\nDate', 'Loan\nAmount', 'Disbursement\nDate', 'Total\nPayable',
+  'SL', 'Name (ID)', 'Loan\nType', 'Membership\nDate', 'Loan\nAmount', 'Disbursement\nDate', 'Total\nPayable',
   'Installment\nAmt', 'Tenure', 'Total\nPaid', 'Remaining\nBalance', 'Maturity\nDate', 'Last Payment\nDate', 'Contact', 'Savings',
 ];
-const REPORT_EMPTY_ROW = ['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', ''];
+const REPORT_EMPTY_ROW = ['—', 'No disbursed loans.', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+
+/** Daily / Weekly / Monthly (older loans without a value are Daily). */
+function loanTypeLabel(f: any): string {
+  const v = String(f || 'daily').toLowerCase();
+  return v === 'monthly' ? 'Monthly' : v === 'weekly' ? 'Weekly' : 'Daily';
+}
 
 function singleReportRow(r: any, sl: number): string[] {
   return [
     memberSerial(r.borrower_code, sl),
     `${r.full_name} (${r.borrower_code})`,
+    loanTypeLabel(r.repayment_frequency),
     fmtDate(r.membership_date),
     money(r.loan_amount),
     fmtDate(r.disbursement_date),
@@ -342,7 +349,7 @@ function singleReportRow(r: any, sl: number): string[] {
 }
 
 /** Savings (last) column is coloured differently from the rest of the table. */
-const REPORT_MONEY_COLS = [3, 5, 6, 8, 9, 13];
+const REPORT_MONEY_COLS = [4, 6, 7, 9, 10, 14];
 function reportCellHook(data: any) {
   // Header text is centred and white; money columns (body/totals) are right-aligned so digits line up.
   if (data.section === 'head') {
@@ -350,7 +357,7 @@ function reportCellHook(data: any) {
     data.cell.styles.valign = 'middle';
     data.cell.styles.textColor = [255, 255, 255];
   } else if (REPORT_MONEY_COLS.includes(data.column.index)) data.cell.styles.halign = 'right';
-  if (data.column.index !== 13) return;
+  if (data.column.index !== 14) return;
   if (data.section === 'head') {
     data.cell.styles.fillColor = RGB_TEAL;
     data.cell.styles.textColor = [255, 255, 255];
@@ -370,7 +377,7 @@ function reportTotalsRow(totals: ReturnType<typeof loanReportTotals>): string[] 
     const t = money(v);
     return t.length > 10 ? t.replace(/\.00$/, '') : t;
   };
-  return ['', 'TOTAL', '', f(totals.loanAmount), '', f(totals.totalPayable), '', '', f(totals.totalPaid), f(totals.remaining), '', '', '', f(totals.savings)];
+  return ['', 'TOTAL', '', '', f(totals.loanAmount), '', f(totals.totalPayable), '', '', f(totals.totalPaid), f(totals.remaining), '', '', '', f(totals.savings)];
 }
 
 /** Five coloured summary boxes across the top of a report. */
@@ -833,14 +840,15 @@ function autoWidth(ws: any, colCount: number, minWidths: number[] = [], startRow
 }
 
 const EXCEL_SINGLE_HEADERS = [
-  'SL', 'Name (ID)', 'Membership Date', 'Loan Amount (BDT)', 'Disbursement Date', 'Total Payable (BDT)',
+  'SL', 'Name (ID)', 'Loan Type', 'Membership Date', 'Loan Amount (BDT)', 'Disbursement Date', 'Total Payable (BDT)',
   'Installment Amt (BDT)', 'Tenure', 'Total Paid (BDT)', 'Remaining Balance (BDT)', 'Maturity Date', 'Last Payment Date', 'Contact', 'Savings (BDT)',
 ];
-const EXCEL_REPORT_WIDTHS = [6, 26, 14, 16, 16, 16, 16, 10, 16, 18, 12, 14, 16, 16];
+const EXCEL_REPORT_WIDTHS = [6, 26, 11, 14, 16, 16, 16, 16, 10, 16, 18, 12, 14, 16, 16];
 function addSingleReportRow(ws: any, r: any, sl: number, striped: boolean) {
   const row = ws.addRow([
     Number(memberSerial(r.borrower_code, sl)) || sl,
     `${r.full_name} (${r.borrower_code})`,
+    loanTypeLabel(r.repayment_frequency),
     r.membership_date ? new Date(r.membership_date) : null,
     Number(r.loan_amount),
     r.disbursement_date ? new Date(r.disbursement_date) : null,
@@ -851,19 +859,20 @@ function addSingleReportRow(ws: any, r: any, sl: number, striped: boolean) {
     r.savings_balance == null ? null : Number(r.savings_balance),
   ]);
   styleDataRow(row, striped);
-  row.getCell(3).numFmt = 'dd-mm-yyyy';
-  row.getCell(4).numFmt = MONEY_FMT;
-  row.getCell(5).numFmt = 'dd-mm-yyyy';
-  row.getCell(6).numFmt = MONEY_FMT;
+  row.getCell(3).alignment = { horizontal: 'center' };
+  row.getCell(4).numFmt = 'dd-mm-yyyy';
+  row.getCell(5).numFmt = MONEY_FMT;
+  row.getCell(6).numFmt = 'dd-mm-yyyy';
   row.getCell(7).numFmt = MONEY_FMT;
-  row.getCell(9).numFmt = MONEY_FMT;
+  row.getCell(8).numFmt = MONEY_FMT;
   row.getCell(10).numFmt = MONEY_FMT;
-  row.getCell(11).numFmt = 'dd-mm-yyyy';
+  row.getCell(11).numFmt = MONEY_FMT;
   row.getCell(12).numFmt = 'dd-mm-yyyy';
-  row.getCell(14).numFmt = MONEY_FMT;
+  row.getCell(13).numFmt = 'dd-mm-yyyy';
+  row.getCell(15).numFmt = MONEY_FMT;
   // Savings column: its own colour
-  row.getCell(14).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
-  row.getCell(14).font = { bold: true, color: { argb: 'FF0A5A56' } };
+  row.getCell(15).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
+  row.getCell(15).font = { bold: true, color: { argb: 'FF0A5A56' } };
   return row;
 }
 
@@ -917,17 +926,17 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
   loanRows.forEach((r, i) => addSingleReportRow(summary, r, i + 1, i % 2 === 1));
 
   const totals = loanReportTotals(loanRows);
-  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', totals.totalPaid, totals.remaining, '', '', '', totals.savings]);
+  const totalRow = summary.addRow(['', 'TOTAL', '', '', totals.loanAmount, '', totals.totalPayable, '', '', totals.totalPaid, totals.remaining, '', '', '', totals.savings]);
   totalRow.eachCell((cell: any) => {
     cell.font = { bold: true };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
     cell.border = { top: { style: 'thin', color: { argb: BRAND_TEAL } } };
   });
-  totalRow.getCell(4).numFmt = MONEY_FMT;
-  totalRow.getCell(6).numFmt = MONEY_FMT;
-  totalRow.getCell(9).numFmt = MONEY_FMT;
+  totalRow.getCell(5).numFmt = MONEY_FMT;
+  totalRow.getCell(7).numFmt = MONEY_FMT;
   totalRow.getCell(10).numFmt = MONEY_FMT;
-  totalRow.getCell(14).numFmt = MONEY_FMT;
+  totalRow.getCell(11).numFmt = MONEY_FMT;
+  totalRow.getCell(15).numFmt = MONEY_FMT;
 
   autoWidth(summary, EXCEL_SINGLE_HEADERS.length, EXCEL_REPORT_WIDTHS, 4);
 
@@ -956,17 +965,17 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
   loanRows.forEach((r, i) => addSingleReportRow(summary, r, i + 1, i % 2 === 1));
 
   const totals = loanReportTotals(loanRows);
-  const totalRow = summary.addRow(['', 'TOTAL', '', totals.loanAmount, '', totals.totalPayable, '', '', totals.totalPaid, totals.remaining, '', '', '', totals.savings]);
+  const totalRow = summary.addRow(['', 'TOTAL', '', '', totals.loanAmount, '', totals.totalPayable, '', '', totals.totalPaid, totals.remaining, '', '', '', totals.savings]);
   totalRow.eachCell((cell: any) => {
     cell.font = { bold: true };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
     cell.border = { top: { style: 'thin', color: { argb: BRAND_TEAL } } };
   });
-  totalRow.getCell(4).numFmt = MONEY_FMT;
-  totalRow.getCell(6).numFmt = MONEY_FMT;
-  totalRow.getCell(9).numFmt = MONEY_FMT;
+  totalRow.getCell(5).numFmt = MONEY_FMT;
+  totalRow.getCell(7).numFmt = MONEY_FMT;
   totalRow.getCell(10).numFmt = MONEY_FMT;
-  totalRow.getCell(14).numFmt = MONEY_FMT;
+  totalRow.getCell(11).numFmt = MONEY_FMT;
+  totalRow.getCell(15).numFmt = MONEY_FMT;
 
   autoWidth(summary, EXCEL_SINGLE_HEADERS.length, EXCEL_REPORT_WIDTHS, 4);
 
