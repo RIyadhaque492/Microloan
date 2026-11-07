@@ -133,3 +133,9 @@
 # Update 40
 - Reports: new "Loan Type" column (Daily / Weekly / Monthly) right after the member name — on the report screen, the PDF, Excel and Word exports, in both the All Members and Single Member reports.
 - Reports: new "Loan Type" search box at the top (All Types / Daily / Weekly / Monthly) next to the other search boxes. In a Single Member report it also limits the payment history to that type's loans so balances stay right. The Clear button now also resets it.
+
+# Update 41
+- New printable documents, saved straight to the device (no share window) so you can keep them as proof:
+  - Membership PDF — button "📄 Membership PDF" on the member page: membership number and date, member photo, full member details, guarantor, registration fee, declaration and signature lines (Member, Guarantor, Authorized Officer).
+  - Loan Application PDF — button "📄 Loan Application PDF" on the loan page: loan code, type and date, applicant and guarantor details, loan amount (with words), installment, total payable, charges, purpose, dates, the full repayment schedule, declaration and signature lines.
+- Both use your saved header (logo + header text) and footer (address / contact / email) from Settings, a page border, and "Generated <date/time> • Page x of y" on every page.

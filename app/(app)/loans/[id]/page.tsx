@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { setFlash } from '@/lib/flash';
-import { getLoan, refreshOverdueInstallments } from '@/lib/data';
+import { getLoan, getBorrower, refreshOverdueInstallments } from '@/lib/data';
+import { LoanApplicationPdfButton } from '../../DocButtons';
 import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import { updateLoanStatusAction, deleteLoanAction, purgeLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
@@ -20,6 +21,7 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
   const data = await getLoan(id);
   if (!data) notFound();
   const { loan, installments } = data;
+  const applicant = await getBorrower(loan.borrower_id);
 
   const paidTotal = (installments as any[]).reduce((s, i) => s + Number(i.paid_amount), 0);
   const isDraft = loan.status === 'draft';
@@ -71,6 +73,7 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <LoanApplicationPdfButton loan={JSON.parse(JSON.stringify(loan))} member={JSON.parse(JSON.stringify(applicant || {}))} installments={JSON.parse(JSON.stringify(installments))} />
           {!isDraft && <Link href={`/loans/${id}/edit`} className="btn btn-outline">✏️ Edit</Link>}
           {isDraft && (
             <>

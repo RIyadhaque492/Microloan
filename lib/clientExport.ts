@@ -1247,3 +1247,365 @@ export async function buildAllUsersWordBlob(loanRows: any[]): Promise<Blob> {
   const buf = await Docx.Packer.toBlob(doc);
   return buf;
 }
+
+// =====================================================================
+// Membership PDF and Loan Application PDF — printable A4 documents kept as proof.
+// Same saved header (logo + text) and footer (address / contact / email) as receipts and reports,
+// a page border, "Page x of y" and the generation time on every page.
+// =====================================================================
+
+const DOC_TOP = 52; // content starts under the header
+const DOC_BOTTOM = 40; // space kept free for the footer
+
+/** Fetches the member's photo as a data URL (null if there is none). */
+async function loadMemberPhoto(borrowerId: number): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' } | null> {
+  try {
+    const res = await fetch(`/api/borrower-photo/${borrowerId}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob.size || !blob.type.startsWith('image/')) return null;
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(blob);
+    });
+    return { dataUrl, format: dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG' };
+  } catch {
+    return null;
+  }
+}
+
+/** Border, header (logo + header text + document title) and footer on EVERY page, with "Page x of y". */
+function drawDocChrome(doc: any, branding: Branding | null, title: string, ref: string) {
+  const pages = doc.getNumberOfPages();
+  const generated = formatDMYTime();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    // page border + teal ribbon
+    doc.setDrawColor(...RGB_NAVY);
+    doc.setLineWidth(0.6);
+    doc.rect(8, 8, 194, 281);
+    doc.setLineWidth(0.2);
+    doc.rect(10, 10, 190, 277);
+    doc.setFillColor(...RGB_TEAL);
+    doc.rect(10, 10, 190, 2.5, 'F');
+
+    // header: logo + header text (or the default name)
+    let x = 16;
+    if (branding?.logo) {
+      const { w, h } = logoSizeMm(branding, 16);
+      doc.addImage(branding.logo.dataUrl, branding.logo.format, 16, 16 + (16 - h) / 2, w, h);
+      x = 16 + w + 5;
+    }
+    if (branding?.headerText) {
+      drawHeaderText(doc, branding, x, 194, 26, 'receipt');
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(...RGB_NAVY);
+      doc.text('MicroLoan Admin', branding?.logo ? x : 105, 26, branding?.logo ? undefined : { align: 'center' });
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    // title bar
+    doc.setFillColor(...RGB_NAVY);
+    doc.rect(16, 36, 178, 9, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(title, 105, 42.2, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(90, 100, 110);
+    doc.text(ref, 194, 49.5, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+
+    // footer: address / contact / email, then the page line
+    if (branding && footerLines(branding).length) drawFooterBlock(doc, branding, 16, 194, 266, 4, 'receipt');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(110, 120, 130);
+    doc.text(`Computer-generated document  •  Generated ${generated}  •  Page ${p} of ${pages}`, 105, 284, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  }
+}
+
+/** Starts a new page if less than `need` mm remain; returns the y to continue from. */
+function docEnsure(doc: any, y: number, need: number): number {
+  if (y + need > 297 - DOC_BOTTOM) {
+    doc.addPage();
+    return DOC_TOP;
+  }
+  return y;
+}
+
+/** Label / value grid, two pairs per row. A pair marked `wide` takes the whole row. Returns the y below it. */
+function docKeyValues(doc: any, autoTable: any, startY: number, pairs: ([string, string] | [string, string, 'wide'])[]): number {
+  const body: any[] = [];
+  let pending: [string, string] | null = null;
+  for (const p of pairs) {
+    if (p[2] === 'wide') {
+      if (pending) { body.push([pending[0], pending[1], '', '']); pending = null; }
+      body.push([p[0], { content: p[1] || '-', colSpan: 3 }]);
+    } else if (pending) {
+      body.push([pending[0], pending[1], p[0], p[1] || '-']);
+      pending = null;
+    } else {
+      pending = [p[0], p[1] || '-'];
+    }
+  }
+  if (pending) body.push([pending[0], pending[1], '', '']);
+  autoTable(doc, {
+    startY,
+    body,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 1.6, lineColor: [200, 214, 224], lineWidth: 0.2, textColor: [30, 41, 59] },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 36, textColor: RGB_NAVY, fillColor: [228, 241, 247] },
+      1: { cellWidth: 55 },
+      2: { fontStyle: 'bold', cellWidth: 32, textColor: RGB_NAVY, fillColor: [228, 241, 247] },
+      3: { cellWidth: 55 },
+    },
+    margin: { left: 16, right: 16, top: DOC_TOP, bottom: DOC_BOTTOM },
+  });
+  return (doc as any).lastAutoTable.finalY;
+}
+
+/** Declaration paragraph(s) in a light box. Returns the y below it. */
+function docDeclaration(doc: any, y: number, heading: string, lines: string[]): number {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const wrapped = lines.map((l) => doc.splitTextToSize(l, 170) as string[]);
+  const h = 11 + wrapped.reduce((s, w) => s + w.length * 4.2 + 1.5, 0);
+  y = docEnsure(doc, y, h + 2);
+  doc.setFillColor(255, 250, 235);
+  doc.setDrawColor(245, 158, 11);
+  doc.setLineWidth(0.3);
+  doc.rect(16, y, 178, h, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(120, 80, 0);
+  doc.text(heading, 20, y + 6);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(40, 40, 40);
+  let ty = y + 12;
+  for (const w of wrapped) {
+    doc.text(w, 20, ty);
+    ty += w.length * 4.2 + 1.5;
+  }
+  doc.setTextColor(0, 0, 0);
+  doc.setLineWidth(0.2);
+  return y + h;
+}
+
+/** Signature lines side by side, each with a label and a date line. Returns the y below them. */
+function docSignatures(doc: any, y: number, labels: string[]): number {
+  y = docEnsure(doc, y, 27);
+  const gap = 8;
+  const w = (178 - gap * (labels.length - 1)) / labels.length;
+  doc.setDrawColor(...RGB_NAVY);
+  doc.setLineWidth(0.3);
+  doc.setFontSize(8.5);
+  labels.forEach((label, i) => {
+    const x = 16 + i * (w + gap);
+    doc.line(x, y + 15, x + w, y + 15);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...RGB_NAVY);
+    doc.text(label, x + w / 2, y + 20, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 110, 120);
+    doc.text('Date: ____ / ____ / ________', x + w / 2, y + 25, { align: 'center' });
+  });
+  doc.setTextColor(0, 0, 0);
+  doc.setLineWidth(0.2);
+  return y + 27;
+}
+
+function docMoney(v: any): string {
+  return `Tk ${money(v)}`;
+}
+
+function docLoanType(f: any): string {
+  const v = String(f || 'daily').toLowerCase();
+  return v === 'monthly' ? 'Monthly' : v === 'weekly' ? 'Weekly' : 'Daily';
+}
+
+/** MEMBERSHIP FORM — member details with photo, guarantor, fee, declaration and signatures. */
+export async function buildMembershipPdfBlob(member: any): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const branding = await loadBranding();
+  activeBranding = branding;
+  PAGE_W = 210;
+  PAGE_H = 297;
+  const photo = await loadMemberPhoto(member.id);
+  const doc = new jsPDF();
+
+  // reference block (left) + photo (right)
+  let y = DOC_TOP + 2;
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ['Membership No.', member.borrower_code || '-'],
+      ['Membership Date', fmtDate(member.created_at)],
+      ['Member Name', member.full_name || '-'],
+      ['Status', titleCase(member.status || 'active')],
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9.5, cellPadding: 2, lineColor: [200, 214, 224], lineWidth: 0.2, textColor: [30, 41, 59] },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 38, textColor: RGB_NAVY, fillColor: [228, 241, 247] }, 1: { cellWidth: 92 } },
+    margin: { left: 16, right: 56, top: DOC_TOP, bottom: DOC_BOTTOM },
+  });
+  const refBottom = (doc as any).lastAutoTable.finalY;
+  // photo box 32 x 40 mm
+  doc.setDrawColor(...RGB_NAVY);
+  doc.setLineWidth(0.4);
+  doc.rect(164, y, 30, 36);
+  if (photo) {
+    try { doc.addImage(photo.dataUrl, photo.format, 164.4, y + 0.4, 29.2, 35.2); } catch { /* unreadable photo: leave the box empty */ }
+  } else {
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 130, 140);
+    doc.text('Photo', 179, y + 19, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  }
+  doc.setLineWidth(0.2);
+  y = Math.max(refBottom, y + 36) + 5;
+
+  drawSectionHeader(doc, 'Member Information', 16, y, 178, RGB_NAVY);
+  y = docKeyValues(doc, autoTable, y + 7, [
+    ['Full Name', member.full_name],
+    ["Father's Name", member.father_name || ''],
+    ['Gender', member.gender ? titleCase(member.gender) : ''],
+    ['Date of Birth', member.date_of_birth ? fmtDate(member.date_of_birth) : ''],
+    ['Age', member.age != null && member.age !== '' ? `${member.age} years` : ''],
+    ['Occupation', member.occupation || ''],
+    ['Phone', member.phone || ''],
+    ['Email', member.email || ''],
+    ['NID / ID No.', member.nid_number || ''],
+    ['Monthly Income', member.monthly_income != null && Number(member.monthly_income) > 0 ? docMoney(member.monthly_income) : ''],
+    ['Present Address', member.present_address || '', 'wide'],
+  ]) + 6;
+
+  y = docEnsure(doc, y, 40);
+  drawSectionHeader(doc, 'Guarantor', 16, y, 178, RGB_TEAL);
+  y = docKeyValues(doc, autoTable, y + 7, [
+    ['Guarantor Name', member.guarantor_name || ''],
+    ['Relationship', member.guarantor_relationship || ''],
+    ['Guarantor Phone', member.guarantor_phone || ''],
+  ]) + 6;
+
+  y = docEnsure(doc, y, 30);
+  drawSectionHeader(doc, 'Membership Fee', 16, y, 178, RGB_GOLD);
+  y = docKeyValues(doc, autoTable, y + 7, [
+    ['Registration Fee', docMoney(member.registration_fee || 0)],
+    ['Fee Receipt No.', member.fee_receipt_no || ''],
+  ]) + 6;
+
+  y = docDeclaration(doc, y, 'Declaration', [
+    'I hereby declare that the information given above is true and complete to the best of my knowledge. I agree to follow the rules and regulations of the organization and understand that giving false information may cancel my membership.',
+  ]) + 4;
+  docSignatures(doc, y, ['Member', 'Guarantor', 'Authorized Officer']);
+
+  drawDocChrome(doc, branding, 'MEMBERSHIP FORM', `Membership No. ${member.borrower_code || ''}`);
+  return doc.output('blob');
+}
+
+/** LOAN APPLICATION FORM — applicant, guarantor, loan terms, repayment schedule, declaration and signatures. */
+export async function buildLoanApplicationPdfBlob(loan: any, member: any, installments: any[] = []): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const branding = await loadBranding();
+  activeBranding = branding;
+  PAGE_W = 210;
+  PAGE_H = 297;
+  const doc = new jsPDF();
+
+  let y = DOC_TOP + 2;
+  y = docKeyValues(doc, autoTable, y, [
+    ['Loan Code', loan.loan_code],
+    ['Loan Type', docLoanType(loan.repayment_frequency)],
+    ['Application Date', fmtDate(loan.created_at)],
+    ['Status', titleCase(loan.status || '')],
+  ]) + 6;
+
+  drawSectionHeader(doc, 'Applicant', 16, y, 178, RGB_NAVY);
+  y = docKeyValues(doc, autoTable, y + 7, [
+    ['Name', member?.full_name || loan.full_name],
+    ['Member ID', member?.borrower_code || loan.borrower_code],
+    ["Father's Name", member?.father_name || ''],
+    ['Phone', member?.phone || loan.phone || ''],
+    ['NID / ID No.', member?.nid_number || ''],
+    ['Occupation', member?.occupation || ''],
+    ['Date of Birth', member?.date_of_birth ? fmtDate(member.date_of_birth) : ''],
+    ['Monthly Income', member?.monthly_income != null && Number(member.monthly_income) > 0 ? docMoney(member.monthly_income) : ''],
+    ['Present Address', member?.present_address || '', 'wide'],
+  ]) + 6;
+
+  y = docEnsure(doc, y, 36);
+  drawSectionHeader(doc, 'Guarantor', 16, y, 178, RGB_TEAL);
+  y = docKeyValues(doc, autoTable, y + 7, [
+    ['Guarantor Name', member?.guarantor_name || ''],
+    ['Relationship', member?.guarantor_relationship || ''],
+    ['Guarantor Phone', member?.guarantor_phone || ''],
+  ]) + 6;
+
+  y = docEnsure(doc, y, 70);
+  drawSectionHeader(doc, 'Loan Details', 16, y, 178, RGB_GOLD);
+  const loanAmount = Number(loan.loan_amount) || 0;
+  const payable = Number(loan.total_payable) || 0;
+  y = docKeyValues(doc, autoTable, y + 7, [
+    ['Loan Amount', docMoney(loanAmount)],
+    ['Total Payable', docMoney(payable)],
+    ['Amount in Words', amountInWords(loanAmount), 'wide'],
+    ['Installment Amount', docMoney(loan.installment_amount)],
+    ['No. of Installments', String(loan.tenure ?? '')],
+    ['Service Charge', docMoney(Math.max(0, payable - loanAmount))],
+    ['Processing Fee', docMoney(loan.processing_fee || 0)],
+    ['Disbursement Date', loan.disbursement_date ? fmtDate(loan.disbursement_date) : ''],
+    ['Maturity Date', loan.maturity_date ? fmtDate(loan.maturity_date) : ''],
+    ['Purpose of Loan', loan.purpose || '', 'wide'],
+  ]) + 6;
+
+  // repayment schedule, two installments per row to keep it short
+  if (installments.length) {
+    y = docEnsure(doc, y, 60); // a long schedule starts on a fresh page, never with just a title at the bottom
+    drawSectionHeader(doc, 'Repayment Schedule', 16, y, 178, RGB_PURPLE);
+    const n = installments.length;
+    const half = Math.ceil(n / 2);
+    const body: string[][] = [];
+    for (let i = 0; i < half; i++) {
+      const a = installments[i];
+      const b = installments[i + half];
+      body.push([
+        String(a.installment_no), fmtDate(a.due_date), money(a.amount),
+        b ? String(b.installment_no) : '', b ? fmtDate(b.due_date) : '', b ? money(b.amount) : '',
+      ]);
+    }
+    autoTable(doc, {
+      startY: y + 7,
+      head: [['No.', 'Due Date', 'Amount (Tk)', 'No.', 'Due Date', 'Amount (Tk)']],
+      body,
+      theme: 'grid',
+      headStyles: { fillColor: RGB_PURPLE, textColor: [255, 255, 255], fontSize: 8, halign: 'center' },
+      styles: { fontSize: 8, cellPadding: 1.4, lineColor: [200, 214, 224], lineWidth: 0.2, textColor: [30, 41, 59], halign: 'center' },
+      columnStyles: { 2: { halign: 'right' }, 5: { halign: 'right' } },
+      margin: { left: 16, right: 16, top: DOC_TOP, bottom: DOC_BOTTOM },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  y = docDeclaration(doc, y, 'Declaration & Terms', [
+    '1. I apply for the loan described above and confirm that all information I have given is true and complete.',
+    '2. I agree to repay every installment in full on or before its due date as shown in the repayment schedule.',
+    '3. I understand that missed or late payments may be followed up as per the rules of the organization.',
+    '4. The organization may verify my information, and its decision on this application is final.',
+  ]) + 4;
+  docSignatures(doc, y, ['Applicant', 'Guarantor', 'Authorized Officer']);
+
+  drawDocChrome(doc, branding, 'LOAN APPLICATION FORM', `Loan ${loan.loan_code || ''}  •  Member ${loan.borrower_code || member?.borrower_code || ''}`);
+  return doc.output('blob');
+}

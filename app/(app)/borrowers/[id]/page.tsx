@@ -13,6 +13,7 @@ import UploadForm from './UploadForm';
 import UploadSuccessToast from './UploadSuccessToast';
 import RemoveMenu from './RemoveMenu';
 import ProfilePhoto from './ProfilePhoto';
+import { MembershipPdfButton } from '../../DocButtons';
 
 export const metadata = { title: 'Member Profile - MicroLoan Admin' };
 
@@ -61,6 +62,7 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
         title={borrower.full_name}
         action={
           <div className="flex gap-2">
+            <MembershipPdfButton member={JSON.parse(JSON.stringify(borrower))} />
             <Link href={`/borrowers/${id}/edit`} className="btn btn-outline">✏️ Edit</Link>
             <RemoveMenu borrowerId={id} memberName={borrower.full_name} loans={loans.map((l) => ({ id: l.id, loan_code: l.loan_code, loan_amount: l.loan_amount, status: l.status }))} />
             <Link href="/borrowers" prefetch={false} className="btn btn-primary">✔ Done</Link>
