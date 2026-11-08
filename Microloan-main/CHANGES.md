@@ -1,0 +1,148 @@
+
+# Batch 8
+- Reports (PDF, Excel, Word, screen): SL = member serial (Member ID number), ID beside the name, Member ID column removed, Membership Date added, Savings column added last (own colour). Totals row sticks at the bottom; totals bar includes savings; PDF has 5 coloured summary boxes.
+- Collect payment: amount = the loan's installment amount (capped at what is still due).
+- Receipt: amount in words under Amount Paid (screen, PDF, share text).
+- Lists (Collection, Loans, Members): table fills the screen and scrolls inside.
+- Suggestions: father's name, occupation, guarantor name (add + edit member), document title.
+
+# Batch 9
+- Report PDFs: totals bar at the bottom is now column-aligned (totals sit under their table columns, Savings in its own teal cell) on every page.
+
+# Batch 10
+- Keyboard arrows/PageUp/PageDown scroll the page content first (main area is the focused scroller).
+- Search: member-ID group ("1-20, 25") + date range on Loans, Members, Savings; ID group on Collections.
+- Savings posting form is landscape (one row above the history).
+- Member view: details as colour boxes.
+- Tenure progress follows installment amount (paid 1400 / installment 700 = 2).
+- Report PDFs: money + Savings columns right-aligned, totals bar aligned.
+- PDF/Excel/Word: separate Download button next to Share. PDF preview worker is now bundled (public/pdf.worker.min.js).
+
+# Batch 11
+- Keyboard scrolling fixed and tested in Chromium (arrows/PageUp/PageDown/Home/End scroll the page or the list table, even after clicking the sidebar).
+- Reports page: search by text, member-ID group and disbursement date range (exports follow the filter).
+- Report PDFs: totals sit directly under the table (last page), not in the footer; headers no longer cut words; Payment History is bold, centred, tinted.
+- Receipt: amount in words has the same size/colour as Amount Paid; "Mobile Banking" style capitalisation for payment methods.
+- PDF preview: zoom +/- and Fit.
+- All tables use the boxed Transaction History design.
+
+# Batch 12
+- Savings page: "➕ Savings" button opens a quick form (pick member, deposit/withdrawal, amount, date, notes) and saves without opening the member profile.
+
+# Batch 13
+- Single-member report: member search with suggestions (ID / name / phone, opens when picked) + payment date range filter (running balance stays correct).
+- Add/Edit member: Age suggestions.
+- Report PDF + screen: "Payment History" bar centred with its own colour (purple).
+- PDF preview: Fit = exactly 100% fit; +/- in 25% steps with a live % label.
+
+# Batch 14
+- All report dates (screen, PDF, Excel, Word, share text) and the receipt PDF date are dd-mm-yyyy; "Generated" shows dd-mm-yyyy, hh:mm AM/PM.
+
+# Batch 15
+- Every date in the app shows dd-mm-yyyy; every date box is a dd-mm-yyyy field (type digits, dashes auto, 📅 calendar) that still saves normally.
+- Longer tables: compact page header, search bar and cards on Members, Loans, Collection, Savings and Reports.
+- Single-member report screen now has the same 5 coloured summary cards as the PDF.
+- reset_all_data.sql: wipes all data (keeps admin + settings). Run manually in Neon when ready.
+
+# Batch 16
+- Member profile picture: round photo on the member profile with a pencil button (add / change / remove). Photos are shrunk in the browser and stored in a new table (run migration_all_pending.sql).
+- Dashboard no longer crashes if the processing_fee column is missing.
+- Single-member report screen now follows the PDF order/colours: summary cards, navy Loan Register bar, alternating Payment History rows, light-teal TOTAL PAID; PDF register total row is the same amber as the screen.
+- migration_all_pending.sql: one safe-to-rerun SQL with every pending change.
+
+# Batch 23
+- Pop-up notifications (toasts) for every action: saved, updated, deleted, restored, registered, payment collected, photo, settings, documents... plus red pop-ups for error messages.
+- Version stamp: Update 23.
+
+# Update 24
+- Add/Edit Member: Date of Birth box; Age is calculated automatically from it (read-only). New box "Relationship with Guarantor" (suggestions: Brother, Father, …); shown on the member profile.
+- Loan Registration (and draft edit): new "Total Payable" box = installment × number of installments, always visible.
+- Dates: every "today" default now uses Bangladesh time (Asia/Dhaka) instead of the server's UTC time, so date boxes show the real current date (previously wrong between 12:00 am and 6:00 am).
+- Reports/Receipts: one "Share" button with a dropdown — Telegram, Gmail, Messenger, WhatsApp. It shares the real PDF file (no link). Phone: the share sheet opens with the PDF attached. Computer: the PDF is saved and the app opens in a new tab to attach it.
+- Reports page: "All / Single member" switch moved up beside the title, slimmer filter + summary cards, so the table starts higher up.
+- New sidebar item "Backup & Restore" (Admin section): download one backup file with all data (members, loans, payments, savings, photos, documents, settings, admins) and restore from it (admin password required; a safety copy of the current data is downloaded automatically before restoring).
+- Database: run migration_add_dob_guarantor_relationship.sql once in Neon (the app also adds the two columns by itself the first time a member is saved).
+
+# Update 25
+- Share (PDF): the real file is now shared on its own through the system share sheet whenever the browser supports it (no title/text next to it, which made apps show only "Receipt 19"). Older browsers: PDF is saved and the app opens in a new tab.
+- Receipt: "Amount Paid" is now "Amount (In BDT):" (screen, PDF, Excel, share text), figure without a currency sign.
+- Whole site: standard colour set (primary teal, success/warning/danger/info), and motion — pages fade up, cards and table rows slide in, buttons lift/press, pop-up windows and menus animate; switched off automatically for people who prefer reduced motion.
+
+# Update 26
+- Share on a computer: Telegram / Gmail / Messenger / WhatsApp now open their own website (PDF saved to Downloads, ready to attach) instead of the Windows share window, which only lists apps installed on the PC. New "More apps…" item opens the system share window with the PDF attached. Phones still use the share sheet with the PDF attached.
+
+# Update 27 — direct share (no download)
+- Share > Telegram: the PDF is sent straight to your Telegram chat by a bot. Share > Gmail: asks for an email address and sends the PDF as an attachment. Nothing is downloaded or attached by hand. (Messenger / WhatsApp keep the previous behaviour; "More apps…" opens the system share window.)
+- Until the settings below exist, Telegram/Gmail fall back to the old way (PDF saved + app opened), so nothing breaks.
+- Setup, Telegram (2 minutes): in Telegram open @BotFather > /newbot > copy the token. Open your new bot and press Start, send it any message. Then open https://api.telegram.org/bot<TOKEN>/getUpdates in the browser and copy the number after "chat":{"id": — that is the chat id (for a group: add the bot to the group, send a message, same link, id starts with -).
+- Setup, Gmail: Google Account > Security > turn on 2-Step Verification > App passwords > create one (16 letters).
+- In Vercel > Project > Settings > Environment Variables add: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SMTP_USER (your gmail), SMTP_PASS (the app password). Then Redeploy.
+
+# Update 28 — fixes
+- Blank table in report PDF/Share: the new fade-in animations made the PDF capture photograph the report while its rows were still invisible. Animations are now switched off inside the capture.
+- Two PDF captures can no longer run at once (Share menu + PDF button) — they share one job, so the off-screen report is never removed mid-capture.
+- Share menu: buttons stay clickable while the file prepares; a failed/slow file shows a message ("tap to retry") instead of freezing; gives up after 60 s with a clear message.
+
+# Update 29
+- Report table rows were invisible on screen (stuck at the start of the new row animation). Table rows no longer animate at all, and no animation starts fully transparent any more, so content can never end up hidden.
+
+# Update 30 — share without downloading
+- Share (toolbar and preview window): every app (Telegram, Gmail, Messenger, WhatsApp) now hands the PDF straight to the system share window — nothing is downloaded. Download only happens from the Download button.
+- Telegram / Gmail: if the server settings exist (see Update 27) the PDF is sent straight to Telegram / emailed with no window at all; the email box only appears when email is set up.
+- Browsers that cannot share files still fall back to saving the file and opening the app.
+
+# Update 31 — Telegram direct share, set up inside the app
+- New sidebar page "📤 Share Settings" (Admin): paste your Telegram bot token, press "Find my Chat ID" (it reads the id for you), Save, "Send test message". No Vercel settings or redeploy needed. Gmail address + app password are saved there too.
+- After that, Share → Telegram sends the PDF straight into your Telegram chat (no window, no download). Until it is set up, Share → Telegram shows a hint and opens the system share window.
+- Settings are stored in a new table share_settings (created automatically; secrets are never sent back to the browser). Environment variables from Update 27 still work as a fallback.
+
+# Update 32
+- Share on a computer: clicking Telegram / Gmail / Messenger / WhatsApp opens that app in a new tab again (the PDF is saved so you can drop it in). If direct send is set up in Share Settings, Telegram/Gmail send the PDF straight in instead. "More apps…" (system share window with the PDF attached) is back. Phones keep using the share sheet.
+
+# Update 33
+- Share on a computer: Telegram, WhatsApp, Messenger now open the installed desktop APP (tg:// whatsapp:// fb-messenger://) instead of a website; Gmail opens your default mail app (mailto:). The PDF is saved so you can drop it in. If the app is not installed, a link in the pop-up note opens the website version instead. (Windows asks once "Open Telegram?" — tick "always allow".)
+
+# Update 34 — share by link (nothing downloaded)
+- Share on a computer: the PDF is stored for 48 hours behind a private link and the installed app opens (Telegram / WhatsApp / Messenger / default mail app) with that link already in the message — nothing is downloaded or attached. The link is also copied. If the app is not installed, a link in the pop-up opens the website version with the same message.
+- Telegram/Gmail direct send (Share Settings) and the phone share sheet (real PDF attached) are unchanged. The links table is created automatically.
+
+# Update 35
+- Share → Telegram / Gmail now shows your saved contacts with tick boxes (Select all, or type extra emails). The PDF file itself is sent to every ticked person — no link, no download.
+- Share Settings: new "Contacts" section; "Find my Chat ID" lists everyone who pressed Start on your bot with a one-click "+ Add to contacts".
+- Email goes to all ticked addresses in one message with the PDF attached.
+
+# Update 36
+- Logout fixed: it now clears the session and does a full reload of the login page (works every time, Back button no longer shows old pages). New sidebar footer with your name/role, a clear Logout button and a version line.
+- Auto refresh: list, dashboard, collections, savings, reports, notifications and bin pages reload their data every 30 s and when you return to the tab. Never while you type, while a menu/dialog is open or a file is being made. ON/OFF switch in the sidebar.
+- Share → WhatsApp / Messenger on a computer open the system share window with the real PDF attached (link only if that is not possible).
+- All reports: rows now follow date order, earliest disbursement date first (payments inside a member report were already oldest first).
+
+# Update 37
+- Transaction history (loan payments and savings receipts) is now LIFO: the latest DATE is on top, not the receipt number. Changing a payment's date moves it to the right place and the Total Paid / Remaining / Net Balance columns are recalculated in date order. "Recent payments" also follows the payment date.
+- New Loan Type on loan registration (and Edit Draft): Daily, Weekly or Monthly. Choosing Monthly sets 6 installments, adds a "Monthly Loan Charge (%)" box (default 16%) and fills the Installment Amount automatically = (loan + charge) ÷ 6 (rounded up to a whole taka); Total Payable and the maturity date follow. Everything stays editable. Switching back to Daily/Weekly restores 116 installments and the 1% installment.
+- Loans list: new "Loan Type" column and a Loan Type filter; the loan page shows a type badge. No database change needed (uses the existing repayment frequency).
+
+# Update 38
+- Auto refresh now works on EVERY data page (lists, member profile, loan page, transaction history, savings, reports) every 10 seconds and the moment you return to the tab — no more manual refresh. Still never on forms/edit pages, the collect-payment form, settings, backup, or while you are typing or a menu is open. Switch in the sidebar.
+
+# Update 39
+- PERMANENT DELETE: new "☠ Delete permanently" buttons wherever you remove something — member page Remove menu (member or a single loan), member edit page, loan page — and in the Bin next to Restore, plus an "Empty Bin" button. Each shows a plain warning ("cannot be restored") and then asks the admin password. It erases the member/loan and everything linked (installments, payments, savings, documents, photo). The normal Remove still moves things to the Bin (restorable). Payments, savings entries and documents were already deleted for good.
+- Premium look: deeper navy/teal sidebar with glowing active item, gradient buttons with a light sweep, softer layered shadows, richer table headers with calm zebra rows, glowing input focus, blurred pop-up backdrops with a springy rise, slim scrollbars, and a thin coloured loading bar at the top while pages open. Reports/PDF capture stay completely static.
+- Auto refresh (Update 38) is unchanged: every data page refreshes itself every 10 seconds.
+
+# Update 40
+- Reports: new "Loan Type" column (Daily / Weekly / Monthly) right after the member name — on the report screen, the PDF, Excel and Word exports, in both the All Members and Single Member reports.
+- Reports: new "Loan Type" search box at the top (All Types / Daily / Weekly / Monthly) next to the other search boxes. In a Single Member report it also limits the payment history to that type's loans so balances stay right. The Clear button now also resets it.
+
+# Update 41
+- New printable documents, saved straight to the device (no share window) so you can keep them as proof:
+  - Membership PDF — button "📄 Membership PDF" on the member page: membership number and date, member photo, full member details, guarantor, registration fee, declaration and signature lines (Member, Guarantor, Authorized Officer).
+  - Loan Application PDF — button "📄 Loan Application PDF" on the loan page: loan code, type and date, applicant and guarantor details, loan amount (with words), installment, total payable, charges, purpose, dates, the full repayment schedule, declaration and signature lines.
+- Both use your saved header (logo + header text) and footer (address / contact / email) from Settings, a page border, and "Generated <date/time> • Page x of y" on every page.
+
+## Update 42 — Accounts / Cash Book
+- New sidebar section **Accounts → 📒 Cash Book** (`/accounts`).
+- Automatic entries (no double typing): loan collections, savings deposits/withdrawals, loan disbursements, processing fees and registration fees. Items in the Bin are excluded.
+- Manual entries: **⬇ Cash In** / **⬆ Cash Out** (capital, salary, rent, bank deposit, etc.), editable and deletable with the delete password. Add an "Opening Balance" Cash In entry to start the book.
+- Opening balance (b/f), running balance, closing balance; filters by date, category, source, search; newest-first by default; category summary; PDF with header/footer.
+- Manual entries are included in Backup / Restore. New table `cash_entries` (created automatically; also in `migration_add_cash_book.sql`).
