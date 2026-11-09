@@ -8,6 +8,7 @@ import { setFlash } from './flash';
 import { createSession, destroySession, getSession } from './auth';
 import { generateScheduleFromInstallment, todayISO, calcAge } from './utils';
 import { DELETE_PASSWORD } from './deletePin';
+import { ensureCashTable } from './accounts';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -219,6 +220,45 @@ export async function deleteBorrowerAction(id: number, formData?: FormData) {
  * notifications) is erased for good and can NOT be restored. Needs the admin password.
  * `backTo` is where to go afterwards (and where a wrong password returns to).
  */
+/** Adds (id = 0) or changes a manual cash-book entry: salary, rent, capital, bank deposit ... */
+export async function saveCashEntryAction(id: number, formData: FormData) {
+  await requireAdmin();
+  const dir = String(formData.get('direction')) === 'out' ? 'out' : 'in';
+  const date = String(formData.get('entry_date') || '');
+  const category = String(formData.get('category') || '').trim().slice(0, 60);
+  const description = String(formData.get('description') || '').trim().slice(0, 255);
+  const amount = Number(String(formData.get('amount') || '').replace(/,/g, ''));
+  const back = id ? `/accounts/${id}/edit` : '/accounts/new';
+  const fail = (msg: string) => redirect(`${back}?type=${dir}&error=${encodeURIComponent(msg)}`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail('Enter the date as dd-mm-yyyy.');
+  if (!category) fail('Choose or type a category.');
+  if (!Number.isFinite(amount) || amount <= 0) fail('Enter an amount greater than zero.');
+  await ensureCashTable();
+  if (id) {
+    await sql`UPDATE cash_entries SET entry_date = ${date}::date, direction = ${dir}, category = ${category}, description = ${description}, amount = ${amount} WHERE id = ${id}`;
+  } else {
+    await sql`INSERT INTO cash_entries (entry_date, direction, category, description, amount) VALUES (${date}::date, ${dir}, ${category}, ${description}, ${amount})`;
+  }
+  revalidatePath('/accounts');
+  revalidatePath('/dashboard');
+  setFlash(id ? 'Cash entry updated' : dir === 'in' ? 'Cash In saved' : 'Cash Out saved');
+  // show the month the entry belongs to, so it is visible straight away
+  const [y, m] = date.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  redirect(`/accounts?from=${y}-${String(m).padStart(2, '0')}-01&to=${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`);
+}
+
+/** Deletes a manual cash-book entry (admin password). Automatic entries cannot be deleted here — they follow their source. */
+export async function deleteCashEntryAction(id: number, formData?: FormData) {
+  await requireAdmin();
+  checkDeletePassword(formData, '/accounts');
+  await ensureCashTable();
+  await sql`DELETE FROM cash_entries WHERE id = ${id}`;
+  revalidatePath('/accounts');
+  setFlash('Cash entry deleted');
+  redirect('/accounts');
+}
+
 export async function purgeBorrowerAction(id: number, backTo: string, formData?: FormData) {
   await requireAdmin();
   checkDeletePassword(formData, backTo);

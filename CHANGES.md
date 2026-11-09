@@ -139,3 +139,13 @@
   - Membership PDF — button "📄 Membership PDF" on the member page: membership number and date, member photo, full member details, guarantor, registration fee, declaration and signature lines (Member, Guarantor, Authorized Officer).
   - Loan Application PDF — button "📄 Loan Application PDF" on the loan page: loan code, type and date, applicant and guarantor details, loan amount (with words), installment, total payable, charges, purpose, dates, the full repayment schedule, declaration and signature lines.
 - Both use your saved header (logo + header text) and footer (address / contact / email) from Settings, a page border, and "Generated <date/time> • Page x of y" on every page.
+
+## Update 42 — Accounts / Cash Book
+- New sidebar section **Accounts → 📒 Cash Book** (`/accounts`).
+- Automatic entries (no double typing): loan collections, savings deposits/withdrawals, loan disbursements, processing fees and registration fees. Items in the Bin are excluded.
+- Manual entries: **⬇ Cash In** / **⬆ Cash Out** (capital, salary, rent, bank deposit, etc.), editable and deletable with the delete password. Add an "Opening Balance" Cash In entry to start the book.
+- Opening balance (b/f), running balance, closing balance; filters by date, category, source, search; newest-first by default; category summary; PDF with header/footer.
+- Manual entries are included in Backup / Restore. New table `cash_entries` (created automatically; also in `migration_add_cash_book.sql`).
+
+## Update 43
+- Fix Vercel build failure from Update 42 (internal link used a plain anchor; PDF column style typing).

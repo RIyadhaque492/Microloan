@@ -1609,3 +1609,54 @@ export async function buildLoanApplicationPdfBlob(loan: any, member: any, instal
   drawDocChrome(doc, branding, 'LOAN APPLICATION FORM', `Loan ${loan.loan_code || ''}  •  Member ${loan.borrower_code || member?.borrower_code || ''}`);
   return doc.output('blob');
 }
+
+/** CASH BOOK — the period shown on screen as a printable A4 PDF with your header and footer. */
+export async function buildCashBookPdfBlob(
+  rows: { d: string; particulars: string; category: string; cashIn: number; cashOut: number; balance: number | null }[],
+  summary: { period: string; opening: number; totalIn: number; totalOut: number; closing: number; filtered: boolean }
+): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const branding = await loadBranding();
+  activeBranding = branding;
+  PAGE_W = 210;
+  PAGE_H = 297;
+  const doc = new jsPDF();
+
+  const pairs: [string, string][] = [['Period', summary.period]];
+  if (!summary.filtered) pairs.push(['Opening Balance', docMoney(summary.opening)]);
+  pairs.push(['Total Cash In', docMoney(summary.totalIn)], ['Total Cash Out', docMoney(summary.totalOut)]);
+  pairs.push(summary.filtered ? ['Net (In - Out)', docMoney(summary.totalIn - summary.totalOut)] : ['Closing Balance', docMoney(summary.closing)]);
+  let y = docKeyValues(doc, autoTable, DOC_TOP + 2, pairs) + 6;
+
+  const showBal = !summary.filtered;
+  const head = [['Date', 'Particulars', 'Cash In', 'Cash Out', ...(showBal ? ['Balance'] : [])]];
+  const body: string[][] = rows.map((r) => [
+    fmtDate(r.d), `${r.particulars}`,
+    r.cashIn ? money(r.cashIn) : '', r.cashOut ? money(r.cashOut) : '',
+    ...(showBal ? [r.balance == null ? '' : money(r.balance)] : []),
+  ]);
+  if (!body.length) body.push(['', 'No cash entries in this period.', '', '', ...(showBal ? [''] : [])]);
+  body.push(['', 'TOTAL', money(summary.totalIn), money(summary.totalOut), ...(showBal ? [money(summary.closing)] : [])]);
+
+  const right: any = showBal ? { 2: { halign: 'right', cellWidth: 24 }, 3: { halign: 'right', cellWidth: 24 }, 4: { halign: 'right', cellWidth: 26 } } : { 2: { halign: 'right', cellWidth: 28 }, 3: { halign: 'right', cellWidth: 28 } };
+  autoTable(doc, {
+    startY: y,
+    head,
+    body,
+    theme: 'grid',
+    headStyles: { fillColor: RGB_NAVY, textColor: [255, 255, 255], fontSize: 8.5, halign: 'center' },
+    styles: { fontSize: 8, cellPadding: 1.6, lineColor: [200, 214, 224], lineWidth: 0.2, textColor: [30, 41, 59], valign: 'middle' },
+    columnStyles: { 0: { cellWidth: 20 }, ...right },
+    didParseCell: (d: any) => {
+      if (d.section === 'body' && d.row.index === body.length - 1) {
+        d.cell.styles.fontStyle = 'bold';
+        d.cell.styles.fillColor = RGB_TEAL_LIGHT;
+      }
+    },
+    margin: { left: 16, right: 16, top: DOC_TOP, bottom: DOC_BOTTOM },
+  });
+
+  drawDocChrome(doc, branding, 'CASH BOOK', summary.period);
+  return doc.output('blob');
+}

@@ -7,7 +7,7 @@ const EVERY_MS = 10000;
 /** Every data page refreshes (lists AND detail/history pages). Forms and tools never do: add/edit/new pages, the collect-payment form,
  *  settings, backup/restore, share settings, calculator and receipts. */
 const NEVER = /\/(new|edit|edit-draft|settings|backup|share-settings|calculator)(\/|$)|^\/collections\/(receipt|edit)\/|^\/collections\/\d+\/?$|^\/login/;
-const DATA_PAGE = /^\/(dashboard|borrowers|loans|collections|savings|reports|notifications|bin)(\/|$)/;
+const DATA_PAGE = /^\/(dashboard|borrowers|loans|collections|savings|accounts|reports|notifications|bin)(\/|$)/;
 const SAFE = { test: (p: string) => DATA_PAGE.test(p) && !NEVER.test(p) };
 
 /** True when refreshing now could disturb the person (typing, a dialog/menu is open, a file is being made, text is selected). */

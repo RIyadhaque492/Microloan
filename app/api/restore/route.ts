@@ -1,5 +1,6 @@
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { ensureCashTable } from '@/lib/accounts';
 import { BACKUP_TABLES, findTable } from '@/lib/backupTables';
 import { DELETE_PASSWORD } from '@/lib/deletePin';
 
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await ensureCashTable(); // the Cash Book table must exist before a backup that contains it is restored
     switch (body.action) {
       case 'check':
         return Response.json({ ok: true });
