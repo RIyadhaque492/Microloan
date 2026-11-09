@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import DateInput from '@/app/(app)/DateInput';
 import { CASH_IN_CATEGORIES, CASH_OUT_CATEGORIES } from '@/lib/cashCategories';
 
@@ -63,7 +64,7 @@ export default function EntryForm({
 
       <div className="flex gap-3">
         <button className="btn btn-primary">{submitLabel}</button>
-        <a href="/accounts" className="btn btn-outline">Cancel</a>
+        <Link href="/accounts" className="btn btn-outline">Cancel</Link>
       </div>
     </form>
   );

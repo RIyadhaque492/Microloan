@@ -146,3 +146,6 @@
 - Manual entries: **⬇ Cash In** / **⬆ Cash Out** (capital, salary, rent, bank deposit, etc.), editable and deletable with the delete password. Add an "Opening Balance" Cash In entry to start the book.
 - Opening balance (b/f), running balance, closing balance; filters by date, category, source, search; newest-first by default; category summary; PDF with header/footer.
 - Manual entries are included in Backup / Restore. New table `cash_entries` (created automatically; also in `migration_add_cash_book.sql`).
+
+## Update 43
+- Fix Vercel build failure from Update 42 (internal link used a plain anchor; PDF column style typing).

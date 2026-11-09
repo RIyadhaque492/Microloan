@@ -1639,7 +1639,7 @@ export async function buildCashBookPdfBlob(
   if (!body.length) body.push(['', 'No cash entries in this period.', '', '', ...(showBal ? [''] : [])]);
   body.push(['', 'TOTAL', money(summary.totalIn), money(summary.totalOut), ...(showBal ? [money(summary.closing)] : [])]);
 
-  const right = showBal ? { 2: { halign: 'right', cellWidth: 24 }, 3: { halign: 'right', cellWidth: 24 }, 4: { halign: 'right', cellWidth: 26 } } : { 2: { halign: 'right', cellWidth: 28 }, 3: { halign: 'right', cellWidth: 28 } };
+  const right: any = showBal ? { 2: { halign: 'right', cellWidth: 24 }, 3: { halign: 'right', cellWidth: 24 }, 4: { halign: 'right', cellWidth: 26 } } : { 2: { halign: 'right', cellWidth: 28 }, 3: { halign: 'right', cellWidth: 28 } };
   autoTable(doc, {
     startY: y,
     head,
