@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getActiveLoansWithBalance, refreshOverdueInstallments } from '@/lib/data';
-import { money, matchesIdGroup, formatDMY } from '@/lib/utils';
+import { money, matchesIdGroup, formatDMY, sortByDate } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 import DateInput from '@/app/(app)/DateInput';
@@ -8,9 +8,9 @@ import DateInput from '@/app/(app)/DateInput';
 export const metadata = { title: 'Loan Collection - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function CollectionsPage({ searchParams }: { searchParams: { q?: string; d?: string; ids?: string; error?: string } }) {
+export default async function CollectionsPage({ searchParams }: { searchParams: { q?: string; d?: string; ids?: string; order?: string; error?: string } }) {
   await refreshOverdueInstallments();
-  const loans = ((await getActiveLoansWithBalance(searchParams.q, searchParams.d)) as any[]).filter((l) => matchesIdGroup(l.borrower_code, searchParams.ids));
+  const loans = sortByDate(((await getActiveLoansWithBalance(searchParams.q, searchParams.d)) as any[]).filter((l) => matchesIdGroup(l.borrower_code, searchParams.ids)), searchParams.order, (l) => l.last_payment_date);
   const totalBalance = loans.reduce((s, l) => s + Number(l.balance), 0);
   const dueCount = loans.filter((l) => l.needs_collection).length;
   const dateMode = !!searchParams.d;
@@ -20,7 +20,7 @@ export default async function CollectionsPage({ searchParams }: { searchParams: 
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="Loan Collection" showBack={false} />
 
-      <FilterBar basePath="/collections" q={searchParams.q} ids={searchParams.ids} showDates={false} qPlaceholder="Member or loan code...">
+      <FilterBar basePath="/collections" q={searchParams.q} ids={searchParams.ids} showDates={false} order={searchParams.order} qPlaceholder="Member or loan code...">
         <div>
           <label className="text-[11px] text-gray-500 block mb-0.5">Payment date</label>
           <DateInput name="d" defaultValue={searchParams.d} className="input w-36" aria-label="Payment date" />

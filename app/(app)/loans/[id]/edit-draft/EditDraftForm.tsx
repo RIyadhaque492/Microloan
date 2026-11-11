@@ -12,6 +12,13 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
   const [startDate, setStartDate] = useState(loan.disbursement_date ? new Date(loan.disbursement_date).toISOString().slice(0, 10) : '');
   const [maturityDate, setMaturityDate] = useState(loan.maturity_date ? new Date(loan.maturity_date).toISOString().slice(0, 10) : '');
   const [maturityTouched, setMaturityTouched] = useState(!!loan.maturity_date);
+  // weekly / monthly: loan + flat charge ÷ number of installments. Starts from the charge the saved draft already has.
+  const savedRate = Number(loan.loan_amount) > 0 && Number(loan.total_payable) > 0 ? Math.round((Number(loan.total_payable) / Number(loan.loan_amount) - 1) * 10000) / 100 : 16;
+  const [chargeRate, setChargeRate] = useState(String(savedRate > 0 ? savedRate : 16));
+  const recalc = (a: number, t: number, r: string, f: string) => {
+    if (f === 'daily') return a > 0 ? Math.round(a) / 100 : 0;
+    return a > 0 && t >= 1 ? Math.ceil((a * (1 + (Number(r) || 0) / 100)) / Math.trunc(t)) : 0;
+  };
   const [processingFee, setProcessingFee] = useState(String(Number(loan.processing_fee) || (Number(loan.loan_amount) ? (Math.round(Number(loan.loan_amount) * 2) / 100).toFixed(2) : '')));
 
   const preview = useMemo(() => {
@@ -45,7 +52,7 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
       <div className="grid md:grid-cols-3 gap-4">
         <div>
           <label className="label">Loan Amount (৳) *</label>
-          <input name="loan_amount" type="number" step="0.01" required value={amount || ''} onChange={(e) => setAmount(Number(e.target.value))} className="input" />
+          <input name="loan_amount" type="number" step="0.01" required value={amount || ''} onChange={(e) => { const a = Number(e.target.value); setAmount(a); if (frequency !== 'daily') setInstallmentAmount(recalc(a, tenure, chargeRate, frequency)); }} className="input" />
         </div>
         <div>
           <label className="label">Installment Amount (৳) *</label>
@@ -53,7 +60,7 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
         </div>
         <div>
           <label className="label">Number of Installments *</label>
-          <input name="tenure" type="number" required value={tenure || ''} onChange={(e) => setTenure(Number(e.target.value))} className="input" />
+          <input name="tenure" type="number" required value={tenure || ''} onChange={(e) => { const t = Number(e.target.value); setTenure(t); if (frequency !== 'daily') setInstallmentAmount(recalc(amount, t, chargeRate, frequency)); }} className="input" />
         </div>
         <div>
           <label className="label">Total Payable (৳)</label>
@@ -73,14 +80,22 @@ export default function EditDraftForm({ loan, borrowers, updateAction, submitLab
           <select name="repayment_frequency" value={frequency} onChange={(e) => {
             const next = e.target.value as 'daily' | 'weekly' | 'monthly';
             setFrequency(next);
-            if (next === 'monthly') {
-              setTenure(6);
-              if (amount > 0) setInstallmentAmount(Math.ceil((amount * 1.16) / 6)); // loan + 16% over 6 months — still editable
-            }
+            // usual number of installments for the type (monthly 6, weekly 24, daily 116) — still editable
+            const t = next === 'monthly' ? 6 : next === 'weekly' ? 24 : 116;
+            setTenure(t);
+            setInstallmentAmount(recalc(amount, t, chargeRate, next));
           }} className="input">
             <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
           </select>
         </div>
+        {frequency !== 'daily' && (
+          <div>
+            <label className="label">{frequency === 'weekly' ? 'Weekly' : 'Monthly'} Loan Charge (%)</label>
+            <input type="number" step="0.01" min="0" className="input bg-amber-50" value={chargeRate}
+              onChange={(e) => { setChargeRate(e.target.value); setInstallmentAmount(recalc(amount, tenure, e.target.value, frequency)); }} />
+            <p className="text-xs text-gray-400 mt-1">Installment = (loan + charge) ÷ number of installments, rounded up — you can still type your own installment.</p>
+          </div>
+        )}
         <div>
           <label className="label">Interest Type</label>
           <select name="interest_type" defaultValue={loan.interest_type} className="input">

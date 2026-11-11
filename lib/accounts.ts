@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db';
 
-export { CASH_IN_CATEGORIES, CASH_OUT_CATEGORIES, AUTO_CATEGORIES } from './cashCategories';
+export { CASH_IN_CATEGORIES, CASH_OUT_CATEGORIES } from './cashCategories';
 
 const q = (text: string, params: any[] = []) => (sql as any)(text, params) as Promise<any[]>;
 
@@ -18,68 +18,32 @@ export async function ensureCashTable() {
 }
 
 /**
- * Every cash movement as one list:
- *   automatic (always matches the rest of the system, nothing to type twice)
- *     IN : loan collections, savings deposits, processing fees, registration fees
- *     OUT: loan disbursements, savings withdrawals
- *   manual   (cash_entries — salary, rent, capital, bank deposit ...)
- * Loans/members in the Bin are left out, exactly like in the reports.
+ * The Cash Book is entirely manual: it contains only what the admin types in (cash_entries).
+ * Nothing is read from loans, collections, savings or fees.
  */
 const ENTRIES = `
   WITH e AS (
-    SELECT c.payment_date::date AS d, 'in'::text AS dir, 'Loan Collection'::text AS category,
-           ('Loan collection - ' || b.full_name || ' (' || b.borrower_code || ') - ' || l.loan_code || COALESCE(' - ' || NULLIF(c.notes, ''), ''))::text AS particulars,
-           c.receipt_no::text AS ref, ('/collections/receipt/' || c.id)::text AS href,
-           c.amount_paid::numeric AS amount, 'auto'::text AS source, c.id::int AS rid, 1::int AS ord
-    FROM collections c JOIN loans l ON l.id = c.loan_id JOIN borrowers b ON b.id = c.borrower_id
-    WHERE l.deleted_at IS NULL AND b.deleted_at IS NULL
-    UNION ALL
-    SELECT st.transaction_date::date, CASE WHEN st.type = 'deposit' THEN 'in' ELSE 'out' END,
-           CASE WHEN st.type = 'deposit' THEN 'Savings Deposit' ELSE 'Savings Withdrawal' END,
-           (CASE WHEN st.type = 'deposit' THEN 'Savings deposit - ' ELSE 'Savings withdrawal - ' END || b.full_name || ' (' || b.borrower_code || ')' || COALESCE(' - ' || NULLIF(st.notes, ''), '')),
-           COALESCE(st.receipt_no, ''), '/savings/' || b.id, st.amount, 'auto', st.id, 2
-    FROM savings_transactions st JOIN borrowers b ON b.id = st.borrower_id
-    WHERE b.deleted_at IS NULL
-    UNION ALL
-    SELECT l.disbursement_date::date, 'out', 'Loan Disbursement',
-           'Loan disbursed - ' || b.full_name || ' (' || b.borrower_code || ') - ' || l.loan_code,
-           l.loan_code, '/loans/' || l.id, l.loan_amount, 'auto', l.id, 3
-    FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-    WHERE l.status IN ('active', 'completed', 'defaulted') AND l.deleted_at IS NULL AND b.deleted_at IS NULL AND l.disbursement_date IS NOT NULL
-    UNION ALL
-    SELECT l.disbursement_date::date, 'in', 'Processing Fee',
-           'Processing fee - ' || b.full_name || ' (' || b.borrower_code || ') - ' || l.loan_code,
-           l.loan_code, '/loans/' || l.id, l.processing_fee, 'auto', l.id, 4
-    FROM loans l JOIN borrowers b ON b.id = l.borrower_id
-    WHERE l.status IN ('active', 'completed', 'defaulted') AND l.deleted_at IS NULL AND b.deleted_at IS NULL AND l.disbursement_date IS NOT NULL AND l.processing_fee > 0
-    UNION ALL
-    SELECT b.created_at::date, 'in', 'Registration Fee',
-           'Registration fee - ' || b.full_name || ' (' || b.borrower_code || ')',
-           COALESCE(b.fee_receipt_no, ''), '/borrowers/' || b.id, b.registration_fee, 'auto', b.id, 5
-    FROM borrowers b
-    WHERE b.deleted_at IS NULL AND b.registration_fee > 0
-    UNION ALL
-    SELECT m.entry_date::date, m.direction, m.category, m.description, '', '', m.amount, 'manual', m.id, 6
+    SELECT m.entry_date::date AS d, m.direction::text AS dir, m.category::text AS category, m.description::text AS particulars,
+           m.amount::numeric AS amount, m.id::int AS rid
     FROM cash_entries m
   )
 `;
 
 export type CashRow = {
-  d: string; dir: 'in' | 'out'; category: string; particulars: string; ref: string; href: string;
-  amount: number; source: 'auto' | 'manual'; rid: number; balance: number | null;
+  d: string; dir: 'in' | 'out'; category: string; particulars: string;
+  amount: number; rid: number; balance: number | null;
 };
 
 const isoDay = (v: any) => (v instanceof Date ? v.toLocaleDateString('en-CA') : String(v).slice(0, 10));
 const cents = (v: any) => Math.round(Number(v) * 100);
 
-export async function getCashBook(opts: { from?: string; to?: string; category?: string; source?: string; search?: string }) {
+export async function getCashBook(opts: { from?: string; to?: string; category?: string; search?: string }) {
   await ensureCashTable();
   const from = /^\d{4}-\d{2}-\d{2}$/.test(opts.from || '') ? opts.from! : null;
   const to = /^\d{4}-\d{2}-\d{2}$/.test(opts.to || '') ? opts.to! : null;
   const category = opts.category || null;
-  const source = opts.source === 'auto' || opts.source === 'manual' ? opts.source : null;
   const search = opts.search?.trim() ? `%${opts.search.trim()}%` : null;
-  const filtered = !!(category || source || search);
+  const filtered = !!(category || search);
 
   // balance brought forward = everything before the first day shown (only meaningful with no filters)
   let openingCents = 0;
@@ -93,12 +57,12 @@ export async function getCashBook(opts: { from?: string; to?: string; category?:
 
   const raw = await q(
     ENTRIES +
-      `SELECT d, dir, category, particulars, ref, href, amount, source, rid FROM e
+      `SELECT d, dir, category, particulars, amount, rid FROM e
        WHERE ($1::date IS NULL OR d >= $1::date) AND ($2::date IS NULL OR d <= $2::date)
-         AND ($3::text IS NULL OR category = $3::text) AND ($4::text IS NULL OR source = $4::text)
-         AND ($5::text IS NULL OR particulars ILIKE $5::text)
-       ORDER BY d ASC, ord ASC, rid ASC`,
-    [from, to, category, source, search]
+         AND ($3::text IS NULL OR category = $3::text)
+         AND ($4::text IS NULL OR particulars ILIKE $4::text OR category ILIKE $4::text)
+       ORDER BY d ASC, rid ASC`,
+    [from, to, category, search]
   );
 
   let run = openingCents;
@@ -108,8 +72,8 @@ export async function getCashBook(opts: { from?: string; to?: string; category?:
     const a = cents(r.amount);
     if (r.dir === 'in') { run += a; inC += a; } else { run -= a; outC += a; }
     return {
-      d: isoDay(r.d), dir: r.dir, category: r.category, particulars: r.particulars, ref: r.ref || '', href: r.href || '',
-      amount: a / 100, source: r.source, rid: Number(r.rid), balance: filtered ? null : run / 100,
+      d: isoDay(r.d), dir: r.dir, category: r.category, particulars: r.particulars,
+      amount: a / 100, rid: Number(r.rid), balance: filtered ? null : run / 100,
     };
   });
 
@@ -124,4 +88,11 @@ export async function getCashEntry(id: number) {
   await ensureCashTable();
   const [e] = await sql`SELECT id, entry_date, direction, category, description, amount FROM cash_entries WHERE id = ${id}`;
   return e || null;
+}
+
+/** Categories already used in the book (so custom ones can be filtered on too). */
+export async function getUsedCashCategories(): Promise<string[]> {
+  await ensureCashTable();
+  const rows = await sql`SELECT DISTINCT category FROM cash_entries ORDER BY category ASC`;
+  return rows.map((r: any) => String(r.category));
 }

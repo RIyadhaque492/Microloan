@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { ensureCashTable } from '@/lib/accounts';
+import { ensureMemberExtraColumns } from '@/lib/memberExtras';
 import { BACKUP_TABLES, findTable } from '@/lib/backupTables';
 import { DELETE_PASSWORD } from '@/lib/deletePin';
 
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
 
   try {
     await ensureCashTable(); // the Cash Book table must exist before a backup that contains it is restored
+    await ensureMemberExtraColumns(); // so the extra member details in a backup are kept
     switch (body.action) {
       case 'check':
         return Response.json({ ok: true });

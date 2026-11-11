@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getAllMembersSavings, getAllSavingsTotals, getSavingsBorrowerIdsInRange, getSiteSettings, getBorrowersBasic, getSavingsNotesSuggestions } from '@/lib/data';
-import { money, matchesIdGroup, formatDMY } from '@/lib/utils';
+import { money, matchesIdGroup, formatDMY, sortByDate } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 import SavingsQuickAdd from './SavingsQuickAdd';
@@ -8,12 +8,13 @@ import SavingsQuickAdd from './SavingsQuickAdd';
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string; added?: string; error?: string } }) {
+export default async function SavingsListPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string; order?: string; added?: string; error?: string } }) {
   let rows = (await getAllMembersSavings(searchParams.q)).filter((r: any) => matchesIdGroup(r.borrower_code, searchParams.ids));
   if (searchParams.from || searchParams.to) {
     const inRange = await getSavingsBorrowerIdsInRange(searchParams.from, searchParams.to);
     rows = rows.filter((r: any) => inRange.has(Number(r.id)));
   }
+  rows = sortByDate(rows, searchParams.order, (r: any) => r.last_savings_date);
   const settings = await getSiteSettings();
   const members = (await getBorrowersBasic()) as any[];
   const notesSuggestions = await getSavingsNotesSuggestions();
@@ -31,7 +32,7 @@ export default async function SavingsListPage({ searchParams }: { searchParams: 
         <span className="font-semibold text-teal">Current rate: {Number(settings?.savings_interest_rate || 0)}% p.a.</span>
       </div>
 
-      <FilterBar basePath="/savings" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Savings" qPlaceholder="Search member..." />
+      <FilterBar basePath="/savings" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} order={searchParams.order} dateLabel="Savings" qPlaceholder="Search member..." />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2 flex-shrink-0">
         <div className="card px-3 py-1.5 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-base font-bold text-sky-800">৳{money(totals.deposit)}</div><div className="text-xs text-sky-700">Total Savings</div></div>

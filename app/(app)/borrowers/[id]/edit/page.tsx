@@ -4,6 +4,7 @@ import { updateBorrowerAction, deleteBorrowerAction, purgeBorrowerAction } from 
 import { toISODate } from '@/lib/utils';
 import PageHeader from '../../../PageHeader';
 import DobAgeFields from '../../DobAgeFields';
+import { PersonalExtraFields, PermanentAddressField, GuarantorExtraFields, OtherInfoField } from '../../MemberExtraFields';
 
 export const metadata = { title: 'Edit Member - MicroLoan Admin' };
 
@@ -15,6 +16,10 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
 
   const updateAction = updateBorrowerAction.bind(null, id);
   const fieldSuggestions = await getMemberFieldSuggestions();
+  // only plain text goes to the client-side field components
+  const extras = Object.fromEntries(
+    ['mother_name', 'marital_status', 'religion', 'nationality', 'qualification', 'permanent_address', 'other_info', 'guarantor_nid', 'guarantor_occupation', 'guarantor_address'].map((k) => [k, borrower[k] ?? ''])
+  );
 
   return (
     <div>
@@ -34,6 +39,7 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
           </div>
           <div><label className="label">Full Name *</label><input name="full_name" required defaultValue={borrower.full_name} className="input" /></div>
           <div><label className="label">Father's Name</label><input name="father_name" list="father-suggestions" defaultValue={borrower.father_name} className="input" /></div>
+          <div><label className="label">Mother's Name</label><input name="mother_name" defaultValue={borrower.mother_name ?? ''} className="input" /></div>
           <div>
             <label className="label">Gender</label>
             <select name="gender" defaultValue={borrower.gender} className="input">
@@ -44,12 +50,15 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
           <div><label className="label">Phone *</label><input name="phone" required defaultValue={borrower.phone} className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" defaultValue={borrower.email} className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" defaultValue={borrower.nid_number} className="input" /></div>
+          <PersonalExtraFields b={extras} />
           <div className="md:col-span-2"><label className="label">Present Address</label><textarea name="present_address" defaultValue={borrower.present_address} className="input" rows={2} /></div>
+          <PermanentAddressField b={extras} />
           <div><label className="label">Occupation</label><input name="occupation" list="occupation-suggestions" defaultValue={borrower.occupation} className="input" /></div>
           <div><label className="label">Monthly Income</label><input name="monthly_income" type="number" step="0.01" defaultValue={borrower.monthly_income} className="input" /></div>
           <div><label className="label">Guarantor Name</label><input name="guarantor_name" list="guarantor-suggestions" defaultValue={borrower.guarantor_name} className="input" /></div>
           <div><label className="label">Relationship with Guarantor</label><input name="guarantor_relationship" list="relationship-suggestions" defaultValue={borrower.guarantor_relationship ?? ''} className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" defaultValue={borrower.guarantor_phone} className="input" /></div>
+          <GuarantorExtraFields b={extras} />
           <div>
             <label className="label">Registration Fee (৳)</label>
             <input name="registration_fee" type="number" step="0.01" defaultValue={borrower.registration_fee} className="input" />
@@ -60,6 +69,7 @@ export default async function EditBorrowerPage({ params, searchParams }: { param
               <option value="active">Active</option><option value="inactive">Inactive</option><option value="blacklisted">Blacklisted</option>
             </select>
           </div>
+          <OtherInfoField b={extras} />
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn btn-primary">Save Changes</button>

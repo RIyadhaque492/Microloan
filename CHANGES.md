@@ -149,3 +149,9 @@
 
 ## Update 43
 - Fix Vercel build failure from Update 42 (internal link used a plain anchor; PDF column style typing).
+
+## Update 44
+- **Member form** (Add + Edit): Mother's Name, Marital Status, Religion, Nationality, Qualification, Permanent Address (with "same as present"), Guarantor NID, Guarantor Occupation, Guarantor Address, Other Information. Shown on the member page and printed on the Membership and Loan Application PDFs. Columns are added automatically (also in `migration_add_member_details.sql`) and included in Backup / Restore.
+- **Loan form**: weekly and monthly installments now depend on the loan amount, the charge % and the number of installments — installment = (loan + charge%) ÷ installments, rounded up. The number of installments is yours to set (defaults: monthly 6, weekly 24, daily 116). Same on the draft edit form.
+- **Cash Book is fully manual**: nothing is read from loans, collections, savings or fees any more. Only entries you add (Cash In / Cash Out).
+- **Order option on every list**: Default / Newest → Oldest / Oldest → Newest on Members, Loans, Collections, Savings, Reports (screen, PDF, Excel, Word), Bin, Notifications, Cash Book, Transaction History, Savings receipts, Loan installments, Member loan history and Dashboard recent loans.

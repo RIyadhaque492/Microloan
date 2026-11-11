@@ -7,6 +7,7 @@ import { setFlash } from '@/lib/flash';
 import { getLoan, getBorrower, refreshOverdueInstallments } from '@/lib/data';
 import { LoanApplicationPdfButton } from '../../DocButtons';
 import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
+import OrderBar from '../../OrderBar';
 import { updateLoanStatusAction, deleteLoanAction, purgeLoanAction, finalizeDraftLoanAction, updateInstallmentParticularsAction, updateLoanMaturityDateAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
 import RegisteredToast from './RegisteredToast';
@@ -14,7 +15,7 @@ import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Loan Details - MicroLoan Admin' };
 
-export default async function LoanViewPage({ params, searchParams }: { params: { id: string }; searchParams: { registered?: string } }) {
+export default async function LoanViewPage({ params, searchParams }: { params: { id: string }; searchParams: { registered?: string; order?: string } }) {
   const id = Number(params.id);
   if (!id || isNaN(id)) notFound();
   await refreshOverdueInstallments();
@@ -142,7 +143,7 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
         </div>
       ) : (
         <div className="table-wrap">
-          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Installment Schedule</div>
+          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex items-center justify-between gap-2 flex-wrap"><span>Installment Schedule</span><OrderBar order={searchParams.order} keep={{ registered: undefined }} /></div>
           <table className="app-table">
             <thead>
               <tr>
@@ -152,9 +153,11 @@ export default async function LoanViewPage({ params, searchParams }: { params: {
             </thead>
             <tbody>
               {(() => {
-                let cumulativePaid = 0;
-                return (installments as any[]).map((i) => {
-                  cumulativePaid += Number(i.paid_amount);
+                let running = 0;
+                // running totals are worked out in schedule order; "Newest → Oldest" only flips the display
+                const withTotals = (installments as any[]).map((i) => { running += Number(i.paid_amount); return { i, cumulativePaid: running }; });
+                const shown = searchParams.order === 'desc' ? [...withTotals].reverse() : withTotals;
+                return shown.map(({ i, cumulativePaid }) => {
                   // "Total Paid" and "Remaining Balance" here are running totals for the
                   // WHOLE loan through this installment — not just this row's own amount —
                   // so they read the same way a bank passbook does.

@@ -21,7 +21,7 @@ import {
 } from '@/lib/clientExport';
 
 type Props =
-  | { mode: 'single'; member: any; loanRows: any[]; payments: any[]; shareText: string; onDark?: boolean }
+  | { mode: 'single'; member: any; loanRows: any[]; payments: any[]; shareText: string; onDark?: boolean; order?: string }
   | { mode: 'all'; loanRows: any[]; shareText: string; onDark?: boolean };
 
 type Preview =
@@ -64,7 +64,7 @@ export default function ExportButtons(props: Props) {
       return await buildReportPdfFromElement(el);
     } catch {
       return props.mode === 'single'
-        ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments)
+        ? await buildSingleUserPdfBlob(props.member, props.loanRows, props.payments, props.order || '')
         : await buildAllUsersPdfBlob(props.loanRows);
     } finally {
       flushSync(() => setPrintMount(false));
@@ -119,7 +119,7 @@ export default function ExportButtons(props: Props) {
       try {
         const blob =
           props.mode === 'single'
-            ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments)
+            ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments, props.order || '')
             : await buildAllUsersExcelBlob(props.loanRows);
         await send(blob, preview.filename, preview.mimeType);
       } finally {
@@ -133,7 +133,7 @@ export default function ExportButtons(props: Props) {
       try {
         const blob =
           props.mode === 'single'
-            ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments)
+            ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments, props.order || '')
             : await buildAllUsersWordBlob(props.loanRows);
         await send(blob, preview.filename, preview.mimeType);
       } finally {
@@ -250,10 +250,10 @@ export default function ExportButtons(props: Props) {
                   getFile={async () => {
                     if (preview.kind === 'pdf') return { blob: preview.blob, filename: preview.filename };
                     if (preview.kind === 'excel') {
-                      const blob = props.mode === 'single' ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments) : await buildAllUsersExcelBlob(props.loanRows);
+                      const blob = props.mode === 'single' ? await buildSingleUserExcelBlob(props.member, props.loanRows, props.payments, props.order || '') : await buildAllUsersExcelBlob(props.loanRows);
                       return { blob, filename: preview.filename };
                     }
-                    const blob = props.mode === 'single' ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments) : await buildAllUsersWordBlob(props.loanRows);
+                    const blob = props.mode === 'single' ? await buildSingleUserWordBlob(props.member, props.loanRows, props.payments, props.order || '') : await buildAllUsersWordBlob(props.loanRows);
                     return { blob, filename: preview.filename };
                   }}
                 />
@@ -289,6 +289,12 @@ function TablePreview({ props }: { props: Props }) {
     const totalPayable = loanRows.reduce((s, r) => s + Number(r.total_payable), 0);
     const ordered = [...props.payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
     let running = 0;
+    const previewRows = ordered.map((p: any, i: number) => {
+      running += Number(p.amount_paid);
+      return { p, i, remaining: p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totalPayable - running) };
+    });
+    const finalRemaining = ordered.length ? previewRows[previewRows.length - 1].remaining : 0;
+    const shownRows = props.order === 'desc' ? [...previewRows].reverse() : previewRows;
     return (
       <div className="space-y-4">
         <h4 className="font-semibold text-xs uppercase text-gray-500 mb-1">Loan Register</h4>
@@ -299,9 +305,7 @@ function TablePreview({ props }: { props: Props }) {
             <thead className="[&_th]:text-center [&_th]:!normal-case [&_th]:!tracking-normal [&_th]:!bg-none [&_th]:!bg-[#5B3DA3]"><tr><th>SL</th><th>Receipt No.</th><th>Particulars</th><th>Date</th><th>Amount Paid</th><th>Remaining Balance</th></tr></thead>
             <tbody>
               {ordered.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-3">No payments recorded.</td></tr>}
-              {ordered.map((p: any, i: number) => {
-                running += Number(p.amount_paid);
-                const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totalPayable - running);
+              {shownRows.map(({ p, i, remaining }) => {
                 return (
                   <tr key={p.id}>
                     <td className="border border-black text-center font-bold bg-sky-50">{i + 1}</td><td className="border border-black text-center font-bold bg-sky-50">{p.receipt_no}</td>
@@ -318,7 +322,7 @@ function TablePreview({ props }: { props: Props }) {
                   <td className="border border-black text-center font-bold bg-sky-50">TOTAL PAID</td>
                   <td className="border border-black text-center font-bold bg-sky-50"></td>
                   <td className="border border-black text-center font-bold bg-sky-50">৳{money(running)}</td>
-                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(ordered.length ? (ordered[ordered.length - 1].remaining_after != null ? Number(ordered[ordered.length - 1].remaining_after) : Math.max(0, totalPayable - running)) : 0)}</td>
+                  <td className="border border-black text-center font-bold bg-sky-50">৳{money(finalRemaining)}</td>
                 </tr>
               )}
             </tbody>

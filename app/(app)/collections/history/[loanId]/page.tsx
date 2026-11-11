@@ -4,11 +4,12 @@ import { getLoan } from '@/lib/data';
 import { deleteCollectionAction } from '@/lib/actions';
 import { money, titleCase, formatDMY } from '@/lib/utils';
 import PageHeader from '../../../PageHeader';
+import OrderBar from '../../../OrderBar';
 
 export const metadata = { title: 'Transaction History - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function LoanTransactionHistoryPage({ params }: { params: { loanId: string } }) {
+export default async function LoanTransactionHistoryPage({ params, searchParams }: { params: { loanId: string }; searchParams: { order?: string } }) {
   const id = Number(params.loanId);
   if (!id || isNaN(id)) notFound();
   const data = await getLoan(id);
@@ -24,12 +25,12 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
     (a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime() || Number(a.id) - Number(b.id)
   );
   let running = 0;
-  const ordered = chrono
-    .map((p, i) => {
-      running += Number(p.amount_paid);
-      return { ...p, sl: i + 1, cumulativePaid: running, rowRemaining: Math.max(0, Number(loan.total_payable) - running) };
-    })
-    .reverse();
+  const withTotals = chrono.map((p, i) => {
+    running += Number(p.amount_paid);
+    return { ...p, sl: i + 1, cumulativePaid: running, rowRemaining: Math.max(0, Number(loan.total_payable) - running) };
+  });
+  // default and "Newest → Oldest" = latest date first; "Oldest → Newest" = date order
+  const ordered = searchParams.order === 'asc' ? withTotals : [...withTotals].reverse();
 
   return (
     // One-screen layout: the page never scrolls; only the table body scrolls if it has many rows.
@@ -64,7 +65,7 @@ export default async function LoanTransactionHistoryPage({ params }: { params: {
       </div>
 
       <div className="table-wrap flex-1 min-h-0 flex flex-col !overflow-hidden border-2 !border-gray-700">
-        <div className="px-4 py-2 border-b border-gray-100 font-semibold text-sm flex-shrink-0">All Transactions</div>
+        <div className="px-4 py-2 border-b border-gray-100 font-semibold text-sm flex-shrink-0 flex items-center justify-between gap-2 flex-wrap"><span>All Transactions</span><OrderBar order={searchParams.order} /></div>
         <div className="flex-1 min-h-0 overflow-auto">
           <table className="app-table border-collapse [&_td]:border [&_td]:border-gray-400 [&_th]:border [&_th]:border-gray-500">
             <thead className="sticky top-0">

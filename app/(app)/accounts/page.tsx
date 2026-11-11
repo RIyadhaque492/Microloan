@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getCashBook } from '@/lib/accounts';
-import { AUTO_CATEGORIES, CASH_IN_CATEGORIES, CASH_OUT_CATEGORIES } from '@/lib/cashCategories';
+import { getCashBook, getUsedCashCategories } from '@/lib/accounts';
+import { CASH_IN_CATEGORIES, CASH_OUT_CATEGORIES } from '@/lib/cashCategories';
 import { deleteCashEntryAction } from '@/lib/actions';
 import { money, formatDMY, todayISO } from '@/lib/utils';
 import DateInput from '@/app/(app)/DateInput';
@@ -10,7 +10,7 @@ import CashBookPdfButton from './CashBookPdfButton';
 export const metadata = { title: 'Cash Book - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-type SP = { from?: string; to?: string; all?: string; cat?: string; src?: string; q?: string; order?: string; error?: string };
+type SP = { from?: string; to?: string; all?: string; cat?: string; q?: string; order?: string; error?: string };
 
 function monthBounds(iso: string) {
   const [y, m] = iso.split('-').map(Number);
@@ -28,7 +28,8 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
   const to = all ? '' : searchParams.to ?? (searchParams.from ? '' : thisMonth.to);
   const newestFirst = searchParams.order !== 'asc'; // latest date on top, like every other history
 
-  const book = await getCashBook({ from, to, category: searchParams.cat, source: searchParams.src, search: searchParams.q });
+  const book = await getCashBook({ from, to, category: searchParams.cat, search: searchParams.q });
+  const used = await getUsedCashCategories();
   const rows = newestFirst ? [...book.rows].reverse() : book.rows;
 
   // totals per category for the period shown
@@ -48,7 +49,7 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
     ['This Year', `/accounts?from=${yearStart}&to=${today.slice(0, 4)}-12-31`],
     ['All Time', '/accounts?all=1'],
   ];
-  const categories = [...AUTO_CATEGORIES, ...CASH_IN_CATEGORIES, ...CASH_OUT_CATEGORIES];
+  const categories = Array.from(new Set([...CASH_IN_CATEGORIES, ...CASH_OUT_CATEGORIES, ...used]));
   const periodLabel = all ? 'All time' : `${from ? formatDMY(from) : 'Start'}  to  ${to ? formatDMY(to) : 'Today'}`;
   const pdfRows = rows.map((r) => ({ d: r.d, particulars: r.particulars, category: r.category, cashIn: r.dir === 'in' ? r.amount : 0, cashOut: r.dir === 'out' ? r.amount : 0, balance: r.balance }));
 
@@ -86,19 +87,13 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div>
-          <label className="label">Source</label>
-          <select name="src" defaultValue={searchParams.src || ''} className="input w-32">
-            <option value="">All</option><option value="auto">Automatic</option><option value="manual">Manual</option>
-          </select>
-        </div>
         <div><label className="label">Search</label><input name="q" defaultValue={searchParams.q || ''} placeholder="Name, loan, note…" className="input w-44" /></div>
         <div>
           <label className="label">Order</label>
           <select name="order" defaultValue={newestFirst ? 'desc' : 'asc'} className="input w-36"><option value="desc">Newest first</option><option value="asc">Oldest first</option></select>
         </div>
         <button className="btn btn-primary">🔍 Show</button>
-        {(searchParams.cat || searchParams.src || searchParams.q) && <Link href="/accounts" className="btn btn-outline">Clear</Link>}
+        {(searchParams.cat || searchParams.q) && <Link href="/accounts" className="btn btn-outline">Clear</Link>}
       </form>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2 flex-shrink-0">
@@ -119,7 +114,7 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
         <table className="app-table">
           <thead>
             <tr>
-              <th>Date</th><th>Particulars</th><th>Category</th><th>Ref</th>
+              <th>Date</th><th>Particulars</th><th>Category</th>
               <th className="text-right">Cash In</th><th className="text-right">Cash Out</th>
               {!book.filtered && <th className="text-right">Balance</th>}
               <th></th>
@@ -127,42 +122,34 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
           </thead>
           <tbody>
             {!newestFirst && !book.filtered && from && (
-              <tr className="bg-sky-50 font-semibold"><td>{formatDMY(from)}</td><td colSpan={4}>Opening balance brought forward</td><td></td><td></td><td className="text-right">৳{money(book.opening)}</td><td></td></tr>
+              <tr className="bg-sky-50 font-semibold"><td>{formatDMY(from)}</td><td colSpan={2}>Opening balance brought forward</td><td></td><td></td><td className="text-right">৳{money(book.opening)}</td><td></td></tr>
             )}
-            {rows.length === 0 && <tr><td colSpan={book.filtered ? 7 : 8} className="text-center text-gray-400 py-10">No cash entries in this period.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={book.filtered ? 6 : 7} className="text-center text-gray-400 py-10">No cash entries in this period.</td></tr>}
             {rows.map((r) => (
-              <tr key={`${r.source}-${r.category}-${r.rid}-${r.d}-${r.dir}`}>
+              <tr key={r.rid}>
                 <td className="whitespace-nowrap">{formatDMY(r.d)}</td>
                 <td>{r.particulars}</td>
                 <td>
-                  <span className={`badge ${r.source === 'manual' ? 'bg-amber-100 text-amber-800' : r.dir === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.category}</span>
-                  {r.source === 'manual' && <span className="ml-1 text-[10px] text-gray-400">manual</span>}
+                  <span className={`badge ${r.dir === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.category}</span>
                 </td>
-                <td className="text-xs text-gray-500">{r.ref || '—'}</td>
                 <td className="text-right font-semibold text-green-700">{r.dir === 'in' ? `৳${money(r.amount)}` : ''}</td>
                 <td className="text-right font-semibold text-red-600">{r.dir === 'out' ? `৳${money(r.amount)}` : ''}</td>
                 {!book.filtered && <td className="text-right font-semibold text-navy">৳{money(r.balance ?? 0)}</td>}
                 <td className="whitespace-nowrap">
-                  {r.source === 'manual' ? (
-                    <>
-                      <Link href={`/accounts/${r.rid}/edit`} className="text-xs text-gray-500 hover:text-teal mr-2">Edit</Link>
-                      <form action={deleteCashEntryAction.bind(null, r.rid)} className="inline">
-                        <button className="text-xs text-red-500 hover:text-red-700 confirm-delete">🗑 Delete</button>
-                      </form>
-                    </>
-                  ) : (
-                    r.href && <Link href={r.href} prefetch={false} className="text-xs text-teal hover:underline">View</Link>
-                  )}
+                  <Link href={`/accounts/${r.rid}/edit`} className="text-xs text-gray-500 hover:text-teal mr-2">Edit</Link>
+                  <form action={deleteCashEntryAction.bind(null, r.rid)} className="inline">
+                    <button className="text-xs text-red-500 hover:text-red-700 confirm-delete">🗑 Delete</button>
+                  </form>
                 </td>
               </tr>
             ))}
             {newestFirst && !book.filtered && from && rows.length > 0 && (
-              <tr className="bg-sky-50 font-semibold"><td>{formatDMY(from)}</td><td colSpan={4}>Opening balance brought forward</td><td></td><td></td><td className="text-right">৳{money(book.opening)}</td><td></td></tr>
+              <tr className="bg-sky-50 font-semibold"><td>{formatDMY(from)}</td><td colSpan={2}>Opening balance brought forward</td><td></td><td></td><td className="text-right">৳{money(book.opening)}</td><td></td></tr>
             )}
           </tbody>
           <tfoot>
             <tr className="font-bold bg-gray-50">
-              <td colSpan={4} className="text-right">TOTAL</td>
+              <td colSpan={3} className="text-right">TOTAL</td>
               <td className="text-right text-green-700">৳{money(book.totalIn)}</td>
               <td className="text-right text-red-600">৳{money(book.totalOut)}</td>
               {!book.filtered && <td className="text-right text-navy">৳{money(book.closing)}</td>}

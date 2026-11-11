@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getDashboardStats, generateDueNotifications } from '@/lib/data';
-import { money, statusBadgeClass, formatDMY } from '@/lib/utils';
+import { money, statusBadgeClass, formatDMY, sortByDate } from '@/lib/utils';
+import OrderBar from '../OrderBar';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Dashboard - MicroLoan Admin' };
@@ -28,7 +29,7 @@ function StatCard({ icon, label, value, color = 'teal' }: { icon: string; label:
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams?: { order?: string } }) {
   await generateDueNotifications();
   const stats = await getDashboardStats();
 
@@ -66,7 +67,8 @@ export default async function DashboardPage() {
 
       <div className="table-wrap">
         <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between">
-          Recent Loans <Link href="/loans" prefetch={false} className="text-teal text-xs font-normal">View all</Link>
+          <span>Recent Loans</span>
+          <span className="flex items-center gap-3"><OrderBar order={searchParams?.order} /><Link href="/loans" prefetch={false} className="text-teal text-xs font-normal">View all</Link></span>
         </div>
         <table className="app-table">
           <thead><tr><th>Loan Code</th><th>Member</th><th>Disbursement Date</th><th>Amount</th><th>Status</th></tr></thead>
@@ -74,7 +76,7 @@ export default async function DashboardPage() {
             {(stats.recentLoans as any[]).length === 0 && (
               <tr><td colSpan={5} className="text-center text-gray-400 py-6">No loans yet.</td></tr>
             )}
-            {(stats.recentLoans as any[]).map((l) => (
+            {sortByDate(stats.recentLoans as any[], searchParams?.order, (l) => l.disbursement_date || l.created_at).map((l) => (
               <tr key={l.id}>
                 <td><Link href={`/loans/${l.id}`} className="text-teal">{l.loan_code}</Link></td>
                 <td>{l.full_name}</td>

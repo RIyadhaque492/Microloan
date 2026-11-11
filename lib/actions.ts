@@ -9,6 +9,7 @@ import { createSession, destroySession, getSession } from './auth';
 import { generateScheduleFromInstallment, todayISO, calcAge } from './utils';
 import { DELETE_PASSWORD } from './deletePin';
 import { ensureCashTable } from './accounts';
+import { saveMemberExtras } from './memberExtras';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -134,6 +135,8 @@ export async function createBorrowerAction(formData: FormData) {
     throw err;
   }
 
+  await saveMemberExtras(row.id, formData);
+
   revalidatePath('/borrowers');
   revalidatePath('/loans/new');
   setFlash('Member added successfully');
@@ -186,6 +189,8 @@ export async function updateBorrowerAction(id: number, formData: FormData) {
     }
     throw err;
   }
+
+  await saveMemberExtras(id, formData);
 
   revalidatePath('/borrowers');
   revalidatePath(`/borrowers/${id}`);

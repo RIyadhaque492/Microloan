@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import { getBinContents } from '@/lib/data';
 import { restoreBorrowerAction, restoreLoanAction, purgeBorrowerAction, purgeLoanAction, emptyBinAction } from '@/lib/actions';
-import { money, statusBadgeClass, formatDMYTime } from '@/lib/utils';
+import { money, statusBadgeClass, formatDMYTime, sortByDate } from '@/lib/utils';
+import OrderBar from '../OrderBar';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'Bin - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function BinPage() {
-  const { borrowers, loans } = await getBinContents();
+export default async function BinPage({ searchParams }: { searchParams: { order?: string } }) {
+  const bin = await getBinContents();
+  const borrowers = sortByDate(bin.borrowers as any[], searchParams.order, (b) => b.deleted_at);
+  const loans = sortByDate(bin.loans as any[], searchParams.order, (l) => l.deleted_at);
 
   return (
     <div>
@@ -23,9 +26,12 @@ export default async function BinPage() {
           ) : undefined
         }
       />
-      <p className="text-sm text-gray-500 mb-4">
-        Removed members and loans stay here until you restore them — or erase them for good with <strong>Delete permanently</strong>.
-      </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <p className="text-sm text-gray-500">
+          Removed members and loans stay here until you restore them — or erase them for good with <strong>Delete permanently</strong>.
+        </p>
+        <OrderBar order={searchParams.order} label="Removed on" />
+      </div>
 
       <div className="table-wrap mb-6">
         <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Removed Members ({(borrowers as any[]).length})</div>

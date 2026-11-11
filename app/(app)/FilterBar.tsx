@@ -12,6 +12,8 @@ export default function FilterBar({
   qPlaceholder = 'Search...',
   showDates = true,
   extraActive = false,
+  order = '',
+  showOrder = true,
   children,
 }: {
   basePath: string;
@@ -23,9 +25,11 @@ export default function FilterBar({
   qPlaceholder?: string;
   showDates?: boolean;
   extraActive?: boolean;
+  order?: string;
+  showOrder?: boolean;
   children?: React.ReactNode;
 }) {
-  const active = !!(q || ids || from || to || extraActive);
+  const active = !!(q || ids || from || to || extraActive || order);
   return (
     <form className="flex gap-2 flex-wrap items-end mb-2 flex-shrink-0">
       <div>
@@ -49,6 +53,16 @@ export default function FilterBar({
         </>
       )}
       {children}
+      {showOrder && (
+        <div>
+          <label className="text-[10px] text-gray-500 block leading-tight">Order</label>
+          <select name="order" defaultValue={order || ''} className="input w-36 !py-1 !text-sm" aria-label="Sort order">
+            <option value="">Default order</option>
+            <option value="desc">Newest → Oldest</option>
+            <option value="asc">Oldest → Newest</option>
+          </select>
+        </div>
+      )}
       <button className="btn btn-primary !py-1.5 !px-3 text-sm">🔍 Search</button>
       {active && <Link href={basePath} className="btn btn-outline !py-1.5 !px-3 text-sm">Clear</Link>}
     </form>

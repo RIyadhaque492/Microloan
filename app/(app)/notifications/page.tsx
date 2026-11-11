@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { getNotifications, generateDueNotifications } from '@/lib/data';
 import { markNotificationReadAction, markAllNotificationsReadAction } from '@/lib/actions';
 import PageHeader from '../PageHeader';
-import { formatDMYTime } from '@/lib/utils';
+import { formatDMYTime, sortByDate } from '@/lib/utils';
+import OrderBar from '../OrderBar';
 
 export const metadata = { title: 'Notifications - MicroLoan Admin' };
 
@@ -12,9 +13,9 @@ const ICONS: Record<string, string> = {
   payment_received: '✅',
 };
 
-export default async function NotificationsPage({ searchParams }: { searchParams: { type?: string } }) {
+export default async function NotificationsPage({ searchParams }: { searchParams: { type?: string; order?: string } }) {
   await generateDueNotifications();
-  const notifications = (await getNotifications(searchParams.type)) as any[];
+  const notifications = sortByDate((await getNotifications(searchParams.type)) as any[], searchParams.order, (n) => n.created_at);
 
   return (
     <div>
@@ -22,11 +23,12 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         <form action={markAllNotificationsReadAction}><button className="btn btn-outline !py-1.5 !px-3 text-xs">✔ Mark all read</button></form>
       } />
 
-      <div className="flex gap-2 flex-wrap mb-4">
+      <div className="flex gap-2 flex-wrap mb-4 items-center">
         <Link href="/notifications" className={`btn ${!searchParams.type ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>All</Link>
         <Link href="/notifications?type=due_soon" className={`btn ${searchParams.type === 'due_soon' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Due Soon</Link>
         <Link href="/notifications?type=overdue" className={`btn ${searchParams.type === 'overdue' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Overdue</Link>
         <Link href="/notifications?type=payment_received" className={`btn ${searchParams.type === 'payment_received' ? 'btn-primary' : 'btn-outline'} !py-1.5 !px-3 text-xs`}>Payments</Link>
+        <span className="ml-auto"><OrderBar order={searchParams.order} keep={{ type: searchParams.type }} /></span>
       </div>
 
       <div className="table-wrap">

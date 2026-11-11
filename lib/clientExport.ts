@@ -521,7 +521,7 @@ export async function buildReportPdfFromElement(el: HTMLElement): Promise<Blob> 
   return doc.output('blob');
 }
 
-export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
+export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], payments: any[] = [], order: string = ''): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   activeBranding = await loadBranding();
@@ -570,6 +570,7 @@ export async function buildSingleUserPdfBlob(member: any, loanRows: any[] = [], 
     lastRemaining = remaining;
     return [String(i + 1), p.receipt_no, p.notes || 'Installment', fmtDate(p.payment_date), `Tk ${money(p.amount_paid)}`, `Tk ${money(remaining)}`];
   });
+  if (order === 'desc') payBody.reverse(); // newest first (SL and balances stay in date order)
   if (payBody.length === 0) payBody.push(['', 'No payments recorded.', '', '', '', '']);
   else payBody.push(['', '', 'TOTAL PAID', '', `Tk ${money(running)}`, `Tk ${money(lastRemaining)}`]);
 
@@ -948,7 +949,7 @@ export async function buildAllUsersExcelBlob(loanRows: any[]): Promise<Blob> {
 
 /** Single member report — loan-register sheet, plus a Payments sheet (black-bordered,
  *  no running-total column) with a remaining-balance column instead. */
-export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
+export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = [], payments: any[] = [], order: string = ''): Promise<Blob> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   activeBranding = await loadBranding();
@@ -990,9 +991,12 @@ export async function buildSingleUserExcelBlob(member: any, loanRows: any[] = []
 
   const ordered = [...payments].sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime());
   let running = 0;
-  ordered.forEach((p, i) => {
+  const payData = ordered.map((p, i) => {
     running += Number(p.amount_paid);
-    const remaining = Math.max(0, totals.totalPayable - running);
+    return { p, i, remaining: Math.max(0, totals.totalPayable - running) };
+  });
+  if (order === 'desc') payData.reverse(); // newest first (SL and balances stay in date order)
+  payData.forEach(({ p, i, remaining }) => {
     const r = paySheet.addRow([i + 1, p.receipt_no, p.notes || 'Installment', new Date(p.payment_date), Number(p.amount_paid), remaining]);
     styleDataRow(r, i % 2 === 1);
     styleDataRowBlackBorder(r);
@@ -1165,7 +1169,7 @@ function docxSummaryTable(Docx: any, headers: string[], rows: string[][], headFi
 }
 
 /** Single member report as a Word document — loan-register table + full payment history. */
-export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [], payments: any[] = []): Promise<Blob> {
+export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [], payments: any[] = [], order: string = ''): Promise<Blob> {
   const Docx = await import('docx');
   const branding = await loadBranding();
 
@@ -1179,6 +1183,7 @@ export async function buildSingleUserWordBlob(member: any, loanRows: any[] = [],
     const remaining = Math.max(0, totals.totalPayable - running);
     return [String(i + 1), p.receipt_no, p.notes || 'Installment', fmtDate(p.payment_date), `Tk ${money(p.amount_paid)}`, `Tk ${money(remaining)}`];
   });
+  if (order === 'desc') payRows.reverse(); // newest first (SL and balances stay in date order)
   if (payRows.length === 0) payRows.push(['', 'No payments recorded.', '', '', '', '']);
   else payRows.push(['', '', 'TOTAL PAID', '', `Tk ${money(running)}`, `Tk ${money(Math.max(0, totals.totalPayable - running))}`]);
 
@@ -1479,6 +1484,7 @@ export async function buildMembershipPdfBlob(member: any): Promise<Blob> {
   y = docKeyValues(doc, autoTable, y + 7, [
     ['Full Name', member.full_name],
     ["Father's Name", member.father_name || ''],
+    ["Mother's Name", member.mother_name || ''],
     ['Gender', member.gender ? titleCase(member.gender) : ''],
     ['Date of Birth', member.date_of_birth ? fmtDate(member.date_of_birth) : ''],
     ['Age', member.age != null && member.age !== '' ? `${member.age} years` : ''],
@@ -1487,7 +1493,13 @@ export async function buildMembershipPdfBlob(member: any): Promise<Blob> {
     ['Email', member.email || ''],
     ['NID / ID No.', member.nid_number || ''],
     ['Monthly Income', member.monthly_income != null && Number(member.monthly_income) > 0 ? docMoney(member.monthly_income) : ''],
+    ['Marital Status', member.marital_status || ''],
+    ['Religion', member.religion || ''],
+    ['Nationality', member.nationality || ''],
+    ['Qualification', member.qualification || ''],
     ['Present Address', member.present_address || '', 'wide'],
+    ['Permanent Address', member.permanent_address || '', 'wide'],
+    ...(member.other_info ? [['Other Information', String(member.other_info), 'wide'] as [string, string, 'wide']] : []),
   ]) + 6;
 
   y = docEnsure(doc, y, 40);
@@ -1496,6 +1508,9 @@ export async function buildMembershipPdfBlob(member: any): Promise<Blob> {
     ['Guarantor Name', member.guarantor_name || ''],
     ['Relationship', member.guarantor_relationship || ''],
     ['Guarantor Phone', member.guarantor_phone || ''],
+    ['Guarantor NID', member.guarantor_nid || ''],
+    ['Guarantor Occupation', member.guarantor_occupation || ''],
+    ['Guarantor Address', member.guarantor_address || '', 'wide'],
   ]) + 6;
 
   y = docEnsure(doc, y, 30);
@@ -1537,12 +1552,16 @@ export async function buildLoanApplicationPdfBlob(loan: any, member: any, instal
     ['Name', member?.full_name || loan.full_name],
     ['Member ID', member?.borrower_code || loan.borrower_code],
     ["Father's Name", member?.father_name || ''],
+    ["Mother's Name", member?.mother_name || ''],
     ['Phone', member?.phone || loan.phone || ''],
     ['NID / ID No.', member?.nid_number || ''],
     ['Occupation', member?.occupation || ''],
     ['Date of Birth', member?.date_of_birth ? fmtDate(member.date_of_birth) : ''],
     ['Monthly Income', member?.monthly_income != null && Number(member.monthly_income) > 0 ? docMoney(member.monthly_income) : ''],
+    ['Marital Status', member?.marital_status || ''],
+    ['Nationality', member?.nationality || ''],
     ['Present Address', member?.present_address || '', 'wide'],
+    ['Permanent Address', member?.permanent_address || '', 'wide'],
   ]) + 6;
 
   y = docEnsure(doc, y, 36);
@@ -1551,6 +1570,9 @@ export async function buildLoanApplicationPdfBlob(loan: any, member: any, instal
     ['Guarantor Name', member?.guarantor_name || ''],
     ['Relationship', member?.guarantor_relationship || ''],
     ['Guarantor Phone', member?.guarantor_phone || ''],
+    ['Guarantor NID', member?.guarantor_nid || ''],
+    ['Guarantor Occupation', member?.guarantor_occupation || ''],
+    ['Guarantor Address', member?.guarantor_address || '', 'wide'],
   ]) + 6;
 
   y = docEnsure(doc, y, 70);

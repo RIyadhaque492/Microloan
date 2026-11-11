@@ -1,22 +1,22 @@
 import Link from 'next/link';
 import { getBorrowers } from '@/lib/data';
-import { statusBadgeClass, matchesIdGroup, inDateRange, formatDMY } from '@/lib/utils';
+import { statusBadgeClass, matchesIdGroup, inDateRange, formatDMY, sortByDate } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
 
 export const metadata = { title: 'All Members - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-export default async function BorrowersPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string; error?: string } }) {
-  const borrowers = ((await getBorrowers(searchParams.q)) as any[]).filter(
+export default async function BorrowersPage({ searchParams }: { searchParams: { q?: string; ids?: string; from?: string; to?: string; order?: string; error?: string } }) {
+  const borrowers = sortByDate(((await getBorrowers(searchParams.q)) as any[]).filter(
     (b) => matchesIdGroup(b.borrower_code, searchParams.ids) && inDateRange(b.created_at, searchParams.from, searchParams.to)
-  );
+  ), searchParams.order, (b) => b.created_at);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
       <PageHeader title="All Members" showBack={false} action={<Link href="/borrowers/new" className="btn btn-primary">➕ Add Member</Link>} />
 
-      <FilterBar basePath="/borrowers" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Joined" qPlaceholder="Name, phone, NID..." />
+      <FilterBar basePath="/borrowers" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} order={searchParams.order} dateLabel="Joined" qPlaceholder="Name, phone, NID..." />
 
       {searchParams.error && <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{searchParams.error}</div>}
 

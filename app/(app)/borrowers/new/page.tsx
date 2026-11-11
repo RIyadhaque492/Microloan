@@ -2,6 +2,7 @@ import { getNextMemberId, getPresentAddressSuggestions, getMonthlyIncomeSuggesti
 import { createBorrowerAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 import DobAgeFields from '../DobAgeFields';
+import { PersonalExtraFields, PermanentAddressField, GuarantorExtraFields, OtherInfoField } from '../MemberExtraFields';
 
 export const metadata = { title: 'Add Member - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
           </div>
           <div><label className="label">Full Name *</label><input name="full_name" required className="input" /></div>
           <div><label className="label">Father's Name</label><input name="father_name" list="father-suggestions" className="input" /></div>
+          <div><label className="label">Mother's Name</label><input name="mother_name" className="input" /></div>
           <div>
             <label className="label">Gender</label>
             <select name="gender" className="input">
@@ -43,6 +45,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
           <div><label className="label">Phone *</label><input name="phone" required className="input" /></div>
           <div><label className="label">Email</label><input name="email" type="email" className="input" /></div>
           <div><label className="label">NID Number</label><input name="nid_number" className="input" /></div>
+          <PersonalExtraFields />
           <div className="md:col-span-2">
             <label className="label">Present Address</label>
             {/* A <datalist> for autosuggest only works on <input>, not <textarea>, so this
@@ -52,6 +55,7 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
               {addressSuggestions.map((a) => <option key={a} value={a} />)}
             </datalist>
           </div>
+          <PermanentAddressField />
           <div><label className="label">Occupation</label><input name="occupation" list="occupation-suggestions" className="input" /></div>
           <div>
             <label className="label">Monthly Income</label>
@@ -63,11 +67,13 @@ export default async function NewBorrowerPage({ searchParams }: { searchParams: 
           <div><label className="label">Guarantor Name</label><input name="guarantor_name" list="guarantor-suggestions" className="input" /></div>
           <div><label className="label">Relationship with Guarantor</label><input name="guarantor_relationship" list="relationship-suggestions" placeholder="e.g. Brother" className="input" /></div>
           <div><label className="label">Guarantor Phone</label><input name="guarantor_phone" className="input" /></div>
+          <GuarantorExtraFields />
           <div>
             <label className="label">Registration Fee (৳)</label>
             <input name="registration_fee" type="number" step="0.01" defaultValue={150} className="input" />
             <p className="text-xs text-gray-400 mt-1">Always starts at ৳150 — you can change it.</p>
           </div>
+          <OtherInfoField />
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn btn-primary">Save Member</button>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getBorrowersBasic, getLoanReportRows, getPaymentsForBorrower } from '@/lib/data';
-import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange, formatDMY, formatDMYTime } from '@/lib/utils';
+import { money, buildSingleUserShareText, buildAllUsersShareText, matchesIdGroup, inDateRange, formatDMY, formatDMYTime, sortByDate } from '@/lib/utils';
 import ExportButtons from './ExportButtons';
 import { SingleReportBody, AllReportBody } from './ReportView';
 import MemberPicker from './MemberPicker';
@@ -44,7 +44,7 @@ function TypeSelect({ value }: { value?: string }) {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: { mode?: string; borrower?: string; q?: string; ids?: string; from?: string; to?: string; type?: string };
+  searchParams: { mode?: string; borrower?: string; q?: string; ids?: string; from?: string; to?: string; type?: string; order?: string };
 }) {
   const mode = searchParams.mode === 'single' ? 'single' : 'all';
 
@@ -60,6 +60,7 @@ export default async function ReportsPage({
       const ids = new Set(loanRows.map((r) => Number(r.loan_id)));
       allPayments = allPayments.filter((p) => ids.has(Number(p.loan_id)));
     }
+    loanRows = sortByDate(loanRows, searchParams.order, (r) => r.disbursement_date);
     const totals = loanTotals(loanRows);
     // Oldest first (receipt order within a day); the running balance is worked out on the FULL history so a
     // date-filtered report still shows the true remaining balance after each payment.
@@ -97,8 +98,16 @@ export default async function ReportsPage({
             <label className="label">Payment date to</label>
             <DateInput name="to" defaultValue={searchParams.to} className="input w-40" />
           </div>
+          <div>
+            <label className="label">Order</label>
+            <select name="order" defaultValue={searchParams.order || ''} className="input w-36">
+              <option value="">Default order</option>
+              <option value="desc">Newest → Oldest</option>
+              <option value="asc">Oldest → Newest</option>
+            </select>
+          </div>
           <button className="btn btn-primary">🔍 View Report</button>
-          {(searchParams.from || searchParams.to || searchParams.type) && borrowerId > 0 && (
+          {(searchParams.from || searchParams.to || searchParams.type || searchParams.order) && borrowerId > 0 && (
             <Link href={`/reports?mode=single&borrower=${borrowerId}`} className="btn btn-outline">Clear filters</Link>
           )}
         </form>
@@ -110,11 +119,11 @@ export default async function ReportsPage({
                 <h2 className="font-bold text-lg">Member Credit / Debt Report</h2>
                 <p className="text-teal-100 text-xs opacity-90">Generated: {formatDMYTime()}</p>
               </div>
-              <ExportButtons mode="single" member={selected} loanRows={loanRows} payments={payments} shareText={shareText} onDark />
+              <ExportButtons mode="single" member={selected} loanRows={loanRows} payments={payments} shareText={shareText} onDark order={searchParams.order === 'desc' ? 'desc' : ''} />
             </div>
 
             <div className="bg-white p-3">
-              <SingleReportBody rows={loanRows} payments={orderedPayments} totals={totals} />
+              <SingleReportBody rows={loanRows} payments={orderedPayments} totals={totals} order={searchParams.order === 'desc' ? 'desc' : ''} />
 
               <Link href={`/borrowers/${selected.id}`} className="btn btn-outline mt-4">View Full Member Profile</Link>
             </div>
@@ -125,9 +134,9 @@ export default async function ReportsPage({
     );
   }
 
-  const loanRows = ((await getLoanReportRows({ search: searchParams.q })) as any[]).filter(
+  const loanRows = sortByDate(((await getLoanReportRows({ search: searchParams.q })) as any[]).filter(
     (r) => (!searchParams.type || typeOf(r) === searchParams.type) && matchesIdGroup(r.borrower_code, searchParams.ids) && inDateRange(r.disbursement_date, searchParams.from, searchParams.to)
-  );
+  ), searchParams.order, (r) => r.disbursement_date);
   const shareText = buildAllUsersShareText(loanRows);
   const totals = loanTotals(loanRows);
 
@@ -136,7 +145,7 @@ export default async function ReportsPage({
       <PageHeader title="Reports" action={<ModeSwitch mode={mode} />} />
 
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
-        <FilterBar basePath="/reports?mode=all" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} dateLabel="Disbursed" qPlaceholder="Member or loan..." extraActive={!!searchParams.type}>
+        <FilterBar basePath="/reports?mode=all" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} order={searchParams.order} dateLabel="Disbursed" qPlaceholder="Member or loan..." extraActive={!!searchParams.type}>
           <input type="hidden" name="mode" value="all" />
           <TypeSelect value={searchParams.type} />
         </FilterBar>

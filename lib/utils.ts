@@ -299,3 +299,34 @@ export function toISODate(value: any): string {
   const d = value instanceof Date ? value : new Date(value);
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-CA');
 }
+
+
+/** Sort order chosen on a list page: '' = the page's own default, 'asc' = oldest first, 'desc' = newest first. */
+export type ListOrder = '' | 'asc' | 'desc';
+export const parseOrder = (v?: string): ListOrder => (v === 'asc' || v === 'desc' ? v : '');
+
+/** Sorts rows by a date (oldest->newest or newest->oldest). Rows without a date go last; ties follow the row id
+ *  in the same direction (so the latest entry of a day is first when newest-first). '' keeps the order as given. */
+export function sortByDate<T>(rows: T[], order: string | undefined, getDate: (r: T) => any): T[] {
+  const o = parseOrder(order);
+  if (!o) return rows;
+  const key = (r: T) => {
+    const v = getDate(r);
+    if (!v) return null;
+    const t = new Date(v instanceof Date ? v : String(v).length === 10 ? v + 'T00:00:00' : v).getTime();
+    return Number.isNaN(t) ? null : t;
+  };
+  const dir = o === 'asc' ? 1 : -1;
+  return rows
+    .map((r, i) => ({ r, i, k: key(r) }))
+    .sort((a, b) => {
+      if (a.k === null && b.k === null) return a.i - b.i;
+      if (a.k === null) return 1;
+      if (b.k === null) return -1;
+      if (a.k !== b.k) return (a.k - b.k) * dir;
+      const ai = Number((a.r as any)?.id), bi = Number((b.r as any)?.id);
+      if (Number.isFinite(ai) && Number.isFinite(bi) && ai !== bi) return (ai - bi) * dir;
+      return (a.i - b.i) * dir;
+    })
+    .map((x) => x.r);
+}

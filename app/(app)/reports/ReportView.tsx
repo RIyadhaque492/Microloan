@@ -53,7 +53,7 @@ export function AllStatCards({ totals, compact = false }: { totals: Totals; comp
   );
 }
 
-export function PaymentHistoryTable({ payments, totalPayable }: { payments: any[]; totalPayable: number }) {
+export function PaymentHistoryTable({ payments, totalPayable, order = '' }: { payments: any[]; totalPayable: number; order?: string }) {
   let running = 0;
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount_paid), 0);
   const last = payments[payments.length - 1];
@@ -71,9 +71,14 @@ export function PaymentHistoryTable({ payments, totalPayable }: { payments: any[
         </thead>
         <tbody>
           {payments.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-6">No payments recorded.</td></tr>}
-          {payments.map((p, i) => {
-            running += Number(p.amount_paid);
-            const remaining = p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totalPayable - running);
+          {(() => {
+            // SL, running balance and shading are worked out in date order; "newest first" only flips the display
+            const rows = payments.map((p, i) => {
+              running += Number(p.amount_paid);
+              return { p, i, remaining: p.remaining_after != null ? Number(p.remaining_after) : Math.max(0, totalPayable - running) };
+            });
+            return order === 'desc' ? rows.reverse() : rows;
+          })().map(({ p, i, remaining }) => {
             return (
               <tr key={p.id} className={`border border-black text-center font-bold ${i % 2 === 0 ? 'bg-sky-50' : 'bg-white'}`}>
                 <td className="border border-black text-center font-bold">{i + 1}</td>
@@ -102,13 +107,13 @@ export function PaymentHistoryTable({ payments, totalPayable }: { payments: any[
 }
 
 /** Everything inside a single-member report: summary cards, Loan Register and Payment History. */
-export function SingleReportBody({ rows, payments, totals, plain = false }: { rows: any[]; payments: any[]; totals: Totals; plain?: boolean }) {
+export function SingleReportBody({ rows, payments, totals, plain = false, order = '' }: { rows: any[]; payments: any[]; totals: Totals; plain?: boolean; order?: string }) {
   return (
     <>
       <SingleStatCards totals={totals} />
       <div data-break className="text-white font-bold text-sm px-4 py-2 rounded-t text-center" style={{ backgroundColor: '#0F2A3F' }}>Loan Register</div>
       <RegisterTable rows={rows} headColor="#0F2A3F" maxHeight="max-h-[calc(100dvh-16rem)]" plain={plain} />
-      <PaymentHistoryTable payments={payments} totalPayable={totals.totalPayable} />
+      <PaymentHistoryTable payments={payments} totalPayable={totals.totalPayable} order={order} />
     </>
   );
 }

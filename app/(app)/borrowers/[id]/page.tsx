@@ -6,7 +6,8 @@ import { getSession } from '@/lib/auth';
 import { setFlash } from '@/lib/flash';
 import DateInput from '@/app/(app)/DateInput';
 import { getBorrower, getLoansForBorrower, getBorrowerDocuments, getSavingsBalance, getBorrowerPhotoVersion } from '@/lib/data';
-import { money, statusBadgeClass, frequencyShortLabel, formatDMY, calcAge, toISODate } from '@/lib/utils';
+import { money, statusBadgeClass, frequencyShortLabel, formatDMY, calcAge, toISODate, sortByDate } from '@/lib/utils';
+import OrderBar from '../../OrderBar';
 import { uploadDocumentAction, deleteDocumentAction } from '@/lib/actions';
 import PageHeader from '../../PageHeader';
 import UploadForm from './UploadForm';
@@ -27,7 +28,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-export default async function BorrowerViewPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string; uploaded?: string } }) {
+export default async function BorrowerViewPage({ params, searchParams }: { params: { id: string }; searchParams: { error?: string; uploaded?: string; order?: string } }) {
   const id = Number(params.id);
 
   // Saves the membership (joining) date typed in the editor below.
@@ -100,6 +101,13 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
             { icon: '🪪', label: 'NID', value: borrower.nid_number || '—', cls: 'bg-indigo-50 border-indigo-200 text-indigo-900', sub: 'text-indigo-600' },
             { icon: '💼', label: 'Occupation', value: borrower.occupation || '—', cls: 'bg-orange-50 border-orange-200 text-orange-900', sub: 'text-orange-600' },
             { icon: '🤝', label: 'Guarantor', value: `${borrower.guarantor_name || '—'}${borrower.guarantor_relationship ? ` — ${borrower.guarantor_relationship}` : ''}${borrower.guarantor_phone ? ` (${borrower.guarantor_phone})` : ''}`, cls: 'bg-rose-50 border-rose-200 text-rose-900', sub: 'text-rose-600' },
+            { icon: '👩', label: "Mother's Name", value: borrower.mother_name || '—', cls: 'bg-pink-50 border-pink-200 text-pink-900', sub: 'text-pink-600' },
+            { icon: '💍', label: 'Marital Status', value: borrower.marital_status || '—', cls: 'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-900', sub: 'text-fuchsia-600' },
+            { icon: '🕌', label: 'Religion', value: borrower.religion || '—', cls: 'bg-emerald-50 border-emerald-200 text-emerald-900', sub: 'text-emerald-600' },
+            { icon: '🌍', label: 'Nationality', value: borrower.nationality || '—', cls: 'bg-cyan-50 border-cyan-200 text-cyan-900', sub: 'text-cyan-600' },
+            { icon: '🎓', label: 'Qualification', value: borrower.qualification || '—', cls: 'bg-lime-50 border-lime-200 text-lime-900', sub: 'text-lime-700' },
+            { icon: '🪪', label: 'Guarantor NID', value: borrower.guarantor_nid || '—', cls: 'bg-violet-50 border-violet-200 text-violet-900', sub: 'text-violet-600' },
+            { icon: '💼', label: 'Guarantor Occupation', value: borrower.guarantor_occupation || '—', cls: 'bg-yellow-50 border-yellow-200 text-yellow-900', sub: 'text-yellow-700' },
             { icon: '🧾', label: 'Registration Fee', value: `৳${money(borrower.registration_fee)}${borrower.fee_receipt_no ? ` (${borrower.fee_receipt_no})` : ''}`, cls: 'bg-teal-50 border-teal-200 text-teal-900', sub: 'text-teal-600' },
           ].map((f) => (
             <div key={f.label} className={`rounded-xl border-2 p-3 ${f.cls}`}>
@@ -111,6 +119,20 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">📍 Present Address</div>
             <div className="font-semibold text-sm mt-1">{borrower.present_address || '—'}</div>
           </div>
+          <div className="col-span-2 md:col-span-4 rounded-xl border-2 p-3 bg-slate-50 border-slate-300 text-slate-900">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">🏠 Permanent Address</div>
+            <div className="font-semibold text-sm mt-1">{borrower.permanent_address || '—'}</div>
+          </div>
+          <div className="col-span-2 md:col-span-4 rounded-xl border-2 p-3 bg-slate-50 border-slate-300 text-slate-900">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">🤝 Guarantor Address</div>
+            <div className="font-semibold text-sm mt-1">{borrower.guarantor_address || '—'}</div>
+          </div>
+          {borrower.other_info && (
+            <div className="col-span-2 md:col-span-4 rounded-xl border-2 p-3 bg-amber-50 border-amber-200 text-amber-900">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">📝 Other Information</div>
+              <div className="font-semibold text-sm mt-1 whitespace-pre-wrap">{borrower.other_info}</div>
+            </div>
+          )}
         </div>
 
         <form action={saveMembershipDate} className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-3">
@@ -159,12 +181,12 @@ export default async function BorrowerViewPage({ params, searchParams }: { param
 
       <div className="space-y-4">
         <div className="table-wrap">
-          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm">Loan History</div>
+          <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex items-center justify-between gap-2 flex-wrap"><span>Loan History</span><OrderBar order={searchParams.order} /></div>
           <table className="app-table">
             <thead><tr><th>Loan Code</th><th>Amount</th><th>Disbursed</th><th>Tenure</th><th>Paid</th><th>Remaining</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {loans.length === 0 && <tr><td colSpan={8} className="text-center text-gray-400 py-8">No loans yet.</td></tr>}
-              {loans.map((l) => (
+              {sortByDate(loans as any[], searchParams.order, (l) => l.disbursement_date || l.created_at).map((l) => (
                 <tr key={l.id}>
                   <td>{l.loan_code}</td>
                   <td>৳{money(l.loan_amount)}</td>

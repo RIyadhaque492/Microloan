@@ -58,8 +58,8 @@ export default function EntryForm({
       </div>
 
       <p className="text-xs text-gray-500 rounded-lg bg-tealight px-3 py-2">
-        Loan collections, savings, loan disbursements and fees already appear in the Cash Book by themselves — only add what the system doesn’t know (salary, rent, capital, bank deposit…).
-        To start your book at today’s cash in hand, add a <strong>Cash In</strong> entry with the category <strong>Opening Balance</strong>.
+        The Cash Book is fully manual — nothing is copied from loans, collections or savings. Add every cash received (Cash In) and every payment made (Cash Out) yourself.
+        To start the book at today’s cash in hand, add a <strong>Cash In</strong> entry with the category <strong>Opening Balance</strong>.
       </p>
 
       <div className="flex gap-3">

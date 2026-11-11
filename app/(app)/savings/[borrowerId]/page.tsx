@@ -4,11 +4,12 @@ import { getBorrower, getSavingsBalance, getSavingsSummary, getSavingsTransactio
 import { todayISO, money, statusBadgeClass, formatDMY } from '@/lib/utils';
 import { recordSavingsTransactionAction, deleteSavingsTransactionAction } from '@/lib/actions';
 import BackLink from '../../BackLink';
+import OrderBar from '../../OrderBar';
 import DateInput from '@/app/(app)/DateInput';
 
 export const metadata = { title: 'Member Savings - MicroLoan Admin' };
 
-export default async function MemberSavingsPage({ params, searchParams }: { params: { borrowerId: string }; searchParams: { error?: string } }) {
+export default async function MemberSavingsPage({ params, searchParams }: { params: { borrowerId: string }; searchParams: { error?: string; order?: string } }) {
   const id = Number(params.borrowerId);
   if (!id || isNaN(id)) notFound();
   const borrower = await getBorrower(id);
@@ -85,7 +86,10 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
           <div className="table-wrap">
             <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm flex justify-between items-center">
               <span>Receipt History</span>
-              <span className="text-xs text-gray-400 font-normal">📞 {borrower.phone}</span>
+              <span className="flex items-center gap-3">
+                <OrderBar order={searchParams.order} />
+                <span className="text-xs text-gray-400 font-normal">📞 {borrower.phone}</span>
+              </span>
             </div>
             <table className="app-table">
               <thead><tr><th>SL</th><th>Receipt No.</th><th>Date</th><th>Type</th><th>Amount</th><th>Net Balance</th><th>Notes</th><th></th></tr></thead>
@@ -94,12 +98,12 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
                 {(() => {
                   // Net balance is worked out in date order; rows are shown LIFO (latest date first).
                   let running = 0;
-                  return transactions
-                    .map((t, i) => {
-                      running += t.type === 'deposit' ? Number(t.amount) : -Number(t.amount);
-                      return { ...t, sl: i + 1, net: running };
-                    })
-                    .reverse()
+                  const withNet = transactions.map((t, i) => {
+                    running += t.type === 'deposit' ? Number(t.amount) : -Number(t.amount);
+                    return { ...t, sl: i + 1, net: running };
+                  });
+                  // default and "Newest → Oldest" = latest date first; "Oldest → Newest" = date order
+                  return (searchParams.order === 'asc' ? withNet : withNet.reverse())
                     .map((t) => (
                       <tr key={t.id}>
                         <td>{t.sl}</td>
