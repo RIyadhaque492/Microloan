@@ -72,6 +72,13 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         </div>
         <p className="font-bold text-teal text-xl leading-snug -mt-1 mb-3 text-left">{amountInWords(p.amount_paid)}</p>
 
+        <div className="flex justify-end mb-3 pr-2" aria-label="Paid">
+          <div className="-rotate-6 text-center border-4 border-double border-green-600 text-green-600 rounded-lg px-4 py-1 select-none">
+            <div className="text-2xl font-extrabold tracking-[0.25em] pl-[0.25em] leading-tight">PAID</div>
+            <div className="text-[10px] font-semibold leading-none pb-0.5">{formatDMY(p.payment_date)}</div>
+          </div>
+        </div>
+
         {(brand?.doc_footer_address || brand?.doc_footer_contact || brand?.doc_footer_email) && (
           <div className="border-t pt-1.5 mb-3 leading-snug" style={{ borderColor: hs.color, ...css(fsx, 'f') }}>
             {brand?.doc_footer_address && <div>{brand.doc_footer_address}</div>}

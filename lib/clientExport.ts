@@ -752,6 +752,27 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
 
+  // PAID seal (bottom right, kept clear of the amount in words above and the footer below)
+  {
+    const sx = 190 - 46;
+    const sy = Math.min(afterTable + 25 + 6.5 * words.length + 4, 156);
+    doc.setDrawColor(22, 130, 60);
+    doc.setTextColor(22, 130, 60);
+    doc.setLineWidth(0.9);
+    doc.roundedRect(sx, sy, 46, 19, 2.5, 2.5);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(sx + 1.6, sy + 1.6, 46 - 3.2, 19 - 3.2, 1.8, 1.8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('PAID', sx + 23, sy + 11.2, { align: 'center', charSpace: 1.5 });
+    doc.setFontSize(7.5);
+    doc.text(formatDMY(receipt.payment_date), sx + 23, sy + 16, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(15, 42, 63);
+    doc.setLineWidth(0.2);
+  }
+
   if (branding && footerLines(branding).length) {
     drawFooterBlock(doc, branding, 20, 190, 178, 5, 'receipt');
   }
@@ -1047,11 +1068,13 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
     ['Loan Code', receipt.loan_code],
     ['Particulars', receipt.notes || 'Installment'],
     ['Payment Method', titleCase(receipt.payment_method)],
+    ['Status', 'PAID'],
   ];
 
   for (const [label, value] of fields) {
     const row = ws.addRow([label, value]);
     row.getCell(1).font = { bold: true, color: { argb: BRAND_NAVY } };
+    if (label === 'Status') row.getCell(2).font = { bold: true, color: { argb: 'FF16823C' } };
     if (value instanceof Date) {
       row.getCell(2).numFmt = 'dd-mm-yyyy';
       row.getCell(2).alignment = { horizontal: 'left' };

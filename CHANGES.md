@@ -155,3 +155,8 @@
 - **Loan form**: weekly and monthly installments now depend on the loan amount, the charge % and the number of installments — installment = (loan + charge%) ÷ installments, rounded up. The number of installments is yours to set (defaults: monthly 6, weekly 24, daily 116). Same on the draft edit form.
 - **Cash Book is fully manual**: nothing is read from loans, collections, savings or fees any more. Only entries you add (Cash In / Cash Out).
 - **Order option on every list**: Default / Newest → Oldest / Oldest → Newest on Members, Loans, Collections, Savings, Reports (screen, PDF, Excel, Word), Bin, Notifications, Cash Book, Transaction History, Savings receipts, Loan installments, Member loan history and Dashboard recent loans.
+
+## Update 45
+- **PAID seal** on every payment receipt: on screen, in the receipt PDF (bottom right, with the payment date) and as a "Status: PAID" line in the receipt Excel file.
+- **Cash Book page**: smaller summary cards and tighter filter area, so the table is taller.
+- Build ignores a stray nested `Microloan-main` folder (tsconfig).

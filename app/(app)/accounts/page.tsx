@@ -71,13 +71,13 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
       />
       {searchParams.error && <div className="mb-2 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2 flex-shrink-0">{searchParams.error}</div>}
 
-      <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0">
+      <div className="flex flex-wrap gap-1.5 mb-1.5 flex-shrink-0">
         {quick.map(([label, href]) => (
-          <Link key={label} href={href} prefetch={false} className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-navy hover:bg-tealight hover:border-teal-300 transition">{label}</Link>
+          <Link key={label} href={href} prefetch={false} className="rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-navy hover:bg-tealight hover:border-teal-300 transition">{label}</Link>
         ))}
       </div>
 
-      <form className="card p-3 mb-2 flex flex-wrap gap-3 items-end flex-shrink-0">
+      <form className="card p-2 mb-1.5 flex flex-wrap gap-2 items-end flex-shrink-0 [&_.input]:!py-1 [&_.input]:!text-sm [&_.label]:!mb-0.5 [&_.label]:!text-[11px]">
         <div><label className="label">From</label><DateInput name="from" defaultValue={from} className="input w-36" /></div>
         <div><label className="label">To</label><DateInput name="to" defaultValue={to} className="input w-36" /></div>
         <div>
@@ -96,17 +96,17 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
         {(searchParams.cat || searchParams.q) && <Link href="/accounts" className="btn btn-outline">Clear</Link>}
       </form>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-2 flex-shrink-0">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 mb-1.5 flex-shrink-0">
         {book.filtered ? (
-          <div className="card px-3 py-1.5 border-l-4 border-l-gray-400 bg-gray-50 lg:col-span-1"><div className="text-base font-bold text-gray-700">Filtered</div><div className="text-xs text-gray-500">Opening / closing hidden while filtering</div></div>
+          <div className="card px-2.5 py-0.5 border-l-4 border-l-gray-400 bg-gray-50 lg:col-span-1"><div className="text-sm font-bold leading-tight text-gray-700">Filtered</div><div className="text-[10px] leading-tight text-gray-500">Opening / closing hidden while filtering</div></div>
         ) : (
-          <div className="card px-3 py-1.5 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-base font-bold text-sky-800">৳{money(book.opening)}</div><div className="text-xs text-sky-700">Opening Balance (b/f)</div></div>
+          <div className="card px-2.5 py-0.5 border-l-4 border-l-sky-500 bg-sky-50"><div className="text-sm font-bold leading-tight text-sky-800">৳{money(book.opening)}</div><div className="text-[10px] leading-tight text-sky-700">Opening Balance (b/f)</div></div>
         )}
-        <div className="card px-3 py-1.5 border-l-4 border-l-green-500 bg-green-50"><div className="text-base font-bold text-green-800">৳{money(book.totalIn)}</div><div className="text-xs text-green-700">Total Cash In</div></div>
-        <div className="card px-3 py-1.5 border-l-4 border-l-red-500 bg-red-50"><div className="text-base font-bold text-red-800">৳{money(book.totalOut)}</div><div className="text-xs text-red-700">Total Cash Out</div></div>
-        <div className="card px-3 py-1.5 border-l-4 border-l-purple-500 bg-purple-50">
-          <div className="text-base font-bold text-purple-800">৳{money(book.filtered ? book.totalIn - book.totalOut : book.closing)}</div>
-          <div className="text-xs text-purple-700">{book.filtered ? 'Net (In − Out)' : 'Closing Balance (cash in hand)'}</div>
+        <div className="card px-2.5 py-0.5 border-l-4 border-l-green-500 bg-green-50"><div className="text-sm font-bold leading-tight text-green-800">৳{money(book.totalIn)}</div><div className="text-[10px] leading-tight text-green-700">Total Cash In</div></div>
+        <div className="card px-2.5 py-0.5 border-l-4 border-l-red-500 bg-red-50"><div className="text-sm font-bold leading-tight text-red-800">৳{money(book.totalOut)}</div><div className="text-[10px] leading-tight text-red-700">Total Cash Out</div></div>
+        <div className="card px-2.5 py-0.5 border-l-4 border-l-purple-500 bg-purple-50">
+          <div className="text-sm font-bold leading-tight text-purple-800">৳{money(book.filtered ? book.totalIn - book.totalOut : book.closing)}</div>
+          <div className="text-[10px] leading-tight text-purple-700">{book.filtered ? 'Net (In − Out)' : 'Closing Balance (cash in hand)'}</div>
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
       </div>
 
       {(inBy.size > 0 || outBy.size > 0) && (
-        <details className="card mt-2 p-3 flex-shrink-0">
+        <details className="card mt-1.5 px-3 py-1.5 flex-shrink-0">
           <summary className="cursor-pointer font-semibold text-navy text-sm">📊 Summary by category — {periodLabel}</summary>
           <div className="grid md:grid-cols-2 gap-4 mt-3 text-sm">
             {([['Cash In', inBy, 'text-green-700', book.totalIn], ['Cash Out', outBy, 'text-red-600', book.totalOut]] as const).map(([title, map, color, total]) => (
