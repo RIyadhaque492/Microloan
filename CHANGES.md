@@ -160,3 +160,6 @@
 - **PAID seal** on every payment receipt: on screen, in the receipt PDF (bottom right, with the payment date) and as a "Status: PAID" line in the receipt Excel file.
 - **Cash Book page**: smaller summary cards and tighter filter area, so the table is taller.
 - Build ignores a stray nested `Microloan-main` folder (tsconfig).
+
+## Update 46
+- Weekly and monthly loans: no automatic charge calculation any more. Type the installment amount and the number of installments; **Total Payable = installment amount × number of installments** (shown live). Daily loans still suggest 1% of the loan as the installment.

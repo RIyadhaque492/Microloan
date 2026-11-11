@@ -41,8 +41,6 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
   // Suggested defaults: 116 installments, paid daily — all still editable.
   const [tenure, setTenure] = useState<number>(116);
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  // Weekly and monthly loans: loan + a flat charge, divided into the chosen number of installments.
-  const [monthlyRate, setMonthlyRate] = useState('16');
   const [tenureTouched, setTenureTouched] = useState(false);
   const [startDate, setStartDate] = useState(today);
   const [maturityDate, setMaturityDate] = useState('');
@@ -72,15 +70,11 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
     setMaturityDate(autoMaturityDate);
   }
 
-  // Installment amount: daily suggests 1% of the loan amount; weekly and monthly = (loan + charge%) ÷ number of
-  // installments, rounded up to a whole taka — so it follows BOTH the amount and the number of installments —
-  // until the admin types their own.
-  const rate = Number(monthlyRate) || 0;
-  const autoInstallment =
-    amount <= 0 ? 0
-    : frequency !== 'daily' ? (tenure >= 1 ? Math.ceil((amount * (1 + rate / 100)) / Math.trunc(tenure)) : 0)
-    : Math.round(amount) / 100;
-  if (!installmentTouched && autoInstallment !== installmentAmount) setInstallmentAmount(autoInstallment);
+  // Daily loans suggest 1% of the loan amount as the installment (editable). Weekly and monthly loans have no
+  // suggestion: type the installment amount and the number of installments — Total Payable is simply
+  // installment amount × number of installments.
+  const autoInstallment = amount <= 0 ? 0 : Math.round(amount) / 100;
+  if (frequency === 'daily' && !installmentTouched && autoInstallment !== installmentAmount) setInstallmentAmount(autoInstallment);
 
   // Processing fee shows 2% of the loan amount automatically — editable, and stays as typed once edited.
   const autoFee = amount > 0 ? (Math.round(amount * 2) / 100).toFixed(2) : '';
@@ -89,6 +83,7 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
   function changeType(next: 'daily' | 'weekly' | 'monthly') {
     setFrequency(next);
     setInstallmentTouched(false);
+    if (next !== 'daily') setInstallmentAmount(0); // type your own for weekly / monthly
     // each type starts with its usual number of installments (monthly 6, weekly 24, daily 116) —
     // unless the admin has typed their own number, which is kept
     if (!tenureTouched) setTenure(next === 'monthly' ? 6 : next === 'weekly' ? 24 : 116);
@@ -114,7 +109,7 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
         <div>
           <label className="label">Installment Amount (৳) *</label>
           <input name="installment_amount" type="number" step="0.01" required className="input" value={installmentAmount || ''} onChange={(e) => { setInstallmentTouched(true); setInstallmentAmount(Number(e.target.value)); }} />
-          <p className="text-xs text-gray-400 mt-1">{frequency !== 'daily' ? `Automatic: (loan + ${rate}%) ÷ ${tenure || 0} ${frequency === 'weekly' ? 'weeks' : 'months'} — editable.` : 'Suggested 1% of loan amount — editable.'}{installmentTouched && amount > 0 && <> · <button type="button" className="text-teal underline" onClick={() => setInstallmentTouched(false)}>reset</button></>}</p>
+          <p className="text-xs text-gray-400 mt-1">{frequency !== 'daily' ? `Type the amount of each ${frequency === 'weekly' ? 'weekly' : 'monthly'} installment.` : 'Suggested 1% of loan amount — editable.'}{installmentTouched && amount > 0 && <> · <button type="button" className="text-teal underline" onClick={() => setInstallmentTouched(false)}>reset</button></>}</p>
         </div>
         <div>
           <label className="label">Number of Installments *</label>
@@ -140,15 +135,8 @@ export default function LoanForm({ borrowers, preselectBorrowerId, today, purpos
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          <p className="text-xs text-gray-400 mt-1">{frequency === 'monthly' ? 'Installments are due once a month — set the number of installments yourself.' : frequency === 'weekly' ? 'Installments are due every week — set the number of installments yourself.' : 'Installments are due every day.'}</p>
+          <p className="text-xs text-gray-400 mt-1">{frequency === 'monthly' ? 'Installments are due once a month — Total Payable = installment × number of installments.' : frequency === 'weekly' ? 'Installments are due every week — Total Payable = installment × number of installments.' : 'Installments are due every day.'}</p>
         </div>
-        {frequency !== 'daily' && (
-          <div>
-            <label className="label">{frequency === 'weekly' ? 'Weekly' : 'Monthly'} Loan Charge (%)</label>
-            <input type="number" step="0.01" min="0" className="input bg-amber-50" value={monthlyRate} onChange={(e) => { setMonthlyRate(e.target.value); setInstallmentTouched(false); }} />
-            <p className="text-xs text-gray-400 mt-1">Added to the loan to get the total payable (flat, over the whole loan) — editable.</p>
-          </div>
-        )}
         <div>
           <label className="label">Interest Type</label>
           <select name="interest_type" className="input">
