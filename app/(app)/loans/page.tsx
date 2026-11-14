@@ -3,6 +3,7 @@ import { getLoans } from '@/lib/data';
 import { money, statusBadgeClass, matchesIdGroup, inDateRange, formatDMY, sortByDate } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
+import ListExportButtons from '../ListExportButtons';
 
 export const metadata = { title: 'All Loans - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
@@ -18,9 +19,40 @@ export default async function LoansPage({ searchParams }: { searchParams: { q?: 
     (l) => (!searchParams.type || (l.repayment_frequency || 'daily') === searchParams.type) && matchesIdGroup(l.borrower_code, searchParams.ids) && inDateRange(l.disbursement_date, searchParams.from, searchParams.to)
   ), searchParams.order, (l) => l.disbursement_date || l.created_at);
 
+  const sum = (k: string) => loans.reduce((t, l) => t + Number(l[k] || 0), 0);
+  const filters = [
+    searchParams.q && `Search: ${searchParams.q}`,
+    searchParams.status && `Status: ${searchParams.status}`,
+    searchParams.type && `Type: ${typeLabel(searchParams.type)}`,
+    searchParams.ids && `Member IDs: ${searchParams.ids}`,
+    (searchParams.from || searchParams.to) && `Disbursed: ${searchParams.from ? formatDMY(searchParams.from) : 'start'} to ${searchParams.to ? formatDMY(searchParams.to) : 'today'}`,
+  ].filter(Boolean).join('  |  ') || 'All loans';
+  const listOpts = {
+    title: 'ALL LOANS',
+    ref: `Total: ${loans.length}`,
+    pairs: [['Loans', String(loans.length)], ['Filter', filters], ['Order', searchParams.order === 'desc' ? 'Newest → Oldest' : 'Oldest → Newest']] as [string, string][],
+    head: ['Loan Code', 'Member', 'Type', 'Loan Amount', 'Disbursed', 'Total Payable', 'Total Paid', 'Balance', 'Status'],
+    rows: loans.map((l) => [
+      l.loan_code, `${l.full_name} (${l.borrower_code})`, typeLabel(l.repayment_frequency), money(l.loan_amount),
+      l.disbursement_date ? formatDMY(l.disbursement_date) : '-', money(l.total_payable), money(l.total_paid), money(l.remaining_balance), String(l.status),
+    ]),
+    totals: ['TOTAL', '', '', money(sum('loan_amount')), '', money(sum('total_payable')), money(sum('total_paid')), money(sum('remaining_balance')), ''],
+    rightCols: [3, 5, 6, 7],
+    fontSize: 7,
+  };
+
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
-      <PageHeader title="All Loans" showBack={false} action={<Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>} />
+      <PageHeader
+        title="All Loans"
+        showBack={false}
+        action={
+          <div className="flex gap-2 flex-wrap items-start">
+            <ListExportButtons opts={listOpts} filename={`All-Loans-${new Date().toLocaleDateString('en-CA')}.pdf`} shareTitle="All loans" />
+            <Link href="/loans/new" className="btn btn-primary">🆕 New Loan</Link>
+          </div>
+        }
+      />
 
       <FilterBar extraActive={!!searchParams.type} basePath="/loans" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} order={searchParams.order} dateLabel="Disbursed" qPlaceholder="Loan code, member...">
         <div>

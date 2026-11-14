@@ -3,6 +3,7 @@ import { getBorrowers } from '@/lib/data';
 import { statusBadgeClass, matchesIdGroup, inDateRange, formatDMY, sortByDate } from '@/lib/utils';
 import FilterBar from '../FilterBar';
 import PageHeader from '../PageHeader';
+import ListExportButtons from '../ListExportButtons';
 
 export const metadata = { title: 'All Members - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
@@ -12,9 +13,31 @@ export default async function BorrowersPage({ searchParams }: { searchParams: { 
     (b) => matchesIdGroup(b.borrower_code, searchParams.ids) && inDateRange(b.created_at, searchParams.from, searchParams.to)
   ), searchParams.order, (b) => b.created_at);
 
+  const filters = [
+    searchParams.q && `Search: ${searchParams.q}`,
+    searchParams.ids && `Member IDs: ${searchParams.ids}`,
+    (searchParams.from || searchParams.to) && `Joined: ${searchParams.from ? formatDMY(searchParams.from) : 'start'} to ${searchParams.to ? formatDMY(searchParams.to) : 'today'}`,
+  ].filter(Boolean).join('  |  ') || 'All members';
+  const listOpts = {
+    title: 'ALL MEMBERS',
+    ref: `Total: ${borrowers.length}`,
+    pairs: [['Members', String(borrowers.length)], ['Filter', filters], ['Order', searchParams.order === 'desc' ? 'Newest → Oldest' : 'Oldest → Newest']] as [string, string][],
+    head: ['Member ID', 'Joined', 'Name', 'Phone', 'Loans', 'Status'],
+    rows: borrowers.map((b) => [b.borrower_code, formatDMY(b.created_at), b.full_name, b.phone || '', String(b.loan_count ?? 0), `${b.status}${b.overdue_count > 0 ? ' (overdue)' : ''}`]),
+  };
+
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-3rem)]">
-      <PageHeader title="All Members" showBack={false} action={<Link href="/borrowers/new" className="btn btn-primary">➕ Add Member</Link>} />
+      <PageHeader
+        title="All Members"
+        showBack={false}
+        action={
+          <div className="flex gap-2 flex-wrap items-start">
+            <ListExportButtons opts={listOpts} filename={`All-Members-${new Date().toLocaleDateString('en-CA')}.pdf`} shareTitle="All members" />
+            <Link href="/borrowers/new" className="btn btn-primary">➕ Add Member</Link>
+          </div>
+        }
+      />
 
       <FilterBar basePath="/borrowers" q={searchParams.q} ids={searchParams.ids} from={searchParams.from} to={searchParams.to} order={searchParams.order} dateLabel="Joined" qPlaceholder="Name, phone, NID..." />
 

@@ -10,7 +10,7 @@ import CashBookPdfButton from './CashBookPdfButton';
 export const metadata = { title: 'Cash Book - MicroLoan Admin' };
 export const dynamic = 'force-dynamic';
 
-type SP = { from?: string; to?: string; all?: string; cat?: string; q?: string; order?: string; error?: string };
+type SP = { from?: string; to?: string; cat?: string; q?: string; order?: string; error?: string };
 
 function monthBounds(iso: string) {
   const [y, m] = iso.split('-').map(Number);
@@ -22,11 +22,10 @@ function monthBounds(iso: string) {
 export default async function CashBookPage({ searchParams }: { searchParams: SP }) {
   const today = todayISO();
   const thisMonth = monthBounds(today);
-  const all = searchParams.all === '1';
-  // default view = this month; "All time" shows everything from the very first entry
-  const from = all ? '' : searchParams.from ?? (searchParams.to ? '' : thisMonth.from);
-  const to = all ? '' : searchParams.to ?? (searchParams.from ? '' : thisMonth.to);
-  const newestFirst = searchParams.order !== 'asc'; // latest date on top, like every other history
+  // Every entry is shown until you pick a From / To date.
+  const from = searchParams.from || '';
+  const to = searchParams.to || '';
+  const newestFirst = searchParams.order === 'desc'; // oldest first unless asked otherwise
 
   const book = await getCashBook({ from, to, category: searchParams.cat, search: searchParams.q });
   const used = await getUsedCashCategories();
@@ -44,13 +43,13 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
   const yearStart = `${today.slice(0, 4)}-01-01`;
   const quick = [
     ['Today', `/accounts?from=${today}&to=${today}`],
-    ['This Month', '/accounts'],
+    ['This Month', `/accounts?from=${thisMonth.from}&to=${thisMonth.to}`],
     ['Last Month', `/accounts?from=${lastMonth.from}&to=${lastMonth.to}`],
     ['This Year', `/accounts?from=${yearStart}&to=${today.slice(0, 4)}-12-31`],
-    ['All Time', '/accounts?all=1'],
+    ['All Dates', '/accounts'],
   ];
   const categories = Array.from(new Set([...CASH_IN_CATEGORIES, ...CASH_OUT_CATEGORIES, ...used]));
-  const periodLabel = all ? 'All time' : `${from ? formatDMY(from) : 'Start'}  to  ${to ? formatDMY(to) : 'Today'}`;
+  const periodLabel = !from && !to ? 'All dates' : `${from ? formatDMY(from) : 'Start'}  to  ${to ? formatDMY(to) : 'Today'}`;
   const pdfRows = rows.map((r) => ({ d: r.d, particulars: r.particulars, category: r.category, cashIn: r.dir === 'in' ? r.amount : 0, cashOut: r.dir === 'out' ? r.amount : 0, balance: r.balance }));
 
   return (
@@ -64,7 +63,7 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
             <Link href="/accounts/new?type=out" className="btn btn-danger">⬆ Cash Out</Link>
             <CashBookPdfButton
               rows={pdfRows}
-              summary={{ period: periodLabel, opening: book.opening, totalIn: book.totalIn, totalOut: book.totalOut, closing: book.closing, filtered: book.filtered }}
+              summary={{ period: periodLabel, opening: book.opening, totalIn: book.totalIn, totalOut: book.totalOut, closing: book.closing, filtered: book.filtered, category: searchParams.cat || '', search: searchParams.q || '' }}
             />
           </div>
         }
@@ -90,7 +89,7 @@ export default async function CashBookPage({ searchParams }: { searchParams: SP 
         <div><label className="label">Search</label><input name="q" defaultValue={searchParams.q || ''} placeholder="Name, loan, note…" className="input w-44" /></div>
         <div>
           <label className="label">Order</label>
-          <select name="order" defaultValue={newestFirst ? 'desc' : 'asc'} className="input w-36"><option value="desc">Newest first</option><option value="asc">Oldest first</option></select>
+          <select name="order" defaultValue={newestFirst ? 'desc' : 'asc'} className="input w-36"><option value="asc">Oldest → Newest</option><option value="desc">Newest → Oldest</option></select>
         </div>
         <button className="btn btn-primary">🔍 Show</button>
         {(searchParams.cat || searchParams.q) && <Link href="/accounts" className="btn btn-outline">Clear</Link>}

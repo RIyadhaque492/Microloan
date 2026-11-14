@@ -100,14 +100,13 @@ export default async function ReportsPage({
           </div>
           <div>
             <label className="label">Order</label>
-            <select name="order" defaultValue={searchParams.order || ''} className="input w-36">
-              <option value="">Default order</option>
-              <option value="desc">Newest → Oldest</option>
+            <select name="order" defaultValue={searchParams.order === 'desc' ? 'desc' : 'asc'} className="input w-36">
               <option value="asc">Oldest → Newest</option>
+              <option value="desc">Newest → Oldest</option>
             </select>
           </div>
           <button className="btn btn-primary">🔍 View Report</button>
-          {(searchParams.from || searchParams.to || searchParams.type || searchParams.order) && borrowerId > 0 && (
+          {(searchParams.from || searchParams.to || searchParams.type || searchParams.order === 'desc') && borrowerId > 0 && (
             <Link href={`/reports?mode=single&borrower=${borrowerId}`} className="btn btn-outline">Clear filters</Link>
           )}
         </form>

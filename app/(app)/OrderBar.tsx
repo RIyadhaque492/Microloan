@@ -9,14 +9,13 @@ export default function OrderBar({ order = '', keep = {}, label = 'Order' }: { o
       <label className="text-[11px] text-gray-500 font-normal">{label}</label>
       <select
         name="order"
-        defaultValue={order || ''}
+        defaultValue={order === 'desc' ? 'desc' : 'asc'}
         aria-label="Sort order"
         className="input !py-1 !px-2 !text-xs w-36"
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
       >
-        <option value="">Default order</option>
-        <option value="desc">Newest → Oldest</option>
         <option value="asc">Oldest → Newest</option>
+        <option value="desc">Newest → Oldest</option>
       </select>
     </form>
   );

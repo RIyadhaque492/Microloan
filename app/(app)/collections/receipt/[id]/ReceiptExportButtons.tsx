@@ -1,6 +1,6 @@
 'use client';
 
-import { titleCase, formatDMY } from '@/lib/utils';
+import { titleCase, formatDMY, amountInWords } from '@/lib/utils';
 import PdfPageViewer from '../../../PdfPageViewer';
 import ShareMenu from '../../../ShareMenu';
 
@@ -116,6 +116,8 @@ export default function ReceiptExportButtons({ receipt, shareText }: { receipt: 
                     <tr><td>Method</td><td>{titleCase(receipt.payment_method)}</td></tr>
                     {receipt.notes && <tr><td>Notes</td><td>{receipt.notes}</td></tr>}
                     <tr><td className="font-bold">Amount (In BDT):</td><td className="font-bold">{money(receipt.amount_paid)}</td></tr>
+                    <tr><td className="font-bold">Amount in Words (BDT):</td><td className="font-bold">{amountInWords(receipt.amount_paid)}</td></tr>
+                    <tr><td className="font-bold">Status</td><td className="font-bold" style={{ color: receipt.is_partial ? '#DC2626' : '#16823C' }}>{receipt.is_partial ? 'PARTIALLY PAID' : 'PAID'}</td></tr>
                   </tbody>
                 </table>
               )}

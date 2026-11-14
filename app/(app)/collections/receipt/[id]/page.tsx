@@ -13,13 +13,16 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
   const id = Number(params.id);
   if (!id || isNaN(id)) notFound();
   const [p] = await sql`
-    SELECT c.*, b.full_name, b.phone, b.borrower_code, l.loan_code
+    SELECT c.*, b.full_name, b.phone, b.borrower_code, l.loan_code, l.installment_amount AS loan_installment, l.status AS loan_status
     FROM collections c
     JOIN borrowers b ON b.id = c.borrower_id
     JOIN loans l ON l.id = c.loan_id
     WHERE c.id = ${id}
   `;
   if (!p) notFound();
+  // Fully paid = this payment covers the installment (or it closed the loan); anything less is a partial payment.
+  const partial = !(p.loan_status === 'completed' || Number(p.loan_installment || 0) <= 0 || Number(p.amount_paid) + 0.005 >= Number(p.loan_installment));
+  const receiptData = { ...p, is_partial: partial };
   const brand: any = await getSiteSettings();
   let docStyle: any = {};
   try { docStyle = brand?.doc_style ? JSON.parse(brand.doc_style) : {}; } catch {}
@@ -41,7 +44,8 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
     `Member: ${p.full_name} (${p.borrower_code})`,
     `Loan Code: ${p.loan_code}`,
     `Amount (In BDT): ${money(p.amount_paid)}`,
-    `In words: ${amountInWords(p.amount_paid)}`,
+    `Amount in Words (BDT): ${amountInWords(p.amount_paid)}`,
+    `Status: ${partial ? 'PARTIALLY PAID' : 'PAID'}`,
     `Method: ${titleCase(p.payment_method)}`,
   ].join('\n');
 
@@ -70,11 +74,14 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
           <span className="font-semibold text-sm">Amount (In BDT):</span>
           <span className="font-bold text-teal text-xl">{money(p.amount_paid)}</span>
         </div>
-        <p className="font-bold text-teal text-xl leading-snug -mt-1 mb-3 text-left">{amountInWords(p.amount_paid)}</p>
+        <div className="text-left -mt-1 mb-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Amount in Words (BDT):</div>
+          <p className="font-bold text-teal text-xl leading-snug">{amountInWords(p.amount_paid)}</p>
+        </div>
 
         <div className="flex justify-end mb-3 pr-2" aria-label="Paid">
-          <div className="-rotate-6 text-center border-4 border-double border-green-600 text-green-600 rounded-lg px-4 py-1 select-none">
-            <div className="text-2xl font-extrabold tracking-[0.25em] pl-[0.25em] leading-tight">PAID</div>
+          <div className={`-rotate-6 text-center border-4 border-double rounded-lg px-4 py-1 select-none ${partial ? 'border-red-600 text-red-600' : 'border-green-600 text-green-600'}`}>
+            <div className={`font-extrabold leading-tight ${partial ? 'text-lg tracking-[0.12em] pl-[0.12em]' : 'text-2xl tracking-[0.25em] pl-[0.25em]'}`}>{partial ? 'PARTIALLY PAID' : 'PAID'}</div>
             <div className="text-[10px] font-semibold leading-none pb-0.5">{formatDMY(p.payment_date)}</div>
           </div>
         </div>
@@ -88,7 +95,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
         )}
 
         <div className="flex flex-col gap-2">
-          <ReceiptExportButtons receipt={p} shareText={shareText} />
+          <ReceiptExportButtons receipt={receiptData} shareText={shareText} />
           <div className="grid grid-cols-3 gap-2">
             <Link href={`/collections/edit/${p.id}`} className="btn btn-outline !px-2 !py-1.5 text-xs">✏️ Edit</Link>
             <form action={deleteCollectionAction.bind(null, p.id)} className="contents">

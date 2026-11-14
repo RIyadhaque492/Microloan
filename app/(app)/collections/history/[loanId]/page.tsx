@@ -29,8 +29,8 @@ export default async function LoanTransactionHistoryPage({ params, searchParams 
     running += Number(p.amount_paid);
     return { ...p, sl: i + 1, cumulativePaid: running, rowRemaining: Math.max(0, Number(loan.total_payable) - running) };
   });
-  // default and "Newest → Oldest" = latest date first; "Oldest → Newest" = date order
-  const ordered = searchParams.order === 'asc' ? withTotals : [...withTotals].reverse();
+  // oldest first (date order) unless "Newest → Oldest" is chosen
+  const ordered = searchParams.order === 'desc' ? [...withTotals].reverse() : withTotals;
 
   return (
     // One-screen layout: the page never scrolls; only the table body scrolls if it has many rows.

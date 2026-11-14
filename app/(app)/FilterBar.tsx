@@ -29,7 +29,7 @@ export default function FilterBar({
   showOrder?: boolean;
   children?: React.ReactNode;
 }) {
-  const active = !!(q || ids || from || to || extraActive || order);
+  const active = !!(q || ids || from || to || extraActive || order === 'desc');
   return (
     <form className="flex gap-2 flex-wrap items-end mb-2 flex-shrink-0">
       <div>
@@ -56,10 +56,9 @@ export default function FilterBar({
       {showOrder && (
         <div>
           <label className="text-[10px] text-gray-500 block leading-tight">Order</label>
-          <select name="order" defaultValue={order || ''} className="input w-36 !py-1 !text-sm" aria-label="Sort order">
-            <option value="">Default order</option>
-            <option value="desc">Newest → Oldest</option>
+          <select name="order" defaultValue={order === 'desc' ? 'desc' : 'asc'} className="input w-36 !py-1 !text-sm" aria-label="Sort order">
             <option value="asc">Oldest → Newest</option>
+            <option value="desc">Newest → Oldest</option>
           </select>
         </div>
       )}

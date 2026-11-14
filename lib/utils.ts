@@ -301,15 +301,14 @@ export function toISODate(value: any): string {
 }
 
 
-/** Sort order chosen on a list page: '' = the page's own default, 'asc' = oldest first, 'desc' = newest first. */
+/** Sort order on a list page: oldest first ('asc', also when nothing is chosen) or newest first ('desc'). */
 export type ListOrder = '' | 'asc' | 'desc';
 export const parseOrder = (v?: string): ListOrder => (v === 'asc' || v === 'desc' ? v : '');
 
-/** Sorts rows by a date (oldest->newest or newest->oldest). Rows without a date go last; ties follow the row id
- *  in the same direction (so the latest entry of a day is first when newest-first). '' keeps the order as given. */
+/** Sorts rows by a date. Oldest first unless 'desc' is asked for. Rows without a date go last; ties follow the row id
+ *  in the same direction. */
 export function sortByDate<T>(rows: T[], order: string | undefined, getDate: (r: T) => any): T[] {
-  const o = parseOrder(order);
-  if (!o) return rows;
+  const o = parseOrder(order) || 'asc';
   const key = (r: T) => {
     const v = getDate(r);
     if (!v) return null;

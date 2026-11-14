@@ -163,3 +163,9 @@
 
 ## Update 46
 - Weekly and monthly loans: no automatic charge calculation any more. Type the installment amount and the number of installments; **Total Payable = installment amount × number of installments** (shown live). Daily loans still suggest 1% of the loan as the installment.
+
+## Update 47
+- **Receipt**: label "Amount in Words (BDT):" added (screen, PDF, Excel, preview). The seal is **green "PAID"** when the payment covers the installment (or closes the loan) and **red "PARTIALLY PAID"** when less than the installment was paid. Excel shows the same status.
+- **Oldest first everywhere**: every table and list now opens oldest → newest (Order dropdown still lets you flip to Newest → Oldest). Includes Cash Book, transaction/savings history, reports, bin, notifications.
+- **Cash Book** shows all dates until you choose From / To (no more one-month default). The PDF now has a **Category** column and prints the active category / search.
+- **Share** (Telegram, Gmail, Messenger, WhatsApp, More apps) plus PDF download on the Cash Book, All Members and All Loans pages — the PDF follows the current search, filters and order.

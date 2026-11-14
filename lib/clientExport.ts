@@ -745,26 +745,32 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
 
   // Amount in words, directly under the Amount Paid box
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 110, 120);
+  doc.text('AMOUNT IN WORDS (BDT):', 22, afterTable + 22);
   doc.setFontSize(15); // same size and colour as the Amount Paid figure
   doc.setTextColor(20, 149, 143);
   const words = doc.splitTextToSize(amountInWords(receipt.amount_paid), 168);
-  doc.text(words, 22, afterTable + 25);
+  doc.text(words, 22, afterTable + 29);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
 
-  // PAID seal (bottom right, kept clear of the amount in words above and the footer below)
+  // Seal (bottom right, kept clear of the amount in words above and the footer below):
+  // green PAID for a full installment, red PARTIALLY PAID when less than the installment was paid.
   {
+    const partial = !!receipt.is_partial;
+    const col: [number, number, number] = partial ? [200, 30, 30] : [22, 130, 60];
     const sx = 190 - 46;
-    const sy = Math.min(afterTable + 25 + 6.5 * words.length + 4, 156);
-    doc.setDrawColor(22, 130, 60);
-    doc.setTextColor(22, 130, 60);
+    const sy = Math.min(afterTable + 29 + 6.5 * words.length + 3, 157);
+    doc.setDrawColor(...col);
+    doc.setTextColor(...col);
     doc.setLineWidth(0.9);
     doc.roundedRect(sx, sy, 46, 19, 2.5, 2.5);
     doc.setLineWidth(0.3);
     doc.roundedRect(sx + 1.6, sy + 1.6, 46 - 3.2, 19 - 3.2, 1.8, 1.8);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.text('PAID', sx + 23, sy + 11.2, { align: 'center', charSpace: 1.5 });
+    doc.setFontSize(partial ? 11 : 20);
+    doc.text(partial ? 'PARTIALLY PAID' : 'PAID', sx + 23, sy + 11.2, { align: 'center', charSpace: partial ? 0.6 : 1.5 });
     doc.setFontSize(7.5);
     doc.text(formatDMY(receipt.payment_date), sx + 23, sy + 16, { align: 'center' });
     doc.setFont('helvetica', 'normal');
@@ -1068,13 +1074,13 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
     ['Loan Code', receipt.loan_code],
     ['Particulars', receipt.notes || 'Installment'],
     ['Payment Method', titleCase(receipt.payment_method)],
-    ['Status', 'PAID'],
+    ['Status', receipt.is_partial ? 'PARTIALLY PAID' : 'PAID'],
   ];
 
   for (const [label, value] of fields) {
     const row = ws.addRow([label, value]);
     row.getCell(1).font = { bold: true, color: { argb: BRAND_NAVY } };
-    if (label === 'Status') row.getCell(2).font = { bold: true, color: { argb: 'FF16823C' } };
+    if (label === 'Status') row.getCell(2).font = { bold: true, color: { argb: receipt.is_partial ? 'FFDC2626' : 'FF16823C' } };
     if (value instanceof Date) {
       row.getCell(2).numFmt = 'dd-mm-yyyy';
       row.getCell(2).alignment = { horizontal: 'left' };
@@ -1088,6 +1094,9 @@ export async function buildReceiptExcelBlob(receipt: any): Promise<Blob> {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F6F5' } };
   });
   amountRow.getCell(2).numFmt = MONEY_FMT;
+  const wordsRow = ws.addRow(['Amount in Words (BDT):', amountInWords(receipt.amount_paid)]);
+  wordsRow.getCell(1).font = { bold: true, color: { argb: BRAND_NAVY } };
+  wordsRow.getCell(2).font = { bold: true, color: { argb: BRAND_TEAL } };
 
   autoWidth(ws, 2, [20, 32], 3);
 
@@ -1658,7 +1667,7 @@ export async function buildLoanApplicationPdfBlob(loan: any, member: any, instal
 /** CASH BOOK — the period shown on screen as a printable A4 PDF with your header and footer. */
 export async function buildCashBookPdfBlob(
   rows: { d: string; particulars: string; category: string; cashIn: number; cashOut: number; balance: number | null }[],
-  summary: { period: string; opening: number; totalIn: number; totalOut: number; closing: number; filtered: boolean }
+  summary: { period: string; opening: number; totalIn: number; totalOut: number; closing: number; filtered: boolean; category?: string; search?: string }
 ): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
@@ -1669,22 +1678,24 @@ export async function buildCashBookPdfBlob(
   const doc = new jsPDF();
 
   const pairs: [string, string][] = [['Period', summary.period]];
+  if (summary.category) pairs.push(['Category', summary.category]);
+  if (summary.search) pairs.push(['Search', summary.search]);
   if (!summary.filtered) pairs.push(['Opening Balance', docMoney(summary.opening)]);
   pairs.push(['Total Cash In', docMoney(summary.totalIn)], ['Total Cash Out', docMoney(summary.totalOut)]);
   pairs.push(summary.filtered ? ['Net (In - Out)', docMoney(summary.totalIn - summary.totalOut)] : ['Closing Balance', docMoney(summary.closing)]);
   let y = docKeyValues(doc, autoTable, DOC_TOP + 2, pairs) + 6;
 
   const showBal = !summary.filtered;
-  const head = [['Date', 'Particulars', 'Cash In', 'Cash Out', ...(showBal ? ['Balance'] : [])]];
+  const head = [['Date', 'Particulars', 'Category', 'Cash In', 'Cash Out', ...(showBal ? ['Balance'] : [])]];
   const body: string[][] = rows.map((r) => [
-    fmtDate(r.d), `${r.particulars}`,
+    fmtDate(r.d), `${r.particulars}`, r.category || '',
     r.cashIn ? money(r.cashIn) : '', r.cashOut ? money(r.cashOut) : '',
     ...(showBal ? [r.balance == null ? '' : money(r.balance)] : []),
   ]);
-  if (!body.length) body.push(['', 'No cash entries in this period.', '', '', ...(showBal ? [''] : [])]);
-  body.push(['', 'TOTAL', money(summary.totalIn), money(summary.totalOut), ...(showBal ? [money(summary.closing)] : [])]);
+  if (!body.length) body.push(['', 'No cash entries in this period.', '', '', '', ...(showBal ? [''] : [])]);
+  body.push(['', 'TOTAL', '', money(summary.totalIn), money(summary.totalOut), ...(showBal ? [money(summary.closing)] : [])]);
 
-  const right: any = showBal ? { 2: { halign: 'right', cellWidth: 24 }, 3: { halign: 'right', cellWidth: 24 }, 4: { halign: 'right', cellWidth: 26 } } : { 2: { halign: 'right', cellWidth: 28 }, 3: { halign: 'right', cellWidth: 28 } };
+  const right: any = showBal ? { 2: { cellWidth: 30 }, 3: { halign: 'right', cellWidth: 22 }, 4: { halign: 'right', cellWidth: 22 }, 5: { halign: 'right', cellWidth: 24 } } : { 2: { cellWidth: 34 }, 3: { halign: 'right', cellWidth: 26 }, 4: { halign: 'right', cellWidth: 26 } };
   autoTable(doc, {
     startY: y,
     head,
@@ -1703,5 +1714,52 @@ export async function buildCashBookPdfBlob(
   });
 
   drawDocChrome(doc, branding, 'CASH BOOK', summary.period);
+  return doc.output('blob');
+}
+
+
+/** MEMBERS / LOANS lists — the list as shown on screen (same search, filters and order) as a printable A4 PDF. */
+export async function buildListPdfBlob(opts: {
+  title: string;
+  ref: string;
+  pairs: [string, string][];
+  head: string[];
+  rows: string[][];
+  totals?: string[];
+  rightCols?: number[];
+  fontSize?: number;
+}): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const branding = await loadBranding();
+  activeBranding = branding;
+  PAGE_W = 210;
+  PAGE_H = 297;
+  const doc = new jsPDF();
+
+  const y = docKeyValues(doc, autoTable, DOC_TOP + 2, opts.pairs) + 6;
+  const body = opts.rows.map((r) => r.map((c) => String(c ?? '')));
+  if (!body.length) body.push(['', 'Nothing found for this search.', ...opts.head.slice(2).map(() => '')]);
+  if (opts.totals) body.push(opts.totals);
+  const columnStyles: any = {};
+  for (const c of opts.rightCols || []) columnStyles[c] = { halign: 'right' };
+  autoTable(doc, {
+    startY: y,
+    head: [opts.head],
+    body,
+    theme: 'grid',
+    headStyles: { fillColor: RGB_NAVY, textColor: [255, 255, 255], fontSize: (opts.fontSize || 8) + 0.5, halign: 'center' },
+    styles: { fontSize: opts.fontSize || 8, cellPadding: 1.5, lineColor: [200, 214, 224], lineWidth: 0.2, textColor: [30, 41, 59], valign: 'middle', overflow: 'linebreak' },
+    columnStyles,
+    didParseCell: (d: any) => {
+      if (opts.totals && d.section === 'body' && d.row.index === body.length - 1) {
+        d.cell.styles.fontStyle = 'bold';
+        d.cell.styles.fillColor = RGB_TEAL_LIGHT;
+      }
+    },
+    margin: { left: 16, right: 16, top: DOC_TOP, bottom: DOC_BOTTOM },
+  });
+
+  drawDocChrome(doc, branding, opts.title, opts.ref);
   return doc.output('blob');
 }

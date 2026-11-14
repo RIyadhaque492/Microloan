@@ -102,8 +102,8 @@ export default async function MemberSavingsPage({ params, searchParams }: { para
                     running += t.type === 'deposit' ? Number(t.amount) : -Number(t.amount);
                     return { ...t, sl: i + 1, net: running };
                   });
-                  // default and "Newest → Oldest" = latest date first; "Oldest → Newest" = date order
-                  return (searchParams.order === 'asc' ? withNet : withNet.reverse())
+                  // oldest first (date order) unless "Newest → Oldest" is chosen
+                  return (searchParams.order === 'desc' ? withNet.reverse() : withNet)
                     .map((t) => (
                       <tr key={t.id}>
                         <td>{t.sl}</td>
