@@ -47,12 +47,13 @@ function previewStyle(st: Style, kind: 'header' | 'footer'): React.CSSProperties
 
 /** Header text + footer lines, each with a small text-edit toolbar (bold, italic, size, colour, alignment). */
 export default function DocStyleEditor({
-  initialHeader, initialAddress, initialContact, initialEmail, initialStyle, logoSrc,
+  initialHeader, initialRegNo, initialAddress, initialContact, initialEmail, initialStyle, logoSrc,
 }: {
-  initialHeader: string; initialAddress: string; initialContact: string; initialEmail: string; initialStyle: string | null; logoSrc: string;
+  initialHeader: string; initialRegNo: string; initialAddress: string; initialContact: string; initialEmail: string; initialStyle: string | null; logoSrc: string;
 }) {
   const init = parse(initialStyle);
   const [header, setHeader] = useState(initialHeader);
+  const [regNo, setRegNo] = useState(initialRegNo);
   const [address, setAddress] = useState(initialAddress);
   const [contact, setContact] = useState(initialContact);
   const [email, setEmail] = useState(initialEmail);
@@ -67,6 +68,12 @@ export default function DocStyleEditor({
         <label className="label">Header Text</label>
         <input name="doc_header_text" value={header} onChange={(e) => setHeader(e.target.value)} className="input" placeholder="e.g. Your Company Name" maxLength={200} />
         <div className="mt-2"><Toolbar value={hs} onChange={setHs} /></div>
+      </div>
+
+      <div>
+        <label className="label">Company Registration Number</label>
+        <input name="doc_reg_no" value={regNo} onChange={(e) => setRegNo(e.target.value)} className="input" placeholder="e.g. 05/2020" maxLength={100} />
+        <p className="text-xs text-gray-400 mt-1">Printed as “Reg. No.: …” right under the header text on every PDF (letters, receipts, reports).</p>
       </div>
 
       <div>
@@ -91,7 +98,7 @@ export default function DocStyleEditor({
         <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-2">Preview</div>
         <div className="flex items-center gap-2 pb-2 border-b-2" style={{ borderColor: hs.color }}>
           {logoSrc && <img src={logoSrc} alt="" className="h-9 w-auto max-w-[90px] object-contain" />}
-          <div className="flex-1" style={previewStyle(hs, 'header')}>{header || 'Header text'}</div>
+          <div className="flex-1" style={previewStyle(hs, 'header')}>{header || 'Header text'}{regNo && <div style={{ fontSize: 11 }}>Reg. No.: {regNo}</div>}</div>
         </div>
         <div className="h-10 flex items-center justify-center text-xs text-gray-300">— report / receipt content —</div>
         <div className="pt-1.5 border-t" style={{ borderColor: hs.color, ...previewStyle(fs, 'footer') }}>

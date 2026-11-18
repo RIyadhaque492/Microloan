@@ -233,3 +233,7 @@ CREATE TABLE IF NOT EXISTS appointment_letters (
     signatory_title VARCHAR(100) NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Update 49: company registration number (document header), appointment address, employees
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS doc_reg_no VARCHAR(100) NOT NULL DEFAULT '';
+ALTER TABLE appointment_letters ADD COLUMN IF NOT EXISTS address VARCHAR(300) NOT NULL DEFAULT '';

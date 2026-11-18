@@ -11,6 +11,7 @@ import { DELETE_PASSWORD } from './deletePin';
 import { ensureCashTable } from './accounts';
 import { saveMemberExtras } from './memberExtras';
 import { ensureAppointmentTable } from './office';
+import { ensureEmployeeTable } from './employees';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -269,23 +270,76 @@ export async function saveAppointmentAction(id: number, formData: FormData) {
   if (!designation) fail('Enter the designation.');
   if (!Number.isFinite(salary) || salary < 0) fail('Enter the salary as a number.');
   const v = {
-    contact: t('contact', 100), org: t('organization', 200), resp: t('responsibilities', 3000), rules: t('rules', 3000),
+    contact: t('contact', 100), address: t('address', 300), org: t('organization', 200), resp: t('responsibilities', 3000), rules: t('rules', 3000),
     sname: t('signatory_name', 150), stitle: t('signatory_title', 100),
   };
   const letterDate = isoOrNull('letter_date');
   const effective = isoOrNull('effective_date');
   await ensureAppointmentTable();
   if (id) {
-    await sql`UPDATE appointment_letters SET letter_date = ${letterDate}::date, employee_name = ${name}, designation = ${designation}, contact = ${v.contact},
+    await sql`UPDATE appointment_letters SET letter_date = ${letterDate}::date, employee_name = ${name}, designation = ${designation}, contact = ${v.contact}, address = ${v.address},
       effective_date = ${effective}::date, salary = ${salary}, organization = ${v.org}, responsibilities = ${v.resp}, rules = ${v.rules},
       signatory_name = ${v.sname}, signatory_title = ${v.stitle} WHERE id = ${id}`;
   } else {
-    await sql`INSERT INTO appointment_letters (letter_date, employee_name, designation, contact, effective_date, salary, organization, responsibilities, rules, signatory_name, signatory_title)
-      VALUES (${letterDate}::date, ${name}, ${designation}, ${v.contact}, ${effective}::date, ${salary}, ${v.org}, ${v.resp}, ${v.rules}, ${v.sname}, ${v.stitle})`;
+    await sql`INSERT INTO appointment_letters (letter_date, employee_name, designation, contact, address, effective_date, salary, organization, responsibilities, rules, signatory_name, signatory_title)
+      VALUES (${letterDate}::date, ${name}, ${designation}, ${v.contact}, ${v.address}, ${effective}::date, ${salary}, ${v.org}, ${v.resp}, ${v.rules}, ${v.sname}, ${v.stitle})`;
   }
   revalidatePath('/office/appointments');
   setFlash(id ? 'Appointment letter updated' : 'Appointment letter saved — use PDF or Share');
   redirect('/office/appointments');
+}
+
+/** Creates (id = 0) or updates an employee record with all personal / job details. */
+export async function saveEmployeeAction(id: number, formData: FormData) {
+  await requireAdmin();
+  const t = (k: string, max: number) => String(formData.get(k) || '').trim().slice(0, max);
+  const isoOrNull = (k: string) => { const v = String(formData.get(k) || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; };
+  const back = id ? `/office/employees/${id}/edit` : '/office/employees/new';
+  const fail = (msg: string) => redirect(`${back}?error=${encodeURIComponent(msg)}`);
+  const name = t('full_name', 150);
+  if (!name) fail('Enter the employee name.');
+  const salaryText = String(formData.get('salary') || '').replace(/,/g, '').trim();
+  const salary = salaryText === '' ? 0 : Number(salaryText);
+  if (!Number.isFinite(salary) || salary < 0) fail('Enter the salary as a number.');
+  const v = {
+    code: t('employee_code', 50), designation: t('designation', 100), phone: t('phone', 50), email: t('email', 150), nid: t('nid_no', 50),
+    gender: t('gender', 20), marital: t('marital_status', 30), religion: t('religion', 50), nationality: t('nationality', 50), blood: t('blood_group', 10),
+    father: t('father_name', 150), mother: t('mother_name', 150), spouse: t('spouse_name', 150), qual: t('qualification', 200),
+    present: t('present_address', 300), permanent: t('permanent_address', 300), status: t('status', 20) || 'Active',
+    ename: t('emergency_name', 150), ephone: t('emergency_phone', 50), erel: t('emergency_relation', 50), bank: t('bank_account', 100), other: t('other_info', 3000),
+  };
+  const dob = isoOrNull('date_of_birth');
+  const joined = isoOrNull('joining_date');
+  await ensureEmployeeTable();
+  if (id) {
+    await sql`UPDATE employees SET employee_code = ${v.code}, full_name = ${name}, designation = ${v.designation}, phone = ${v.phone}, email = ${v.email},
+      nid_no = ${v.nid}, date_of_birth = ${dob}::date, gender = ${v.gender}, marital_status = ${v.marital}, religion = ${v.religion},
+      nationality = ${v.nationality}, blood_group = ${v.blood}, father_name = ${v.father}, mother_name = ${v.mother}, spouse_name = ${v.spouse},
+      qualification = ${v.qual}, present_address = ${v.present}, permanent_address = ${v.permanent}, joining_date = ${joined}::date, salary = ${salary},
+      status = ${v.status}, emergency_name = ${v.ename}, emergency_phone = ${v.ephone}, emergency_relation = ${v.erel}, bank_account = ${v.bank},
+      other_info = ${v.other} WHERE id = ${id}`;
+  } else {
+    await sql`INSERT INTO employees (employee_code, full_name, designation, phone, email, nid_no, date_of_birth, gender, marital_status, religion,
+      nationality, blood_group, father_name, mother_name, spouse_name, qualification, present_address, permanent_address, joining_date, salary,
+      status, emergency_name, emergency_phone, emergency_relation, bank_account, other_info)
+      VALUES (${v.code}, ${name}, ${v.designation}, ${v.phone}, ${v.email}, ${v.nid}, ${dob}::date, ${v.gender}, ${v.marital}, ${v.religion},
+      ${v.nationality}, ${v.blood}, ${v.father}, ${v.mother}, ${v.spouse}, ${v.qual}, ${v.present}, ${v.permanent}, ${joined}::date, ${salary},
+      ${v.status}, ${v.ename}, ${v.ephone}, ${v.erel}, ${v.bank}, ${v.other})`;
+  }
+  revalidatePath('/office/employees');
+  setFlash(id ? 'Employee updated' : 'Employee saved');
+  redirect('/office/employees');
+}
+
+/** Deletes an employee record (admin password). */
+export async function deleteEmployeeAction(id: number, formData?: FormData) {
+  await requireAdmin();
+  checkDeletePassword(formData, '/office/employees');
+  await ensureEmployeeTable();
+  await sql`DELETE FROM employees WHERE id = ${id}`;
+  revalidatePath('/office/employees');
+  setFlash('Employee deleted');
+  redirect('/office/employees');
 }
 
 /** Deletes an appointment letter record (admin password). */
@@ -1046,8 +1100,10 @@ export async function updateDocumentBrandingAction(formData: FormData) {
       await sql`UPDATE site_settings SET doc_logo_data = NULL, doc_logo_mime = NULL WHERE id = 1`;
     }
 
+    await sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS doc_reg_no VARCHAR(100) NOT NULL DEFAULT ''`;
     await sql`
       UPDATE site_settings SET
+        doc_reg_no = ${String(formData.get('doc_reg_no') || '').trim().slice(0, 100)},
         doc_header_text = ${String(formData.get('doc_header_text') || '')},
         doc_footer_address = ${String(formData.get('doc_footer_address') || '')},
         doc_footer_contact = ${String(formData.get('doc_footer_contact') || '')},

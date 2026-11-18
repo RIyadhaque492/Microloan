@@ -25,6 +25,10 @@ function currentPageTitle(pathname: string): string {
   if (pathname === '/notifications') return 'Notifications';
   if (pathname === '/settings') return 'Website Settings';
   if (pathname === '/bin') return 'Bin';
+  if (pathname === '/office/employees/new') return 'New Employee';
+  if (/^\/office\/employees\/\d+\/edit/.test(pathname)) return 'Edit Employee';
+  if (pathname.startsWith('/office/employees/')) return 'Employee Details';
+  if (pathname === '/office/employees') return 'Employees';
   if (pathname === '/office/appointments/new') return 'New Appointment Letter';
   if (pathname.startsWith('/office/appointments/')) return 'Edit Appointment Letter';
   if (pathname === '/office/appointments') return 'Appointment Letters';
@@ -64,6 +68,7 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
   const isCalculator = pathname.startsWith('/calculator');
   const isSavings = pathname.startsWith('/savings');
   const isAccounts = pathname.startsWith('/accounts');
+  const isEmployees = pathname.startsWith('/office/employees');
   const isAppointments = pathname.startsWith('/office/appointments');
   const isReports = pathname.startsWith('/reports');
   const isNotifications = pathname.startsWith('/notifications');
@@ -137,6 +142,7 @@ export default function Sidebar({ name, role, unread }: { name?: string; role?: 
           <Link href="/accounts" prefetch={false} className={linkClass(isAccounts)}>📒 Cash Book</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Office Information</div>
+          <Link href="/office/employees" prefetch={false} className={`${linkClass(isEmployees)} !pl-8`}>👥 Employees</Link>
           <Link href="/office/appointments" prefetch={false} className={`${linkClass(isAppointments)} !pl-8`}>📄 Appointment Letter</Link>
 
           <div className="px-5 pt-4 pb-1 text-xs uppercase text-gray-400 font-semibold">Alerts</div>

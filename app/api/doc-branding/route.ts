@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic';
  *  Protected by the login middleware like every non-public route. */
 export async function GET() {
   try {
+    await sql`ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS doc_reg_no VARCHAR(100) NOT NULL DEFAULT ''`.catch(() => null);
     const [row] = await sql`
-      SELECT doc_header_text, doc_logo_data, doc_logo_mime, doc_footer_address, doc_footer_contact, doc_footer_email, doc_style
+      SELECT doc_header_text, doc_logo_data, doc_logo_mime, doc_footer_address, doc_footer_contact, doc_footer_email, doc_style, doc_reg_no
       FROM site_settings WHERE id = 1
     `;
     return Response.json(
@@ -17,6 +18,7 @@ export async function GET() {
         footerAddress: row?.doc_footer_address || '',
         footerContact: row?.doc_footer_contact || '',
         footerEmail: row?.doc_footer_email || '',
+        regNo: row?.doc_reg_no || '',
         style: (() => { try { return row?.doc_style ? JSON.parse(row.doc_style) : {}; } catch { return {}; } })(),
       },
       { headers: { 'Cache-Control': 'no-store' } }

@@ -44,6 +44,7 @@ type Branding = {
   footerAddress: string;
   footerContact: string;
   footerEmail: string;
+  regNo: string;
   headerStyle: TextStyle;
   footerStyle: TextStyle;
   logo: { dataUrl: string; format: 'PNG' | 'JPEG'; ratio: number } | null;
@@ -103,11 +104,12 @@ async function loadBranding(): Promise<Branding | null> {
       footerAddress: j.footerAddress || '',
       footerContact: j.footerContact || '',
       footerEmail: j.footerEmail || '',
+      regNo: String(j.regNo || '').trim(),
       headerStyle: mergeStyle(DEFAULT_HEADER_STYLE, j.style?.header),
       footerStyle: mergeStyle(DEFAULT_FOOTER_STYLE, j.style?.footer),
       logo,
     };
-    return b.headerText || b.footerAddress || b.footerContact || b.footerEmail || b.logo ? b : null;
+    return b.headerText || b.regNo || b.footerAddress || b.footerContact || b.footerEmail || b.logo ? b : null;
   } catch {
     return null;
   }
@@ -125,6 +127,19 @@ function drawHeaderText(doc: any, b: Branding, xStart: number, xEnd: number, y: 
   doc.setFontSize(HEADER_PT[kind][st.size]);
   doc.setTextColor(...hexToRgb(st.color));
   const t = fitTextWidth(doc, b.headerText, xEnd - xStart);
+  if (st.align === 'center') doc.text(t, (xStart + xEnd) / 2, y, { align: 'center' });
+  else if (st.align === 'right') doc.text(t, xEnd, y, { align: 'right' });
+  else doc.text(t, xStart, y);
+}
+
+/** Small "Reg. No.: …" line under the header text, aligned like the header text. */
+function drawRegNo(doc: any, b: Branding | null, xStart: number, xEnd: number, y: number) {
+  if (!b || !b.regNo) return;
+  const st = b.headerStyle;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...hexToRgb(st.color));
+  const t = fitTextWidth(doc, `Reg. No.: ${b.regNo}`, xEnd - xStart);
   if (st.align === 'center') doc.text(t, (xStart + xEnd) / 2, y, { align: 'center' });
   else if (st.align === 'right') doc.text(t, xEnd, y, { align: 'right' });
   else doc.text(t, xStart, y);
@@ -198,6 +213,7 @@ function drawBanner(doc: any, title: string, subtitle: string) {
       x = 11 + w + 4;
     }
     drawHeaderText(doc, b, x, PAGE_W - 12, 15, 'report');
+    drawRegNo(doc, b, x, PAGE_W - 12, 18.8);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(90, 100, 110);
@@ -503,6 +519,7 @@ export async function buildReportPdfFromElement(el: HTMLElement): Promise<Blob> 
         hx = 11 + w + 4;
       }
       drawHeaderText(doc, b, hx, PAGE_W - 12, 17, 'report');
+      drawRegNo(doc, b, hx, PAGE_W - 12, 21);
       doc.setDrawColor(...hexToRgb(b.headerStyle.color));
       doc.setLineWidth(0.8);
       doc.line(10, 23.5, PAGE_W - 10, 23.5);
@@ -685,6 +702,7 @@ export async function buildReceiptPdfBlob(receipt: any): Promise<Blob> {
       x = 20 + w + 5;
     }
     drawHeaderText(doc, branding, x, 190, 27, 'receipt');
+    drawRegNo(doc, branding, x, 190, 31);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     doc.setTextColor(20, 149, 143);
@@ -1337,6 +1355,7 @@ function drawDocChrome(doc: any, branding: Branding | null, title: string, ref: 
     }
     if (branding?.headerText) {
       drawHeaderText(doc, branding, x, 194, 26, 'receipt');
+      drawRegNo(doc, branding, x, 194, 31.2);
     } else {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(18);
@@ -1771,6 +1790,7 @@ export async function buildAppointmentLetterPdfBlob(letter: {
   employee_name: string;
   designation: string;
   contact?: string;
+  address?: string;
   effective_date?: string;
   salary?: number | string;
   organization?: string;
@@ -1836,7 +1856,11 @@ export async function buildAppointmentLetterPdfBlob(letter: {
   para('To,', '', { bold: true, gap: 0.4 });
   para('', name, { bold: true, gap: 0.4 });
   para('Designation:', designation, { gap: 0.4 });
-  if (letter.contact) para('Contact:', String(letter.contact), { gap: 3 }); else y += 2.6;
+  const hasContact = !!letter.contact;
+  const hasAddress = !!String(letter.address || '').trim();
+  if (hasContact) para('Contact:', String(letter.contact), { gap: hasAddress ? 0.4 : 3 });
+  if (hasAddress) para('Address:', String(letter.address).trim(), { gap: 3 });
+  if (!hasContact && !hasAddress) y += 2.6;
 
   para('', `Subject: Appointment as ${designation}`, { bold: true, color: RGB_NAVY, gap: 3 });
   para('', `Dear ${name},`, { gap: 2 });

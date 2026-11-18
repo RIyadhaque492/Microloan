@@ -6,6 +6,7 @@ export type AppointmentLetter = {
   employee_name: string;
   designation: string;
   contact: string;
+  address: string;
   effective_date: string; // YYYY-MM-DD or ''
   salary: number;
   organization: string;
@@ -32,9 +33,10 @@ export async function ensureAppointmentTable() {
       signatory_title VARCHAR(100) NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`;
+  await sql`ALTER TABLE appointment_letters ADD COLUMN IF NOT EXISTS address VARCHAR(300) NOT NULL DEFAULT ''`;
 }
 
-const COLS = `id, to_char(letter_date, 'YYYY-MM-DD') AS letter_date, employee_name, designation, contact,
+const COLS = `id, to_char(letter_date, 'YYYY-MM-DD') AS letter_date, employee_name, designation, contact, address,
   to_char(effective_date, 'YYYY-MM-DD') AS effective_date, salary, organization, responsibilities, rules, signatory_name, signatory_title`;
 
 function shape(r: any): AppointmentLetter {
@@ -44,6 +46,7 @@ function shape(r: any): AppointmentLetter {
     employee_name: r.employee_name || '',
     designation: r.designation || '',
     contact: r.contact || '',
+    address: r.address || '',
     effective_date: r.effective_date || '',
     salary: Number(r.salary || 0),
     organization: r.organization || '',

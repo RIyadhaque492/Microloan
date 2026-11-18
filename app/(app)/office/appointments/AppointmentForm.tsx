@@ -24,6 +24,7 @@ export default function AppointmentForm({
           <datalist id="designation-list">{DESIGNATION_SUGGESTIONS.map((d) => <option key={d} value={d} />)}</datalist>
         </div>
         <div><label className="label">Contact Number</label><input name="contact" defaultValue={initial.contact || ''} className="input" placeholder="01XXXXXXXXX" /></div>
+        <div className="md:col-span-2"><label className="label">Employee Address</label><input name="address" defaultValue={initial.address || ''} className="input" placeholder="Village / Road, Upazila, District" maxLength={300} /></div>
         <div>
           <label className="label">Monthly Salary (BDT)</label>
           <input name="salary" type="number" step="0.01" min="0" defaultValue={initial.salary ? String(initial.salary) : ''} className="input font-semibold" placeholder="10000" />

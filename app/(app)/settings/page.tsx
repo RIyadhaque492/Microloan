@@ -109,6 +109,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
 
         <DocStyleEditor
           initialHeader={settings?.doc_header_text || ''}
+          initialRegNo={settings?.doc_reg_no || ''}
           initialAddress={settings?.doc_footer_address || ''}
           initialContact={settings?.doc_footer_contact || ''}
           initialEmail={settings?.doc_footer_email || ''}

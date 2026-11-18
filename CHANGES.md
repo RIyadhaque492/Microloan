@@ -176,3 +176,9 @@
 - Letters are saved: **📄 PDF** downloads (keep as proof), **Share** sends via Telegram / Gmail / Messenger / WhatsApp / More apps. Edit and Delete (with password) available. Oldest first by default with an Order option.
 - Standard wording for job responsibilities and rules is pre-filled and editable. Blank dates print as blank lines to fill in by hand.
 - Saved letters are included in Backup / Restore (`appointment_letters` table, also in `migration_add_appointment_letters.sql`).
+
+## Update 49
+- Appointment letter: new **Employee Address** field (printed under Contact in the "To," block).
+- **Company registration number**: Website Settings → Document Branding → "Company Registration Number". Printed as "Reg. No.: …" under the header text on letters, receipts and report PDFs.
+- New sidebar item **Office Information → Employees**: full employee records (job, personal, address, emergency contact, other info), search, oldest-first order, view / edit / delete, and a "Letter" shortcut that pre-fills a new appointment letter.
+- Employees are included in backup / restore. Run migration_add_employees.sql in Neon only if a page reports a missing column (tables are also created automatically).
