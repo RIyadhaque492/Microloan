@@ -15,6 +15,7 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: 'borrower_photos', key: 'borrower_id', limit: 1 },
   { name: 'borrower_documents', key: 'id', limit: 1 },
   { name: 'cash_entries', key: 'id', limit: 1000 },
+  { name: 'appointment_letters', key: 'id', limit: 500 },
 ];
 
 export const BACKUP_FORMAT = 'microloan-backup';

@@ -10,6 +10,7 @@ import { generateScheduleFromInstallment, todayISO, calcAge } from './utils';
 import { DELETE_PASSWORD } from './deletePin';
 import { ensureCashTable } from './accounts';
 import { saveMemberExtras } from './memberExtras';
+import { ensureAppointmentTable } from './office';
 
 async function requireAdmin() {
   const session = await getSession();
@@ -251,6 +252,51 @@ export async function saveCashEntryAction(id: number, formData: FormData) {
   const [y, m] = date.split('-').map(Number);
   const last = new Date(y, m, 0).getDate();
   redirect(`/accounts?from=${y}-${String(m).padStart(2, '0')}-01&to=${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`);
+}
+
+/** Saves an appointment letter (the PDF is generated from these details). */
+export async function saveAppointmentAction(id: number, formData: FormData) {
+  await requireAdmin();
+  const t = (k: string, max: number) => String(formData.get(k) || '').trim().slice(0, max);
+  const isoOrNull = (k: string) => { const v = String(formData.get(k) || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; };
+  const name = t('employee_name', 150);
+  const designation = t('designation', 100);
+  const salaryText = String(formData.get('salary') || '').replace(/,/g, '').trim();
+  const salary = salaryText === '' ? 0 : Number(salaryText);
+  const back = id ? `/office/appointments/${id}/edit` : '/office/appointments/new';
+  const fail = (msg: string) => redirect(`${back}?error=${encodeURIComponent(msg)}`);
+  if (!name) fail('Enter the employee name.');
+  if (!designation) fail('Enter the designation.');
+  if (!Number.isFinite(salary) || salary < 0) fail('Enter the salary as a number.');
+  const v = {
+    contact: t('contact', 100), org: t('organization', 200), resp: t('responsibilities', 3000), rules: t('rules', 3000),
+    sname: t('signatory_name', 150), stitle: t('signatory_title', 100),
+  };
+  const letterDate = isoOrNull('letter_date');
+  const effective = isoOrNull('effective_date');
+  await ensureAppointmentTable();
+  if (id) {
+    await sql`UPDATE appointment_letters SET letter_date = ${letterDate}::date, employee_name = ${name}, designation = ${designation}, contact = ${v.contact},
+      effective_date = ${effective}::date, salary = ${salary}, organization = ${v.org}, responsibilities = ${v.resp}, rules = ${v.rules},
+      signatory_name = ${v.sname}, signatory_title = ${v.stitle} WHERE id = ${id}`;
+  } else {
+    await sql`INSERT INTO appointment_letters (letter_date, employee_name, designation, contact, effective_date, salary, organization, responsibilities, rules, signatory_name, signatory_title)
+      VALUES (${letterDate}::date, ${name}, ${designation}, ${v.contact}, ${effective}::date, ${salary}, ${v.org}, ${v.resp}, ${v.rules}, ${v.sname}, ${v.stitle})`;
+  }
+  revalidatePath('/office/appointments');
+  setFlash(id ? 'Appointment letter updated' : 'Appointment letter saved — use PDF or Share');
+  redirect('/office/appointments');
+}
+
+/** Deletes an appointment letter record (admin password). */
+export async function deleteAppointmentAction(id: number, formData?: FormData) {
+  await requireAdmin();
+  checkDeletePassword(formData, '/office/appointments');
+  await ensureAppointmentTable();
+  await sql`DELETE FROM appointment_letters WHERE id = ${id}`;
+  revalidatePath('/office/appointments');
+  setFlash('Appointment letter deleted');
+  redirect('/office/appointments');
 }
 
 /** Deletes a manual cash-book entry (admin password). Automatic entries cannot be deleted here — they follow their source. */

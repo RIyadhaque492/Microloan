@@ -169,3 +169,10 @@
 - **Oldest first everywhere**: every table and list now opens oldest → newest (Order dropdown still lets you flip to Newest → Oldest). Includes Cash Book, transaction/savings history, reports, bin, notifications.
 - **Cash Book** shows all dates until you choose From / To (no more one-month default). The PDF now has a **Category** column and prints the active category / search.
 - **Share** (Telegram, Gmail, Messenger, WhatsApp, More apps) plus PDF download on the Cash Book, All Members and All Loans pages — the PDF follows the current search, filters and order.
+
+## Update 48 — Office Information → Appointment Letter
+- New sidebar section **Office Information** with the sub-item **📄 Appointment Letter** (`/office/appointments`).
+- Fill in the details once (employee name, designation, contact, salary, letter date, effective date, signatory…) — the letter is generated as a PDF modelled on your sample: header/footer from Document Branding, date, "To", subject, terms 1–4 (salary amount written in words automatically), closing, signature/seal lines and the Employee's Acceptance block.
+- Letters are saved: **📄 PDF** downloads (keep as proof), **Share** sends via Telegram / Gmail / Messenger / WhatsApp / More apps. Edit and Delete (with password) available. Oldest first by default with an Order option.
+- Standard wording for job responsibilities and rules is pre-filled and editable. Blank dates print as blank lines to fill in by hand.
+- Saved letters are included in Backup / Restore (`appointment_letters` table, also in `migration_add_appointment_letters.sql`).

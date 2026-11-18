@@ -1763,3 +1763,132 @@ export async function buildListPdfBlob(opts: {
   drawDocChrome(doc, branding, opts.title, opts.ref);
   return doc.output('blob');
 }
+
+/** APPOINTMENT LETTER — generated from the details typed on the form, with the document header and footer. */
+export async function buildAppointmentLetterPdfBlob(letter: {
+  id?: number;
+  letter_date?: string;
+  employee_name: string;
+  designation: string;
+  contact?: string;
+  effective_date?: string;
+  salary?: number | string;
+  organization?: string;
+  responsibilities?: string;
+  rules?: string;
+  signatory_name?: string;
+  signatory_title?: string;
+}): Promise<Blob> {
+  const { default: jsPDF } = await import('jspdf');
+  const branding = await loadBranding();
+  activeBranding = branding;
+  PAGE_W = 210;
+  PAGE_H = 297;
+  const doc = new jsPDF();
+
+  const L = 16;
+  const W = 178;
+  const FS = 9.2;
+  const LH = 4.3;
+  const GAP = 1.4;
+  let y = DOC_TOP + 2;
+
+  const name = String(letter.employee_name || '').trim();
+  const designation = String(letter.designation || '').trim();
+  const org = String(letter.organization || '').trim() || 'our organization';
+  const blankLine = '__________________';
+  const dateText = letter.letter_date ? fmtDate(letter.letter_date) : '____ / ____ / ________';
+  const effective = letter.effective_date ? fmtDate(letter.effective_date) : blankLine;
+  const salaryNum = Number(letter.salary || 0);
+  const salaryText = salaryNum > 0
+    ? `BDT ${salaryNum.toLocaleString('en-US', { maximumFractionDigits: 2 })}/- (${amountInWords(salaryNum)}).`
+    : 'BDT ____________/- (Taka ______________________________ Only).';
+  const article = /^[aeiou]/i.test(designation) ? 'an' : 'a';
+
+  /** A bold label followed by normal text that wraps under the label. */
+  function para(label: string, value: string, opts: { gap?: number; bold?: boolean; color?: [number, number, number] } = {}) {
+    doc.setFontSize(FS);
+    doc.setFont('helvetica', 'bold');
+    const lw = label ? doc.getTextWidth(label + ' ') : 0;
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    const words = String(value || '').split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let cur = '';
+    let max = W - lw;
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (doc.getTextWidth(t) > max && cur) { lines.push(cur); cur = w; max = W; } else cur = t;
+    }
+    if (cur || !lines.length) lines.push(cur);
+    y = docEnsure(doc, y, lines.length * LH + 1);
+    if (opts.color) doc.setTextColor(...opts.color);
+    if (label) {
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, L, y);
+    }
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    lines.forEach((ln, i) => doc.text(ln, i === 0 ? L + lw : L, y + i * LH));
+    doc.setTextColor(0, 0, 0);
+    y += lines.length * LH + (opts.gap ?? GAP);
+  }
+
+  para('Date:', dateText, { gap: 3 });
+  para('To,', '', { bold: true, gap: 0.4 });
+  para('', name, { bold: true, gap: 0.4 });
+  para('Designation:', designation, { gap: 0.4 });
+  if (letter.contact) para('Contact:', String(letter.contact), { gap: 3 }); else y += 2.6;
+
+  para('', `Subject: Appointment as ${designation}`, { bold: true, color: RGB_NAVY, gap: 3 });
+  para('', `Dear ${name},`, { gap: 2 });
+  para('', `We are pleased to inform you that you have been appointed as ${article} ${designation} at ${org}, effective from ${effective}.`, { gap: 2.5 });
+  para('', 'Your appointment is subject to the following terms and conditions:', { gap: 2 });
+  para('1. Designation:', designation, { gap: 1.4 });
+  para('2. Monthly Salary:', salaryText, { gap: 1.4 });
+  para('3. Job Responsibilities:', String(letter.responsibilities || '').trim(), { gap: 1.4 });
+  para('4. Rules and Regulations:', String(letter.rules || '').trim(), { gap: 2.5 });
+  para('', 'We expect your dedication and cooperation towards the development of our organization. We wish you every success in your new position.', { gap: 3 });
+
+  para('Sincerely,', '', { bold: true, gap: 0.4 });
+  para('For and on behalf of', '', { bold: true, gap: 0.4 });
+  para('', org.toUpperCase(), { bold: true, gap: 2 });
+
+  // signatures
+  y = docEnsure(doc, y, 26);
+  y += 11;
+  doc.setDrawColor(...RGB_NAVY);
+  doc.setLineWidth(0.3);
+  doc.line(L, y, L + 66, y);
+  doc.line(L + W - 66, y, L + W, y);
+  doc.setFontSize(FS);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...RGB_NAVY);
+  doc.text(String(letter.signatory_name || '').trim() || ' ', L + 33, y + 5, { align: 'center' });
+  doc.text('Official Seal', L + W - 33, y + 5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(60, 70, 80);
+  doc.text(String(letter.signatory_title || '').trim() || ' ', L + 33, y + 9.7, { align: 'center' });
+  doc.text('Authorized Signature', L + W - 33, y + 9.7, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  y += 14;
+
+  // employee acceptance
+  y = docEnsure(doc, y, 30);
+  doc.setLineWidth(0.4);
+  doc.line(L, y, L + W, y);
+  y += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(FS);
+  doc.setTextColor(...RGB_NAVY);
+  doc.text("EMPLOYEE'S ACCEPTANCE", L, y);
+  doc.setTextColor(0, 0, 0);
+  y += 4.5;
+  para('', `I, ${name}, hereby accept the appointment and agree to abide by the terms and conditions stated above.`, { gap: 6 });
+  y = docEnsure(doc, y, 10);
+  doc.setFont('helvetica', 'normal');
+  doc.text("Employee's Signature: ______________________________", L, y);
+  doc.text('Date: __________________', L + W, y, { align: 'right' });
+  doc.setLineWidth(0.2);
+
+  drawDocChrome(doc, branding, 'APPOINTMENT LETTER', letter.id ? `Ref: AL-${String(letter.id).padStart(4, '0')}` : '');
+  return doc.output('blob');
+}
